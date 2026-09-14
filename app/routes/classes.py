@@ -13,6 +13,8 @@ from pathlib import Path
 from functools import wraps
 from werkzeug.utils import secure_filename
 
+from app.utils.decorators import is_superadmin
+
 classes_bp = Blueprint('classes', __name__, url_prefix='/api/classes')
 
 # File paths
@@ -28,13 +30,15 @@ CLASS_EXAM_SUBMISSIONS_FILE = 'class_exam_submissions.json'
 
 def admin_required(f):
     """Decorator to require SUPER ADMIN authentication (not institution admin)
-    CRITICAL: For multi-tenant isolation, ONLY super_admin role has global access
+    CRITICAL: For multi-tenant isolation, ONLY the super admin has global access
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        role = session.get('role', '').lower().replace(' ', '_')
-        # ONLY super_admin role has global access - 'admin' is institution admin
-        if role != 'super_admin':
+        # is_superadmin() accepts both spellings of the role. This used to
+        # compare against 'super_admin' alone, while login stores whatever
+        # the database holds - 'superadmin' - so the real super admin was
+        # refused by every endpoint in this module.
+        if not is_superadmin():
             return jsonify({'error': 'Super admin authentication required'}), 401
         return f(*args, **kwargs)
     return decorated_function
@@ -48,11 +52,11 @@ def instructor_or_admin_required(f):
     def decorated_function(*args, **kwargs):
         user_id = session.get('user_id')
         role = session.get('role', '').lower().replace(' ', '_')
-        
-        # ONLY super_admin has global access - check role ONLY
-        if role == 'super_admin':
+
+        # ONLY the super admin has global access - check role ONLY
+        if is_superadmin():
             return f(*args, **kwargs)
-        
+
         if not user_id:
             return jsonify({'error': 'Authentication required'}), 401
             
@@ -342,9 +346,9 @@ def get_classes():
         # Normalize role to lowercase for consistent checks
         role = role.lower().replace(' ', '_') if role else 'student'
         
-        # MULTI-TENANT ISOLATION: Only super_admin sees all classes in legacy API
-        # Institution admins/instructors should use /api/courses/* instead
-        if role == 'super_admin':
+        # MULTI-TENANT ISOLATION: Only the super admin sees all classes in the
+        # legacy API. Institution admins/instructors use /api/courses/* instead.
+        if role in ('super_admin', 'superadmin'):
             # Super admin sees all classes
             pass
         elif role == 'instructor':
@@ -904,7 +908,8 @@ def unenroll(enrollment_id):
         from app.models import Enrollment, Course, db
 
         user_id = session.get('user_id')
-        is_admin = session.get('is_admin', False) or session.get('role') in ['institution_admin', 'super_admin']
+        is_admin = session.get('is_admin', False) or session.get('role') in [
+            'institution_admin', 'super_admin', 'superadmin', 'admin']
 
         # Find enrollment in database
         enrollment = Enrollment.query.filter_by(id=enrollment_id).first()

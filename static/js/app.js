@@ -2172,6 +2172,17 @@ Once your slides are generated, type one of these commands:
     }
 
     exportChat() {
+        // jsPDF is loaded from a CDN. If the server has no route to it the
+        // library is simply absent, and destructuring it threw an uncaught
+        // TypeError -- the button did nothing and said nothing.
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+            alert('The PDF export library could not be loaded, so the chat '
+                + 'cannot be saved as a PDF. This usually means the server '
+                + 'cannot reach cdnjs.cloudflare.com. Ask your administrator '
+                + 'to allow it, then reload the page.');
+            return;
+        }
+
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         

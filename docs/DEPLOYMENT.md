@@ -222,6 +222,33 @@ taskkill /pid <PID> /f
 
 ---
 
+## Outbound access the browser needs
+
+The server itself only needs to reach the AI providers, but **the pages
+load six libraries from public CDNs**, so the *user's browser* needs those
+too. If a campus network blocks them, the platform still runs and every
+API still works, but parts of the interface quietly stop: icons vanish,
+charts and the workflow canvas do not draw, chat answers render as raw
+markdown, and PDF export reports that it is unavailable.
+
+| Host | Used for |
+|---|---|
+| `cdnjs.cloudflare.com` | Font Awesome icons, highlight.js, jsPDF export |
+| `cdn.jsdelivr.net` | Chart.js, marked, Drawflow (the agent canvas) |
+| `fonts.googleapis.com`, `fonts.gstatic.com` | Inter and Tajawal fonts |
+
+Allow those three origins from the client network, or mirror the files on
+the server and point the `<script>`/`<link>` tags in `templates/` at
+`/static/` instead — nothing else in the code depends on where they come
+from.
+
+Two of the tags (`marked` and `Drawflow`) do not name a version, so they
+track whatever the CDN publishes. Pinning them to a fixed version is worth
+doing before a term starts, so an upstream release cannot change the
+platform under you.
+
+---
+
 ## Security Checklist
 
 - [ ] Change default SESSION_SECRET

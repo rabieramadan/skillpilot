@@ -479,6 +479,49 @@ def delete_agent(agent_id):
     })
 
 
+@agents_bp.route('/execute', methods=['POST'])
+@authenticated_required
+def execute_unsaved_workflow():
+    """Run a workflow that has not been saved as an agent.
+
+    The Agentic AI Lab's "Execute Workflow" button sends whatever is on the
+    canvas, which may never have been saved. It used to post here and get a
+    405: the only execute route was ``/<agent_id>/execute``, and
+    ``/api/agents/execute`` matched ``/<agent_id>`` instead, which does not
+    accept POST.
+
+    Takes the same ``{blocks, connections}`` shape the canvas exports and
+    returns the executor's result unchanged, so the lab can render outputs
+    and the execution log. Nothing is persisted — there is no agent to
+    attach a run to.
+    """
+    data = request.json or {}
+    workflow = data.get('workflow') or data
+
+    blocks = workflow.get('blocks')
+    if not isinstance(blocks, list) or not blocks:
+        return jsonify({
+            'error': 'The workflow is empty. Add at least one block before '
+                     'running it.'
+        }), 400
+
+    connections = workflow.get('connections') or []
+    if not isinstance(connections, list):
+        return jsonify({'error': 'connections must be a list'}), 400
+
+    for index, block in enumerate(blocks):
+        if not isinstance(block, dict) or not block.get('id') \
+                or not block.get('type'):
+            return jsonify({
+                'error': f'Block {index + 1} is missing an id or a type.'
+            }), 400
+
+    result = AgentExecutor({'blocks': blocks, 'connections': connections}).execute()
+    # A workflow that fails is a 200 with success=false: the execution log is
+    # the useful part, and the lab renders it either way.
+    return jsonify(result)
+
+
 @agents_bp.route('/<agent_id>/execute', methods=['POST'])
 @authenticated_required
 def execute_agent(agent_id):

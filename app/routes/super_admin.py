@@ -514,8 +514,11 @@ def delete_user(user_id):
         if not user:
             return jsonify({'error': 'User not found'}), 404
 
-        # Don't allow deleting super_admin
-        if user.role == 'super_admin':
+        # Don't allow deleting the super admin. The stored role is
+        # 'superadmin'; comparing against 'super_admin' alone matched nothing,
+        # so this guard never fired and the account could be removed.
+        if (user.role or '').lower().replace(' ', '_') in (
+                'superadmin', 'super_admin'):
             return jsonify({'error': 'Cannot delete super admin'}), 400
 
         # Remove enrollments if student

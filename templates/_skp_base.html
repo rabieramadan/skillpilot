@@ -16,6 +16,33 @@
       };
     })();
   </script>
+  <script>
+    /* Shared helpers, defined before any page script so a page that uses them
+       while its own <script> is parsing does not fail. */
+    // HTML-escape any string before interpolating it into innerHTML.
+    window.escHtml = function (v) {
+      if (v == null) return '';
+      return String(v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    };
+    // Safe URL: blocks javascript:, data:, vbscript: schemes; HTML-escapes the rest.
+    window.safeUrl = function (v) {
+      const s = (v == null ? '' : String(v)).trim();
+      if (/^(javascript|data|vbscript):/i.test(s)) return '#';
+      return window.escHtml(s);
+    };
+
+    window.skpToast = function (msg, kind) {
+      const t = document.createElement('div');
+      t.className = 'skp-toast';
+      if (kind === 'error') t.style.background = 'var(--skp-danger)';
+      if (kind === 'success') t.style.background = 'var(--skp-success)';
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 3500);
+    };
+  </script>
   {% include '_pwa_meta.html' %}
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
@@ -92,29 +119,6 @@
       });
     })();
 
-    // HTML-escape any string before interpolating it into innerHTML.
-    window.escHtml = function (v) {
-      if (v == null) return '';
-      return String(v)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    };
-    // Safe URL: blocks javascript:, data:, vbscript: schemes; HTML-escapes the rest.
-    window.safeUrl = function (v) {
-      const s = (v == null ? '' : String(v)).trim();
-      if (/^(javascript|data|vbscript):/i.test(s)) return '#';
-      return window.escHtml(s);
-    };
-
-    window.skpToast = function (msg, kind) {
-      const t = document.createElement('div');
-      t.className = 'skp-toast';
-      if (kind === 'error') t.style.background = 'var(--skp-danger)';
-      if (kind === 'success') t.style.background = 'var(--skp-success)';
-      t.textContent = msg;
-      document.body.appendChild(t);
-      setTimeout(() => t.remove(), 3500);
-    };
   </script>
   {% block body_extra %}{% endblock %}
 </body>
