@@ -771,11 +771,21 @@ def get_my_enrollments():
 @classes_bp.route('/enroll', methods=['POST'])
 @authenticated_required
 def enroll_in_class():
-    """Request enrolment in a class.
+    """Enrol in a class.
 
-    Creates the enrolment as `pending`; an administrator approves it before
-    the student can open the course. The response message says so — callers
-    must show it rather than assuming success means access was granted.
+    A course with nothing to wait for — no payment, and registration open —
+    is granted straight away: the student can open it immediately.
+
+    Only a course that requires payment is held, as `pending`, until an
+    administrator verifies the payment through /verify-payment.
+
+    Everything used to be created as `pending` regardless. Nothing could
+    move it on: the approve/reject endpoints read the legacy
+    enrollments.json and expect the status 'requested', so they never see a
+    database row, and the admin screens dropped the pending queue entirely
+    ("Enrollments are now auto-approved upon student enrollment request" —
+    static/js/classes.js). A student who enrolled in a free course was told
+    it had worked, saw it listed, and could never open it.
     """
     try:
         from app.models import Course, Enrollment, User, db
@@ -859,36 +869,49 @@ def enroll_in_class():
             course_id=course.id
         ).first()
         
+        # A paid course waits for an administrator to confirm the payment.
+        # Anything else has no gate to wait behind, so access starts now.
+        if course.requires_payment:
+            status, payment_status = 'pending', 'pending'
+            message = ('Registration submitted. You will get access once your '
+                       'payment has been verified by an administrator.')
+        else:
+            status, payment_status = 'active', 'not_required'
+            message = 'You are enrolled. The course is ready to open.'
+
         if existing:
             if existing.status in ['approved', 'active']:
                 return jsonify({'error': 'Already enrolled in this class'}), 400
-            # Update existing enrollment — always pending until admin approves
-            existing.status = 'pending'
-            existing.payment_status = 'not_required' if not course.requires_payment else 'pending'
+            # A blocked or rejected enrolment is not re-opened by asking again.
+            if existing.status in ['blocked', 'rejected']:
+                return jsonify({
+                    'error': 'Your enrolment in this course was withdrawn. '
+                             'Please contact an administrator.'}), 403
+            existing.status = status
+            existing.payment_status = payment_status
             existing.enrolled_at = datetime.utcnow()
             db.session.commit()
             return jsonify({
                 'success': True,
-                'enrollment': {'class_id': course.id, 'status': 'pending'},
-                'message': 'Registration submitted! Awaiting admin approval.',
+                'enrollment': {'class_id': course.id, 'status': status},
+                'message': message,
                 'requires_payment': course.requires_payment,
                 'price': course.price or 0
             })
 
-        # Create new enrollment — always pending until admin approves
         new_enrollment = Enrollment(
             user_id=user_id,
             course_id=course.id,
-            status='pending',
-            payment_status='not_required' if not course.requires_payment else 'pending',
+            status=status,
+            payment_status=payment_status,
             enrolled_at=datetime.utcnow()
         )
         db.session.add(new_enrollment)
         db.session.commit()
         return jsonify({
             'success': True,
-            'enrollment': {'class_id': course.id, 'status': 'pending'},
-            'message': 'Registration submitted! Awaiting admin approval.',
+            'enrollment': {'class_id': course.id, 'status': status},
+            'message': message,
             'requires_payment': course.requires_payment,
             'price': course.price or 0
         })
