@@ -89,6 +89,7 @@ def create_app(config_class=Config):
     from app.routes.api import api_bp
     from app.routes.auth import auth_bp
     from app.routes.admin import admin_bp
+    from app.routes.ai_models import ai_models_bp
     from app.routes.prompts import prompts_bp
     from app.routes.sessions import sessions_bp
     from app.routes.analytics import analytics_bp
@@ -128,6 +129,8 @@ def create_app(config_class=Config):
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
+    # The blueprint carries its own /api/ai-models prefix.
+    app.register_blueprint(ai_models_bp)
     app.register_blueprint(prompts_bp, url_prefix='/api/prompts')
     app.register_blueprint(sessions_bp, url_prefix='/api/sessions')
     app.register_blueprint(analytics_bp, url_prefix='/api/analytics')

@@ -137,16 +137,11 @@ def get_prompt_suggestions():
         task = data.get('task', '')
         context = data.get('context', '')
         
-        # Load config to get the selected model for suggestions
-        from pathlib import Path
-        import json
-        config_path = Path(__file__).parent.parent.parent / 'models_config.json'
-        suggestion_model = 'openai'  # default
-        
-        if config_path.exists():
-            with open(config_path, 'r') as f:
-                config = json.load(f)
-                suggestion_model = config.get('prompt_suggestion_model', 'openai')
+        # Which provider writes the suggestions. Set in the app: block of
+        # config.yaml, editable from Admin > Prompt Engineering Settings.
+        from app.services import model_registry as registry
+        suggestion_model = registry.get_app_setting(
+            'prompt_suggestion_provider', 'openai')
         
         # Use AI to generate suggestions
         suggestions = generate_ai_prompt_suggestions(task, context, suggestion_model)

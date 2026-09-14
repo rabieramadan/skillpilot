@@ -1,17 +1,24 @@
 # SkillPilot configuration
 #
-# Model identifiers live in app/services/model_registry.py, which is the
-# single source of truth. The `models:` block below only *overrides* the
-# default for a provider — leave an entry out and the registry default is
-# used, which is what you want unless you have a reason to pin a version.
+# This file is the source of truth for which AI models the platform can call.
+# No Python file names a model, so keeping up with a provider's releases is a
+# change here, never a code change and never a redeploy.
 #
-# Precedence, highest first:
+# Two ways to edit it:
+#   * Admin > AI Models in the app, which tests a model against the live API
+#     before writing it here, and preserves these comments.
+#   * A text editor. The file is re-read when its timestamp changes, so a
+#     running server picks the change up without a restart.
+#
+# Precedence for a provider's default model, highest first:
 #   1. SKILLPILOT_MODEL_<PROVIDER> environment variable
-#   2. models.<provider>.default_model here
-#   3. the registry default
+#   2. ai_models.<provider>.default_model below
+#   3. the built-in bootstrap, used only if this file is unusable
 #
-# A retired identifier written here is mapped to its replacement rather than
-# failing, so an old config file will not take the site down.
+# A wrong entry degrades rather than breaking: a retired identifier is mapped
+# to its replacement, a default naming a model that is not listed falls back
+# to one that is, and a file that will not parse at all leaves the platform
+# running on a minimal built-in catalogue with a warning in the log.
 
 # API Keys — DO NOT put secrets here. Leave blank and load from environment
 # variables (.env) or the in-app Admin > AI Settings screen. Any non-empty
@@ -28,49 +35,441 @@ api_keys:
   heygen: ""        # env: HEYGEN_API_KEY
   bedrock: ""       # env: BEDROCK_API_KEY, as access_key|secret_key|region
 
-# Model overrides. Catalogue reviewed 14 September 2026.
-models:
+# ===========================================================================
+#  AI MODEL CATALOGUE
+# ===========================================================================
+#  Every model the platform can call is defined here. Nothing in the Python
+#  code names a model, so when a provider ships a new one or retires an old
+#  one you edit this file — or use Admin > AI Models, which edits it for you
+#  after testing the model against the live API.
+#
+#  Editing by hand: the file is re-read automatically when its timestamp
+#  changes, so a running server picks up your edit without a restart.
+#
+#  Per provider:
+#    label          Name shown in the admin screens.
+#    driver         How to talk to it. One of:
+#                     openai_compatible  - the /chat/completions shape that
+#                                          OpenAI, xAI, DeepSeek, Perplexity
+#                                          and most new providers speak.
+#                                          Needs base_url.
+#                     anthropic          - Anthropic Messages API (SDK)
+#                     gemini             - Google Gen AI SDK
+#                     openai_images      - OpenAI image generation
+#                     bedrock            - Claude on AWS Bedrock (boto3)
+#                   To add a whole new provider that speaks the OpenAI shape,
+#                   copy an existing openai_compatible block, change base_url
+#                   and env_vars, and add your key to .env. No code change.
+#    base_url       API root, for openai_compatible only.
+#    discovery_url  Endpoint that lists the models the key can reach. Used by
+#                   the "Discover" button in the admin screen. Optional.
+#    enabled        false hides the provider everywhere.
+#    env_vars       Where the API key is read from, in priority order.
+#    default_model  Used when a request does not name a model.
+#    vision_model   Used instead when the request carries an image.
+#    fallbacks      Tried in order when the provider rejects a model.
+#    models         The selectable models (see below).
+#    aliases        old-identifier: current-identifier. A model saved in the
+#                   database or picked from a stale menu is silently mapped
+#                   forward instead of failing. When you retire a model, move
+#                   its id here rather than deleting it.
+#
+#  Per model:
+#    id                     Exactly what the provider expects. Case matters.
+#    label                  Name shown in menus.
+#    summary                One line of guidance for whoever picks it.
+#    context_tokens         Context window. Informational.
+#    max_output_tokens      Largest response. Requests are capped to this.
+#    vision                 true if it accepts images.
+#    sampling               false if it rejects `temperature` (current
+#                           reasoning models return 400 when it is sent).
+#    max_completion_tokens  true if it needs `max_completion_tokens` instead
+#                           of `max_tokens` (GPT-5.6 and GPT-6 do).
+#    legacy                 true keeps it working but hides it from menus.
+#    price_per_million      USD per million tokens, for the cost dashboard.
+#                           Omit if unknown — omitted is reported as
+#                           "not priced", never as free.
+#
+#  Catalogue reviewed: 14 September 2026.
+ai_models:
   openai:
-    # gpt-6-astra (flagship) | gpt-5.6-sol | gpt-5.6-terra | gpt-5.6-luna
+    label: "OpenAI"
+    driver: openai_compatible
+    base_url: "https://api.openai.com/v1"
+    discovery_url: "https://api.openai.com/v1/models"
+    enabled: true
+    env_vars: [OPENAI_API_KEY]
     default_model: "gpt-5.6-terra"
-    max_tokens: 16000
+    vision_model: "gpt-5.6-terra"
+    fallbacks: ["gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.2"]
+    models:
+      - id: "gpt-6-astra"
+        label: "GPT-6 Astra"
+        summary: "Flagship reasoning model. Highest quality, highest cost."
+        context_tokens: 1050000
+        max_output_tokens: 128000
+        vision: true
+        sampling: false
+        max_completion_tokens: true
+        price_per_million: {input: 10.0, output: 50.0}
+      - id: "gpt-5.6-sol"
+        label: "GPT-5.6 Sol"
+        summary: "Frontier tier below Astra. Strong reasoning at lower cost."
+        context_tokens: 400000
+        max_output_tokens: 128000
+        vision: true
+        sampling: false
+        max_completion_tokens: true
+        price_per_million: {input: 4.0, output: 20.0}
+      - id: "gpt-5.6-terra"
+        label: "GPT-5.6 Terra"
+        summary: "Balanced default: good reasoning, sensible price."
+        context_tokens: 400000
+        max_output_tokens: 128000
+        vision: true
+        sampling: false
+        max_completion_tokens: true
+        price_per_million: {input: 2.0, output: 12.0}
+      - id: "gpt-5.6-luna"
+        label: "GPT-5.6 Luna"
+        summary: "Cheapest tier. Use for high-volume classification and drafts."
+        context_tokens: 400000
+        max_output_tokens: 128000
+        vision: true
+        sampling: false
+        max_completion_tokens: true
+        price_per_million: {input: 0.2, output: 1.2}
+      - id: "gpt-5.2"
+        label: "GPT-5.2"
+        summary: "Previous flagship. Kept for reproducing earlier output."
+        context_tokens: 400000
+        max_output_tokens: 128000
+        vision: true
+        sampling: false
+        max_completion_tokens: true
+        legacy: true
+    aliases:
+      "gpt-3.5-turbo": "gpt-5.6-luna"
+      "gpt-4": "gpt-5.6-terra"
+      "gpt-4-32k": "gpt-5.6-terra"
+      "gpt-4-turbo": "gpt-5.6-terra"
+      "gpt-4-turbo-preview": "gpt-5.6-terra"
+      "gpt-4-vision-preview": "gpt-5.6-terra"
+      "gpt-4.1": "gpt-5.6-terra"
+      "gpt-4.1-mini": "gpt-5.6-luna"
+      "gpt-4.1-nano": "gpt-5.6-luna"
+      "gpt-4o": "gpt-5.6-terra"
+      "gpt-4o-mini": "gpt-5.6-luna"
+      "gpt-5": "gpt-5.6-terra"
+      "gpt-5-mini": "gpt-5.6-luna"
+      "gpt-5-nano": "gpt-5.6-luna"
+      "gpt-5.1": "gpt-5.6-terra"
+      "gpt-5.2-chat-latest": "gpt-5.6-terra"
+      "o1": "gpt-5.6-sol"
+      "o1-mini": "gpt-5.6-luna"
+      "o3": "gpt-5.6-sol"
+      "o3-mini": "gpt-5.6-luna"
+      "o4-mini": "gpt-5.6-luna"
 
   claude:
-    # claude-opus-5 | claude-sonnet-5 | claude-haiku-4-5
+    label: "Anthropic Claude"
+    driver: anthropic
+    discovery_url: "https://api.anthropic.com/v1/models"
+    enabled: true
+    env_vars: [ANTHROPIC_API_KEY, CLAUDE_API_KEY]
     default_model: "claude-sonnet-5"
-    max_tokens: 8000
+    vision_model: "claude-sonnet-5"
+    fallbacks: ["claude-sonnet-5", "claude-haiku-4-5-20251001"]
+    models:
+      - id: "claude-opus-5"
+        label: "Claude Opus 5"
+        summary: "Most capable Claude. Use for grading, rubrics and analysis."
+        context_tokens: 1000000
+        max_output_tokens: 64000
+        vision: true
+        sampling: false
+        price_per_million: {input: 5.0, output: 25.0}
+      - id: "claude-sonnet-5"
+        label: "Claude Sonnet 5"
+        summary: "Balanced default: near-Opus quality at a fraction of the cost."
+        context_tokens: 1000000
+        max_output_tokens: 64000
+        vision: true
+        sampling: false
+        price_per_million: {input: 2.0, output: 10.0}
+      - id: "claude-haiku-4-5-20251001"
+        label: "Claude Haiku 4.5"
+        summary: "Fastest and cheapest. Good for short tutoring turns."
+        context_tokens: 200000
+        max_output_tokens: 32000
+        vision: true
+        sampling: false
+        price_per_million: {input: 1.0, output: 5.0}
+    aliases:
+      "claude-3-5-haiku-20241022": "claude-haiku-4-5-20251001"
+      "claude-3-5-sonnet-20241022": "claude-sonnet-5"
+      "claude-3-7-sonnet-20250219": "claude-sonnet-5"
+      "claude-3-haiku-20240307": "claude-haiku-4-5-20251001"
+      "claude-3-opus-20240229": "claude-opus-5"
+      "claude-3-sonnet-20240229": "claude-sonnet-5"
+      "claude-haiku-3-5-20241022": "claude-haiku-4-5-20251001"
+      "claude-haiku-4-5": "claude-haiku-4-5-20251001"
+      "claude-opus-4-1-20250805": "claude-opus-5"
+      "claude-opus-4-20250514": "claude-opus-5"
+      "claude-opus-4-5": "claude-opus-5"
+      "claude-opus-4-6": "claude-opus-5"
+      "claude-sonnet-4-20250514": "claude-sonnet-5"
+      "claude-sonnet-4-5-20250929": "claude-sonnet-5"
+      "claude-sonnet-4-6": "claude-sonnet-5"
 
   gemini:
-    # gemini-3.1-pro | gemini-3.8-flash | gemini-3.7-flash | gemini-3.5-flash-lite
+    label: "Google Gemini"
+    driver: gemini
+    discovery_url: "https://generativelanguage.googleapis.com/v1beta/models"
+    enabled: true
+    env_vars: [GEMINI_API_KEY, GOOGLE_API_KEY]
     default_model: "gemini-3.8-flash"
-    max_tokens: 8000
+    vision_model: "gemini-3.8-flash"
+    fallbacks: ["gemini-3.8-flash", "gemini-3.5-flash-lite"]
+    models:
+      - id: "gemini-3.1-pro-preview"
+        label: "Gemini 3.1 Pro"
+        summary: "Most capable Gemini. Long documents and deep analysis."
+        context_tokens: 1000000
+        max_output_tokens: 64000
+        vision: true
+        sampling: false
+        price_per_million: {input: 2.0, output: 12.0}
+      - id: "gemini-3.8-flash"
+        label: "Gemini 3.8 Flash"
+        summary: "Balanced default: fast, 1M context, tunable thinking."
+        context_tokens: 1000000
+        max_output_tokens: 64000
+        vision: true
+        sampling: false
+        price_per_million: {input: 0.75, output: 3.75}
+      - id: "gemini-3.7-flash"
+        label: "Gemini 3.7 Flash"
+        summary: "Previous Flash generation. Kept for cost comparison."
+        context_tokens: 1000000
+        max_output_tokens: 64000
+        vision: true
+        sampling: false
+      - id: "gemini-3.5-flash-lite"
+        label: "Gemini 3.5 Flash-Lite"
+        summary: "Cheapest Gemini. Bulk classification and short answers."
+        context_tokens: 1000000
+        max_output_tokens: 32000
+        vision: true
+        sampling: false
+    aliases:
+      "gemini-1.5-flash": "gemini-3.8-flash"
+      "gemini-1.5-pro": "gemini-3.1-pro-preview"
+      "gemini-2.0-flash": "gemini-3.8-flash"
+      "gemini-2.5-flash": "gemini-3.8-flash"
+      "gemini-2.5-pro": "gemini-3.1-pro-preview"
+      "gemini-3-flash-preview": "gemini-3.8-flash"
+      "gemini-3-pro-preview": "gemini-3.1-pro-preview"
+      "gemini-3.1-pro": "gemini-3.1-pro-preview"
+      "gemini-3.5-flash": "gemini-3.8-flash"
+      "gemini-pro": "gemini-3.8-flash"
+      "gemini-pro-vision": "gemini-3.8-flash"
 
   grok:
-    # grok-4.6 | grok-4.5 | grok-4.3
+    label: "xAI Grok"
+    driver: openai_compatible
+    base_url: "https://api.x.ai/v1"
+    discovery_url: "https://api.x.ai/v1/models"
+    enabled: true
+    env_vars: [XAI_API_KEY, GROK_API_KEY]
     default_model: "grok-4.6"
-    max_tokens: 8000
+    vision_model: "grok-4.6"
+    fallbacks: ["grok-4.6", "grok-4.3"]
+    models:
+      - id: "grok-4.6"
+        label: "Grok 4.6"
+        summary: "Current xAI flagship. Strong coding and tool use."
+        context_tokens: 2000000
+        max_output_tokens: 32000
+        vision: true
+        sampling: true
+        price_per_million: {input: 2.0, output: 6.0}
+      - id: "grok-4.5"
+        label: "Grok 4.5"
+        summary: "Previous flagship. Slightly cheaper."
+        context_tokens: 2000000
+        max_output_tokens: 32000
+        vision: true
+        sampling: true
+      - id: "grok-4.3"
+        label: "Grok 4.3"
+        summary: "Long-context tier with native video input."
+        context_tokens: 1000000
+        max_output_tokens: 32000
+        vision: true
+        sampling: true
+    aliases:
+      "grok-2": "grok-4.6"
+      "grok-3": "grok-4.6"
+      "grok-3-mini": "grok-4.3"
+      "grok-4": "grok-4.6"
+      "grok-4-fast": "grok-4.3"
+      "grok-4.1": "grok-4.3"
+      "grok-4.1-fast": "grok-4.3"
 
   deepseek:
-    # deepseek-v4-flash | deepseek-v4-pro
+    label: "DeepSeek"
+    driver: openai_compatible
+    base_url: "https://api.deepseek.com/v1"
+    discovery_url: "https://api.deepseek.com/models"
+    enabled: true
+    env_vars: [DEEPSEEK_API_KEY]
     default_model: "deepseek-v4-flash"
-    max_tokens: 8000
+    fallbacks: ["deepseek-v4-flash"]
+    models:
+      - id: "deepseek-v4-flash"
+        label: "DeepSeek V4 Flash"
+        summary: "Fast and cheap. Good for code explanation and summaries."
+        context_tokens: 1000000
+        max_output_tokens: 32000
+        vision: false
+        sampling: true
+        price_per_million: {input: 0.44, output: 1.32}
+      - id: "deepseek-v4-pro"
+        label: "DeepSeek V4 Pro"
+        summary: "Reasoning tier. Use for hard maths and multi-step problems."
+        context_tokens: 1000000
+        max_output_tokens: 64000
+        vision: false
+        sampling: true
+        price_per_million: {input: 1.32, output: 3.96}
+    aliases:
+      "deepseek-chat": "deepseek-v4-flash"
+      "deepseek-coder": "deepseek-v4-flash"
+      "deepseek-r1": "deepseek-v4-pro"
+      "deepseek-reasoner": "deepseek-v4-pro"
+      "deepseek-v3": "deepseek-v4-flash"
 
   perplexity:
-    # sonar | sonar-pro | sonar-reasoning | sonar-reasoning-pro | sonar-deep-research
+    label: "Perplexity Sonar"
+    driver: openai_compatible
+    base_url: "https://api.perplexity.ai"
+    enabled: true
+    env_vars: [PERPLEXITY_API_KEY]
     default_model: "sonar-pro"
-    max_tokens: 8000
+    fallbacks: ["sonar-pro", "sonar"]
+    models:
+      - id: "sonar"
+        label: "Sonar"
+        summary: "Lightweight grounded search with citations."
+        context_tokens: 128000
+        max_output_tokens: 8000
+        vision: false
+        sampling: true
+        price_per_million: {input: 0.2, output: 0.2}
+      - id: "sonar-pro"
+        label: "Sonar Pro"
+        summary: "Deeper retrieval across more sources. Default."
+        context_tokens: 200000
+        max_output_tokens: 8000
+        vision: false
+        sampling: true
+        price_per_million: {input: 3.0, output: 15.0}
+      - id: "sonar-reasoning"
+        label: "Sonar Reasoning"
+        summary: "Chain-of-thought answers grounded in live search."
+        context_tokens: 128000
+        max_output_tokens: 8000
+        vision: false
+        sampling: true
+      - id: "sonar-reasoning-pro"
+        label: "Sonar Reasoning Pro"
+        summary: "Reasoning tier with the wider Pro retrieval set."
+        context_tokens: 200000
+        max_output_tokens: 8000
+        vision: false
+        sampling: true
+      - id: "sonar-deep-research"
+        label: "Sonar Deep Research"
+        summary: "Exhaustive multi-step research. Slow and expensive."
+        context_tokens: 200000
+        max_output_tokens: 16000
+        vision: false
+        sampling: true
+    aliases:
+      "llama-3-sonar-large-32k-online": "sonar-pro"
+      "llama-3.1-sonar-large-128k-online": "sonar-pro"
+      "llama-3.1-sonar-small-128k-online": "sonar"
+      "pplx-70b-online": "sonar-pro"
 
   images:
-    # gpt-image-2 | gpt-image-1.5 | gpt-image-1-mini
-    # The DALL-E endpoints were shut down on 12 May 2026.
+    label: "OpenAI Images"
+    driver: openai_images
+    discovery_url: "https://api.openai.com/v1/models"
+    enabled: true
+    env_vars: [OPENAI_API_KEY]
     default_model: "gpt-image-2"
-    size: "1024x1024"
-    quality: "high"
+    fallbacks: ["gpt-image-2", "gpt-image-1.5", "gpt-image-1-mini"]
+    models:
+      - id: "gpt-image-2"
+        label: "GPT Image 2"
+        summary: "Current image model. Native reasoning, best prompt adherence."
+        max_output_tokens: 0
+        vision: false
+        sampling: true
+      - id: "gpt-image-1.5"
+        label: "GPT Image 1.5"
+        summary: "Previous generation. Cheaper, still high quality."
+        max_output_tokens: 0
+        vision: false
+        sampling: true
+      - id: "gpt-image-1-mini"
+        label: "GPT Image 1 Mini"
+        summary: "Cheapest. Use for thumbnails and drafts."
+        max_output_tokens: 0
+        vision: false
+        sampling: true
+    aliases:
+      "dall-e-2": "gpt-image-1-mini"
+      "dall-e-3": "gpt-image-2"
+      "gpt-image-1": "gpt-image-1.5"
 
   bedrock:
-    # Claude on AWS Bedrock. Requires BEDROCK_API_KEY.
+    label: "AWS Bedrock (Claude)"
+    driver: bedrock
+    enabled: true
+    env_vars: [BEDROCK_API_KEY]
     default_model: "anthropic.claude-sonnet-5"
-    max_tokens: 8000
+    vision_model: "anthropic.claude-sonnet-5"
+    fallbacks: ["anthropic.claude-sonnet-5", "anthropic.claude-haiku-4-5"]
+    models:
+      - id: "anthropic.claude-opus-5"
+        label: "Claude Opus 5 (Bedrock)"
+        summary: "Most capable Claude on Bedrock."
+        context_tokens: 1000000
+        max_output_tokens: 64000
+        vision: true
+        sampling: false
+      - id: "anthropic.claude-sonnet-5"
+        label: "Claude Sonnet 5 (Bedrock)"
+        summary: "Balanced default on Bedrock."
+        context_tokens: 1000000
+        max_output_tokens: 64000
+        vision: true
+        sampling: false
+      - id: "anthropic.claude-haiku-4-5"
+        label: "Claude Haiku 4.5 (Bedrock)"
+        summary: "Fast and cheap on Bedrock."
+        context_tokens: 200000
+        max_output_tokens: 32000
+        vision: true
+        sampling: true
+    aliases:
+      "anthropic.claude-3-5-haiku-20241022-v1:0": "anthropic.claude-haiku-4-5"
+      "anthropic.claude-3-haiku-20240307-v1:0": "anthropic.claude-haiku-4-5"
+      "anthropic.claude-opus-4-20250514-v1:0": "anthropic.claude-opus-5"
+      "anthropic.claude-sonnet-4-20250514-v1:0": "anthropic.claude-sonnet-5"
+      "anthropic.claude-sonnet-4-5-20250929-v1:0": "anthropic.claude-sonnet-5"
 
 # File Upload Settings
 files:
@@ -128,7 +527,7 @@ files:
       - zip
       - tar
       - gz
-  
+
   # Maximum content to extract per file (characters)
   max_content_length: 50000
 
@@ -141,8 +540,9 @@ app:
   enable_prompt_templates: true
   enable_model_comparison: true
   enable_cost_tracking: true
-  
+
 # Admin Authentication
+  prompt_suggestion_provider: openai
 admin:
   # Super-admin password. Set ADMIN_PASSWORD in .env instead of putting it
   # here — this file is committed to version control. Leaving it blank
@@ -154,7 +554,7 @@ admin:
 prompt_engineering:
   # Enable system prompts
   enable_system_prompts: true
-  
+
   # Default system prompts for different use cases
   default_system_prompts:
     general: "You are a helpful AI assistant."
@@ -162,10 +562,10 @@ prompt_engineering:
     analysis: "You are a data analyst. Provide thorough analysis with insights and recommendations."
     coding: "You are an expert programmer. Provide well-commented code with explanations."
     creative: "You are a creative assistant. Think outside the box and provide innovative ideas."
-  
+
   # Prompt templates for training
   templates_enabled: true
-  
+
   # Advanced parameters
   allow_temperature_control: true
   allow_top_p_control: true

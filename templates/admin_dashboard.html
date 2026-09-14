@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/advanced.css') }}">
     <script src="{{ url_for('static', filename='js/skp-safe.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ai-models-admin.js') }}?v=1"></script>
     <script>
       // Defensive fallback: if skp-safe.js failed to load, define minimal shims so
       // the dashboard never breaks on SKP.escape / SKP.setHTML inside catch blocks.
@@ -588,7 +589,8 @@
                 </div>
                 <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">Configure AI models and API keys</p>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-                    <button onclick="showAIModels()" class="action-btn-sm blue" data-testid="button-ai-models"><i class="fas fa-cog"></i> Manage Models</button>
+                    <button onclick="showModelCatalogue()" class="action-btn-sm blue" data-testid="button-model-catalogue"><i class="fas fa-layer-group"></i> Manage Models</button>
+                    <button onclick="showAIModels()" class="action-btn-sm" style="background:#546e7a;color:#fff;" data-testid="button-ai-models"><i class="fas fa-key"></i> API Keys</button>
                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem;color:#555;margin:0;" title="Show or hide the AI Assistant chat tool for all users">
                         <span style="font-weight:500;">AI Chat</span>
                         <span id="aiChatToggleWrap" style="position:relative;display:inline-block;width:42px;height:22px;">
@@ -2244,6 +2246,23 @@
         // ============================================
         // AI MODELS CONFIGURATION
         // ============================================
+        function showModelCatalogue() {
+            // Which model each provider uses, backed by the config.yaml
+            // catalogue. Adding or retiring a model here needs no code change
+            // and no restart.
+            const modal = document.getElementById('detailModal');
+            document.getElementById('modalTitle').textContent = 'AI Models';
+            document.getElementById('modalBody').innerHTML = '<div id="superAdminAIModelsPanel"></div>';
+            modal.classList.add('show');
+            if (window.SkpAIModels) {
+                window.SkpAIModels.mount('superAdminAIModelsPanel');
+            } else {
+                document.getElementById('superAdminAIModelsPanel').innerHTML =
+                    '<p style="color:#b91c1c">The model panel script did not load. '
+                    + 'Reload the page.</p>';
+            }
+        }
+
         async function showAIModels() {
             const modal = document.getElementById('detailModal');
             const modalBody = document.getElementById('modalBody');

@@ -411,11 +411,10 @@ def chat_openai_compatible(
 ) -> ChatResult:
     """Call any provider that speaks the OpenAI ``/chat/completions`` shape."""
     spec = registry.get_provider(provider)
-    base_url = registry.OPENAI_COMPATIBLE_BASE_URLS.get(
-        spec.key if spec else provider
-    )
+    base_url = registry.base_url(provider)
     if base_url is None:
-        raise AIError(f'{provider} is not an OpenAI-compatible provider.',
+        raise AIError(f'{provider} has no base_url set in the config.yaml '
+                      'ai_models block, so it cannot be called.',
                       provider=provider)
     if not api_key:
         raise AIError(f'No API key configured for {spec.label if spec else provider}.',
@@ -702,10 +701,11 @@ def chat_anthropic(
         }
         if system:
             params['system'] = system
-        # Claude 5 and the 4.6+ family reject temperature outright; only the
-        # models the catalogue marks as accepting it get one.
-        if entry is None or entry.sampling:
-            params['temperature'] = temperature
+        # The Anthropic SDK removed `temperature` from messages.create in 1.x,
+        # so it is never sent — passing it raises a TypeError before the
+        # request is even built. Kept as a parameter for a uniform call
+        # signature across providers.
+        _ = temperature
 
         try:
             response = client.messages.create(**params)

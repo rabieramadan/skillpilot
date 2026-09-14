@@ -52,31 +52,53 @@ def _error(provider: str, message: str) -> Dict[str, Any]:
 
 
 class AIService:
-    #: Providers reached through the shared OpenAI-compatible transport.
-    OPENAI_COMPATIBLE = ('openai', 'grok', 'deepseek', 'perplexity')
+    #: Which handler serves each driver named in the config.yaml catalogue.
+    #: Dispatch goes through the driver, not the provider name, so a provider
+    #: added to config.yaml — a new vendor speaking the OpenAI shape, say —
+    #: works immediately with no code change here.
+    DRIVER_HANDLERS = {
+        'openai_compatible': '_chat_openai_family',
+        'anthropic': '_chat_claude',
+        'gemini': '_chat_gemini',
+        'openai_images': '_generate_dalle',
+        'bedrock': '_chat_bedrock',
+    }
+
+    #: Providers that are not part of the model catalogue: they have no model
+    #: list to choose from, so they stay wired by name.
+    FIXED_PROVIDERS = (
+        'heygen', 'dify', 'llama_bedrock', 'mistral_bedrock', 'amazon_nova',
+        'cohere_bedrock', 'ai21_bedrock', 'stable_diffusion',
+    )
 
     def __init__(self):
         self.providers = {
-            'openai': self._chat_openai,
-            'claude': self._chat_claude,
-            'gemini': self._chat_gemini,
-            'grok': self._chat_grok,
-            'deepseek': self._chat_deepseek,
-            'perplexity': self._chat_perplexity,
-            'dalle': self._generate_dalle,
-            # The registry calls this provider 'images'; 'dalle' is the name
-            # stored in existing sessions. Both must reach the same handler.
-            'images': self._generate_dalle,
-            'heygen': self._generate_heygen_video,
-            'dify': self._chat_dify,
-            'bedrock': self._chat_bedrock,
-            'llama_bedrock': self._chat_llama_bedrock,
-            'mistral_bedrock': self._chat_mistral_bedrock,
-            'amazon_nova': self._chat_amazon_nova,
-            'cohere_bedrock': self._chat_cohere_bedrock,
-            'ai21_bedrock': self._chat_ai21_bedrock,
-            'stable_diffusion': self._generate_stable_diffusion,
+            name: getattr(self, f'_chat_{name}', None) or
+            getattr(self, f'_generate_{name}', None)
+            for name in self.FIXED_PROVIDERS
         }
+        self.providers['heygen'] = self._generate_heygen_video
+        self.providers['stable_diffusion'] = self._generate_stable_diffusion
+
+    def _handler_for(self, provider: str):
+        """The handler for ``provider``, or ``None`` if there is not one.
+
+        Catalogue providers resolve through their driver; everything else
+        falls back to the fixed table.
+        """
+        spec = registry.get_provider(provider)
+        if spec is not None:
+            if not spec.enabled:
+                return None
+            method = self.DRIVER_HANDLERS.get(spec.driver)
+            if method is None:
+                return None
+            handler = getattr(self, method)
+            if method == '_chat_openai_family':
+                # This one takes the provider as its first argument.
+                return lambda *a, **kw: handler(spec.key, *a, **kw)
+            return handler
+        return self.providers.get(provider)
 
     def chat(self, provider: str, message: str, api_key: str,
              files: List[str] = None,
@@ -90,8 +112,16 @@ class AIService:
         ever have to check for the ``error`` key.
         """
         key = registry.PROVIDER_ALIASES.get((provider or '').lower(), provider)
-        handler = self.providers.get(key)
+        handler = self._handler_for(key)
         if handler is None:
+            spec = registry.get_provider(key)
+            if spec is not None and not spec.enabled:
+                return _error(provider, f'{spec.label} is switched off in '
+                                        'Admin > AI Models.')
+            if spec is not None and not spec.supported:
+                return _error(provider, f'{spec.label} is configured with '
+                                        f'driver "{spec.driver}", which this '
+                                        'version cannot call.')
             return _error(provider, f'Unsupported AI provider: {provider}')
 
         system = self._compose_system_prompt(system_prompt, language)
@@ -329,12 +359,12 @@ class AIService:
         return result.as_dict()
 
     def _max_tokens(self, provider: str, default: int = 8000) -> int:
-        """Output budget for ``provider`` from config.yaml, else a default."""
-        block = registry._yaml_models().get(provider) or {}
-        try:
-            return int(block.get('max_tokens') or default)
-        except (TypeError, ValueError):
-            return default
+        """Output budget for ``provider``, from config.yaml if set there.
+
+        The transport caps this again at whatever the chosen model accepts,
+        so an over-generous value here is harmless.
+        """
+        return registry.output_budget(provider, default)
     def _parse_aws_credentials(self, api_key: str):
         """Split the ``access_key|secret_key|region`` string used for Bedrock."""
         parts = [p.strip() for p in (api_key or '').split('|')]
@@ -838,14 +868,15 @@ class AIService:
         stored in existing chat sessions; the DALL-E endpoints themselves were
         shut down in May 2026 and the registry maps them onto GPT Image.
         """
-        image_config = registry._yaml_models().get('images') or {}
         try:
             generated = ai_transport.generate_image(
                 api_key=api_key,
                 prompt=prompt,
                 model=version,
-                size=str(image_config.get('size') or '1024x1024'),
-                quality=str(image_config.get('quality') or 'high'),
+                size=str(registry.provider_option('images', 'image_size',
+                                                  '1024x1024')),
+                quality=str(registry.provider_option('images', 'image_quality',
+                                                     'high')),
             )
         except AIError as exc:
             return _error('dalle', exc.message)

@@ -24,6 +24,8 @@ gunicorn>=23.0.0         # Linux deployment
 # --- Configuration ---------------------------------------------------------
 python-dotenv>=1.2.1
 pyyaml>=6.0.3
+ruamel.yaml>=0.18      # Round-trip YAML: lets the admin screens edit the model
+                       # catalogue in config.yaml without destroying its comments
 
 # --- AI providers ----------------------------------------------------------
 anthropic>=1.5.0         # Claude

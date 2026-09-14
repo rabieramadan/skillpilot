@@ -2318,13 +2318,16 @@
                     <div class="admin-card">
                         <div class="admin-card-header">
                             <i class="fas fa-robot"></i>
-                            <h3>AI Model Configuration</h3>
+                            <h3>AI Models</h3>
                         </div>
                         <div class="admin-card-body">
-                            <p class="section-description">Enable or disable AI providers and manage model availability</p>
-                            <div class="scrollable-section" style="max-height: 400px;">
-                                <div id="adminModelsConfig"></div>
-                            </div>
+                            <p class="section-description">
+                                Choose which model each provider uses, add a new one, or retire
+                                an old one. Models are tested against the live API before anything
+                                is saved, and the catalogue lives in config.yaml — so keeping up
+                                with a provider's releases never needs a code change.
+                            </p>
+                            <div id="adminAIModelsPanel"></div>
                         </div>
                     </div>
 
@@ -3114,6 +3117,7 @@ Example:
     <script src="{{ url_for('static', filename='js/teacher-dashboard.js') }}?v=5"></script>
     <script src="{{ url_for('static', filename='js/profile.js') }}?v=5"></script>
     <script src="{{ url_for('static', filename='js/admin.js') }}?v=5"></script>
+    <script src="{{ url_for('static', filename='js/ai-models-admin.js') }}?v=1"></script>
     <script src="{{ url_for('static', filename='js/students.js') }}?v=5"></script>
     <script src="{{ url_for('static', filename='js/course_materials.js') }}?v=5"></script>
     <script src="{{ url_for('static', filename='js/agentic_ai_lab.js') }}?v=5"></script>

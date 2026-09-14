@@ -34,11 +34,12 @@ Settings resolve in this order, highest first:
 
 1. environment variables, loaded from `.env` (falling back to `.env.server`)
 2. `config.yaml`
-3. the defaults in `config/config.py` and `app/services/model_registry.py`
+3. the defaults in `config/config.py`
 
 `.env` holds the secrets and is never committed — `.env.example` lists every
-variable the application reads. `config.yaml` holds everything else and is
-safe to commit; leave its `api_keys` block empty.
+variable the application reads. `config.yaml` holds everything else, including
+the AI model catalogue, and is safe to commit; leave its `api_keys` block
+empty.
 
 Required for a working install:
 
@@ -53,44 +54,83 @@ enables only the providers that have one.
 
 ## AI models
 
-`app/services/model_registry.py` is the single source of truth for every model
-the platform can call. It holds, per provider, the current model identifiers
-and their capabilities, an alias table mapping retired identifiers onto their
-replacements, fallback chains, and published pricing.
+**Every model the platform can call is defined in `config.yaml`, under
+`ai_models:`.** No Python file names a model. Keeping up with a provider's
+releases is a config change, never a code change and never a redeploy.
 
-This matters because providers retire models on their own schedules. The
-alias table means a model chosen a year ago and stored in the database still
-resolves to something callable; the fallback chain means a retirement that
-happens between releases degrades to the next model instead of showing a
-student a 404.
+Each provider entry holds its models and their capabilities, an alias table
+mapping retired identifiers onto their replacements, a fallback chain, and
+published pricing. That matters because providers retire models on their own
+schedules: the alias table means a model chosen a year ago and stored in the
+database still resolves to something callable, and the fallback chain means a
+retirement that happens between releases degrades to the next model rather
+than showing a student a 404.
 
-To change the default model for a provider, in increasing order of
-permanence:
+The file is re-read when its timestamp changes, so an edit takes effect
+without a restart — including an edit made by another worker process.
 
-```bash
-# 1. Per deployment
-SKILLPILOT_MODEL_OPENAI=gpt-6-astra
-```
+### Admin > AI Models
+
+The screen (also under **Manage Models** on the super-admin dashboard) is the
+normal way to change any of this. For each provider it can:
+
+- **Discover** — ask the provider which models the configured key can actually
+  reach. This is what to trust when a vendor's announcement and its API
+  disagree, which is usually the case for a few days around a launch.
+- **Test** — send one short prompt to a candidate model and report the reply,
+  the latency and the tokens, or the exact provider error with a sentence on
+  what to do about it. A model can be announced, documented and listed and
+  still be unavailable on a given plan or region; this is the only way to
+  know.
+- **Save** — offered only after a test passes, and only on explicit
+  confirmation. Optionally makes it the provider's default in the same step.
+- **Retire** — removes a model from the menus while keeping the identifier
+  working: anything that already stored it is served by the replacement.
+
+Changes are written back to `config.yaml` with its comments intact. A bad
+edit is refused before it reaches disk, and a file that will not parse at all
+leaves the platform running on a minimal built-in catalogue with a warning in
+the log rather than failing to boot.
+
+### Editing by hand
 
 ```yaml
-# 2. Per installation, in config.yaml
-models:
+ai_models:
   openai:
-    default_model: gpt-6-astra
+    label: "OpenAI"
+    driver: openai_compatible                  # how to talk to it
+    base_url: "https://api.openai.com/v1"
+    discovery_url: "https://api.openai.com/v1/models"
+    env_vars: [OPENAI_API_KEY]
+    default_model: "gpt-5.6-terra"
+    fallbacks: ["gpt-5.6-terra", "gpt-5.6-luna"]
+    models:
+      - id: "gpt-5.6-terra"                    # exactly as the provider spells it
+        label: "GPT-5.6 Terra"
+        max_output_tokens: 128000
+        vision: true
+        sampling: false                        # rejects `temperature`
+        max_completion_tokens: true            # wants max_completion_tokens
+        price_per_million: {input: 2.0, output: 12.0}
+    aliases:
+      "gpt-4o": "gpt-5.6-terra"                # retired id, still works
 ```
 
-```python
-# 3. For everyone, in app/services/model_registry.py
-_OPENAI = Provider(default='gpt-6-astra', ...)
+**Adding a whole new vendor needs no code either.** Most new providers speak
+the OpenAI `/chat/completions` shape: copy an `openai_compatible` block,
+change `base_url` and `env_vars`, add the key to `.env`, and it is callable
+everywhere in the platform. The other drivers are `anthropic`, `gemini`,
+`openai_images` and `bedrock`.
+
+To override a default for one deployment without editing the file:
+
+```bash
+SKILLPILOT_MODEL_OPENAI=gpt-6-astra
+SKILLPILOT_MODEL_CLAUDE=claude-opus-5
 ```
 
-When a provider ships a new generation, edit the registry only: add the model
-to `models`, point `default` at it, and add the superseded identifier to
-`aliases`. Nothing else in the codebase names a model.
-
-`GET /api/models/catalogue` returns the live catalogue — including which
-providers have a key configured — so admin screens can build model pickers
-from real data instead of hardcoded option lists.
+`GET /api/models/catalogue` returns the live catalogue, so model menus in the
+UI are built from real data rather than hardcoded lists.
 
 ### Supported providers
 
@@ -136,8 +176,11 @@ python -m pytest
 ```
 app/
   routes/        Flask blueprints, one per feature area
-  services/      business logic; model_registry and ai_transport live here
+  services/      business logic
+    model_registry.py   loads and edits the config.yaml model catalogue
+    ai_transport.py     how the platform calls each provider
   utils/         file handling, encryption, serializers, decorators
+config.yaml      settings and the AI model catalogue
 config/          configuration loading
 docs/            architecture, deployment, security audit
 migrations/      one-off schema migrations

@@ -2363,28 +2363,13 @@ Once your slides are generated, type one of these commands:
     }
 
     async loadAdminPanel() {
-        const container = document.getElementById('adminModelsConfig');
-        if (!container) return;
+        // The model catalogue panel owns its own rendering and talks to
+        // /api/ai-models, which reads and writes the config.yaml catalogue.
+        // It replaced a read-only list of providers built from a JSON file.
+        if (window.SkpAIModels) {
+            window.SkpAIModels.mount('adminAIModelsPanel');
+        }
 
-        container.innerHTML = Object.entries(this.modelsConfig).map(([provider, config]) => `
-            <div class="model-control-item">
-                <div class="model-info">
-                    <div class="model-name">
-                        <i class="fas fa-robot"></i>
-                        <strong>${provider.toUpperCase()}</strong>
-                    </div>
-                    <div class="model-versions">
-                        ${config.versions.length} version${config.versions.length > 1 ? 's' : ''} available
-                    </div>
-                </div>
-                <label class="toggle-switch">
-                    <input type="checkbox" ${config.enabled ? 'checked' : ''} 
-                           onchange="app.toggleProvider('${provider}')">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-        `).join('');
-        
         // Load current prompt suggestion model setting
         try {
             const response = await fetch('/api/admin/models');
@@ -2458,46 +2443,7 @@ Once your slides are generated, type one of these commands:
         }
     }
 
-    async toggleProvider(provider) {
-        try {
-            const response = await fetch(`/api/admin/models/${provider}/toggle`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (response.status === 401) {
-                this.showNotification('Admin authentication required', 'error');
-                return;
-            }
-
-            const data = await response.json();
-            
-            if (data.success) {
-                // Update local config
-                this.modelsConfig[provider].enabled = data.enabled;
-                
-                // Reload admin panel
-                await this.loadAdminPanel();
-                
-                // Reload models list
-                await this.loadModels();
-                
-                this.showNotification(
-                    `${provider.toUpperCase()} ${data.enabled ? 'enabled' : 'disabled'}`, 
-                    'success'
-                );
-            } else {
-                this.showNotification('Failed to toggle provider', 'error');
-            }
-        } catch (error) {
-            console.error('Error toggling provider:', error);
-            this.showNotification('Error toggling provider', 'error');
-        }
-    }
-
-    async updatePromptSuggestionModel(model) {
+async updatePromptSuggestionModel(model) {
         try {
             const response = await fetch('/api/admin/prompt-suggestion-model', {
                 method: 'POST',

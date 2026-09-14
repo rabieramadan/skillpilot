@@ -1,79 +1,109 @@
-"""Single source of truth for every AI model SkillPilot can talk to.
+"""The model catalogue: loaded from config.yaml, editable at runtime.
 
-Before this module existed, model identifiers were literal strings spread over
-roughly ninety call sites across services, routes, templates and JavaScript.
-Each provider retires identifiers on its own schedule, so the codebase drifted
-into a mix of live, deprecated and long-dead names, and a retirement showed up
-as a 404 in front of a student.
+Every provider and model the platform can call is defined in the
+``ai_models:`` block of ``config.yaml``. No Python file names a model. When a
+vendor ships a new model or retires an old one, the fix is a config edit —
+by hand, or through Admin > AI Models, which tests the model against the live
+API before writing it here.
 
-Everything now resolves through :func:`resolve`, which also gives the platform
-three properties it did not have:
+Three properties the rest of the platform relies on:
 
 * **Aliasing** — a retired identifier stored in the database or picked from a
-  stale dropdown is mapped to its current replacement instead of failing.
-* **Fallbacks** — :func:`fallback_chain` yields the next model to try when a
-  provider rejects one, so a retirement degrades instead of breaking.
+  stale menu is mapped to its replacement instead of failing.
+* **Fallbacks** — when a provider rejects a model outright, the next one in
+  the chain is tried, so a retirement degrades instead of breaking.
 * **Capabilities** — request building asks the catalogue what a model accepts
   (``temperature``, ``max_tokens`` vs ``max_completion_tokens``, images)
-  instead of pattern-matching the identifier at the call site.
+  rather than pattern-matching its name.
 
-Precedence for the default model of a provider, highest first:
+The file is re-read when its timestamp changes, so an edit — from another
+worker process, or from a text editor — is picked up without a restart.
+
+Precedence for a provider's default model, highest first:
 
 1. ``SKILLPILOT_MODEL_<PROVIDER>`` environment variable
-2. ``models.<provider>.default_model`` in ``config.yaml``
-3. ``DEFAULT`` on the :class:`Provider` entry below
-
-Catalogue reviewed: 14 September 2026. When a provider ships a new generation,
-edit this file only: add the model to ``models``, point ``default`` at it, and
-add the superseded identifier to ``aliases``.
+2. ``ai_models.<provider>.default_model`` in config.yaml
+3. the built-in bootstrap entry, used only when config.yaml is unusable
 """
 
 from __future__ import annotations
 
+import copy
 import os
 import re
+import tempfile
+import threading
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 __all__ = [
+    'CatalogueError',
     'Model',
     'Provider',
-    'PROVIDERS',
     'available_models',
+    'catalogue_status',
     'default_model',
+    'delete_model',
     'describe',
+    'discovery_url',
+    'get_app_setting',
+    'set_app_setting',
     'fallback_chain',
     'get_model',
+    'get_provider',
     'is_model_unavailable_error',
     'list_providers',
     'price_per_1k',
     'provider_for_model',
+    'reload_config',
     'resolve',
+    'save_model',
+    'set_default_model',
+    'set_provider_enabled',
 ]
 
 
+class CatalogueError(Exception):
+    """A catalogue edit was rejected. The message is safe to show an admin."""
+
+
+#: Drivers this build knows how to speak. A provider in config.yaml naming
+#: anything else is loaded but reported as unusable, rather than silently
+#: dropped — an admin who mistypes should see why.
+KNOWN_DRIVERS = (
+    'openai_compatible',
+    'anthropic',
+    'gemini',
+    'openai_images',
+    'bedrock',
+)
+
+_ID_PATTERN = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._:+\-/]{0,127}$')
+
+
+# ---------------------------------------------------------------------------
+# Shapes
+# ---------------------------------------------------------------------------
+
 @dataclass(frozen=True)
 class Model:
-    """One model as the provider's API expects to be asked for it."""
+    """One model, exactly as its provider expects to be asked for it."""
 
     id: str
     label: str
-    #: Short sentence shown in the admin model picker.
     summary: str = ''
-    #: Total context window in tokens, as published by the provider.
     context_tokens: int = 0
-    #: Largest ``max_tokens`` the model will accept for a single response.
     max_output_tokens: int = 4096
-    #: Model accepts image parts in the request.
     vision: bool = False
-    #: Model accepts ``temperature`` / ``top_p``. Newer reasoning models
-    #: reject them outright (OpenAI 400s, Gemini 3 silently ignores them).
+    #: False when the model rejects ``temperature`` / ``top_p``.
     sampling: bool = True
-    #: OpenAI-compatible providers only: send ``max_completion_tokens``
-    #: instead of ``max_tokens``.
+    #: True when the model wants ``max_completion_tokens`` instead of
+    #: ``max_tokens`` (OpenAI reasoning models).
     max_completion_tokens: bool = False
-    #: Model is kept for compatibility but should not be offered as a default.
+    #: Kept working, hidden from menus.
     legacy: bool = False
+    #: USD per million tokens as ``(input, output)``; ``None`` when unpriced.
+    price_per_million: Optional[Tuple[float, float]] = None
 
     def as_dict(self) -> Dict[str, Any]:
         return {
@@ -83,7 +113,14 @@ class Model:
             'context_tokens': self.context_tokens,
             'max_output_tokens': self.max_output_tokens,
             'vision': self.vision,
+            'sampling': self.sampling,
+            'max_completion_tokens': self.max_completion_tokens,
             'legacy': self.legacy,
+            'price_per_million': (
+                {'input': self.price_per_million[0],
+                 'output': self.price_per_million[1]}
+                if self.price_per_million else None
+            ),
         }
 
 
@@ -93,324 +130,74 @@ class Provider:
 
     key: str
     label: str
+    driver: str
     default: str
     models: List[Model]
-    #: Environment variables holding the API key, in priority order.
+    enabled: bool = True
+    base_url: str = ''
+    discovery_url: str = ''
     env_vars: List[str] = field(default_factory=list)
-    #: Retired or renamed identifier -> the identifier that replaces it.
     aliases: Dict[str, str] = field(default_factory=dict)
-    #: Preferred model for requests that carry an image.
     vision_default: Optional[str] = None
-    #: Tried in order when the provider rejects the requested model.
     fallbacks: List[str] = field(default_factory=list)
 
     def model_ids(self) -> List[str]:
         return [m.id for m in self.models]
 
+    @property
+    def supported(self) -> bool:
+        return self.driver in KNOWN_DRIVERS
+
 
 # ---------------------------------------------------------------------------
-# Catalogue
+# Bootstrap
 # ---------------------------------------------------------------------------
-# Only current, generally available identifiers are listed as selectable.
-# Superseded names stay in ``aliases`` so saved selections keep working.
+# Used only when config.yaml is missing, unreadable, or has no usable
+# ai_models block. Deliberately minimal: enough to keep the platform running
+# and the admin screens reachable so the real catalogue can be restored.
 
-_OPENAI = Provider(
-    key='openai',
-    label='OpenAI',
-    default='gpt-5.6-terra',
-    vision_default='gpt-5.6-terra',
-    env_vars=['OPENAI_API_KEY'],
-    models=[
-        Model('gpt-6-astra', 'GPT-6 Astra',
-              'Flagship reasoning model. Highest quality, highest cost.',
-              context_tokens=1_050_000, max_output_tokens=128_000,
-              vision=True, sampling=False, max_completion_tokens=True),
-        Model('gpt-5.6-sol', 'GPT-5.6 Sol',
-              'Frontier tier below Astra. Strong reasoning at lower cost.',
-              context_tokens=400_000, max_output_tokens=128_000,
-              vision=True, sampling=False, max_completion_tokens=True),
-        Model('gpt-5.6-terra', 'GPT-5.6 Terra',
-              'Balanced default: good reasoning, sensible price.',
-              context_tokens=400_000, max_output_tokens=128_000,
-              vision=True, sampling=False, max_completion_tokens=True),
-        Model('gpt-5.6-luna', 'GPT-5.6 Luna',
-              'Cheapest tier. Use for high-volume classification and drafts.',
-              context_tokens=400_000, max_output_tokens=128_000,
-              vision=True, sampling=False, max_completion_tokens=True),
-        Model('gpt-5.2', 'GPT-5.2',
-              'Previous flagship. Kept for reproducing earlier output.',
-              context_tokens=400_000, max_output_tokens=128_000,
-              vision=True, sampling=False, max_completion_tokens=True,
-              legacy=True),
-    ],
-    aliases={
-        # Retired 2025-2026 identifiers still stored in databases and UIs.
-        'gpt-3.5-turbo': 'gpt-5.6-luna',
-        'gpt-4': 'gpt-5.6-terra',
-        'gpt-4-32k': 'gpt-5.6-terra',
-        'gpt-4-turbo': 'gpt-5.6-terra',
-        'gpt-4-turbo-preview': 'gpt-5.6-terra',
-        'gpt-4-vision-preview': 'gpt-5.6-terra',
-        'gpt-4o': 'gpt-5.6-terra',
-        'gpt-4o-mini': 'gpt-5.6-luna',
-        'gpt-4.1': 'gpt-5.6-terra',
-        'gpt-4.1-mini': 'gpt-5.6-luna',
-        'gpt-4.1-nano': 'gpt-5.6-luna',
-        'gpt-5': 'gpt-5.6-terra',
-        'gpt-5-mini': 'gpt-5.6-luna',
-        'gpt-5-nano': 'gpt-5.6-luna',
-        'gpt-5.1': 'gpt-5.6-terra',
-        'gpt-5.2-chat-latest': 'gpt-5.6-terra',
-        'o1': 'gpt-5.6-sol',
-        'o1-mini': 'gpt-5.6-luna',
-        'o3': 'gpt-5.6-sol',
-        'o3-mini': 'gpt-5.6-luna',
-        'o4-mini': 'gpt-5.6-luna',
+BOOTSTRAP: Dict[str, Any] = {
+    'openai': {
+        'label': 'OpenAI', 'driver': 'openai_compatible',
+        'base_url': 'https://api.openai.com/v1',
+        'discovery_url': 'https://api.openai.com/v1/models',
+        'env_vars': ['OPENAI_API_KEY'],
+        'default_model': 'gpt-5.6-terra',
+        'fallbacks': ['gpt-5.6-terra', 'gpt-5.6-luna'],
+        'models': [
+            {'id': 'gpt-5.6-terra', 'label': 'GPT-5.6 Terra', 'vision': True,
+             'sampling': False, 'max_completion_tokens': True,
+             'max_output_tokens': 128000},
+            {'id': 'gpt-5.6-luna', 'label': 'GPT-5.6 Luna', 'vision': True,
+             'sampling': False, 'max_completion_tokens': True,
+             'max_output_tokens': 128000},
+        ],
     },
-    fallbacks=['gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.2'],
-)
-
-_CLAUDE = Provider(
-    key='claude',
-    label='Anthropic Claude',
-    default='claude-sonnet-5',
-    vision_default='claude-sonnet-5',
-    env_vars=['ANTHROPIC_API_KEY', 'CLAUDE_API_KEY'],
-    models=[
-        Model('claude-opus-5', 'Claude Opus 5',
-              'Most capable Claude. Use for grading, rubrics and analysis.',
-              context_tokens=1_000_000, max_output_tokens=64_000,
-              vision=True, sampling=False),
-        Model('claude-sonnet-5', 'Claude Sonnet 5',
-              'Balanced default: near-Opus quality at a fraction of the cost.',
-              context_tokens=1_000_000, max_output_tokens=64_000,
-              vision=True, sampling=False),
-        Model('claude-haiku-4-5-20251001', 'Claude Haiku 4.5',
-              'Fastest and cheapest. Good for short tutoring turns.',
-              context_tokens=200_000, max_output_tokens=32_000,
-              vision=True, sampling=True),
-    ],
-    aliases={
-        'claude-3-haiku-20240307': 'claude-haiku-4-5-20251001',
-        # Anthropic's Models API lists Haiku 4.5 only in its dated form.
-        'claude-haiku-4-5': 'claude-haiku-4-5-20251001',
-        'claude-3-opus-20240229': 'claude-opus-5',
-        'claude-3-sonnet-20240229': 'claude-sonnet-5',
-        'claude-3-5-haiku-20241022': 'claude-haiku-4-5-20251001',
-        'claude-3-5-sonnet-20241022': 'claude-sonnet-5',
-        'claude-3-7-sonnet-20250219': 'claude-sonnet-5',
-        'claude-haiku-3-5-20241022': 'claude-haiku-4-5-20251001',
-        'claude-opus-4-20250514': 'claude-opus-5',
-        'claude-opus-4-1-20250805': 'claude-opus-5',
-        'claude-sonnet-4-20250514': 'claude-sonnet-5',
-        'claude-sonnet-4-5-20250929': 'claude-sonnet-5',
-        'claude-opus-4-5': 'claude-opus-5',
-        'claude-opus-4-6': 'claude-opus-5',
-        'claude-sonnet-4-6': 'claude-sonnet-5',
+    'claude': {
+        'label': 'Anthropic Claude', 'driver': 'anthropic',
+        'discovery_url': 'https://api.anthropic.com/v1/models',
+        'env_vars': ['ANTHROPIC_API_KEY', 'CLAUDE_API_KEY'],
+        'default_model': 'claude-sonnet-5',
+        'fallbacks': ['claude-sonnet-5'],
+        'models': [
+            {'id': 'claude-sonnet-5', 'label': 'Claude Sonnet 5', 'vision': True,
+             'sampling': False, 'max_output_tokens': 64000},
+        ],
     },
-    fallbacks=['claude-sonnet-5', 'claude-haiku-4-5-20251001'],
-)
-
-_GEMINI = Provider(
-    key='gemini',
-    label='Google Gemini',
-    default='gemini-3.8-flash',
-    vision_default='gemini-3.8-flash',
-    env_vars=['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
-    models=[
-        Model('gemini-3.1-pro-preview', 'Gemini 3.1 Pro',
-              'Most capable Gemini. Long documents and deep analysis.',
-              context_tokens=1_000_000, max_output_tokens=64_000,
-              vision=True, sampling=False),
-        Model('gemini-3.8-flash', 'Gemini 3.8 Flash',
-              'Balanced default: fast, 1M context, tunable thinking.',
-              context_tokens=1_000_000, max_output_tokens=64_000,
-              vision=True, sampling=False),
-        Model('gemini-3.7-flash', 'Gemini 3.7 Flash',
-              'Previous Flash generation. Kept for cost comparison.',
-              context_tokens=1_000_000, max_output_tokens=64_000,
-              vision=True, sampling=False),
-        Model('gemini-3.5-flash-lite', 'Gemini 3.5 Flash-Lite',
-              'Cheapest Gemini. Bulk classification and short answers.',
-              context_tokens=1_000_000, max_output_tokens=32_000,
-              vision=True, sampling=False),
-    ],
-    aliases={
-        'gemini-pro': 'gemini-3.8-flash',
-        'gemini-pro-vision': 'gemini-3.8-flash',
-        'gemini-1.5-flash': 'gemini-3.8-flash',
-        'gemini-1.5-pro': 'gemini-3.1-pro-preview',
-        # Gemini 3.1 Pro is served under its -preview identifier.
-        'gemini-3.1-pro': 'gemini-3.1-pro-preview',
-        'gemini-2.0-flash': 'gemini-3.8-flash',
-        'gemini-2.5-flash': 'gemini-3.8-flash',
-        'gemini-2.5-pro': 'gemini-3.1-pro-preview',
-        'gemini-3-pro-preview': 'gemini-3.1-pro-preview',
-        'gemini-3-flash-preview': 'gemini-3.8-flash',
-        'gemini-3.5-flash': 'gemini-3.8-flash',
+    'gemini': {
+        'label': 'Google Gemini', 'driver': 'gemini',
+        'discovery_url': 'https://generativelanguage.googleapis.com/v1beta/models',
+        'env_vars': ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
+        'default_model': 'gemini-3.8-flash',
+        'fallbacks': ['gemini-3.8-flash'],
+        'models': [
+            {'id': 'gemini-3.8-flash', 'label': 'Gemini 3.8 Flash', 'vision': True,
+             'sampling': False, 'max_output_tokens': 64000},
+        ],
     },
-    fallbacks=['gemini-3.8-flash', 'gemini-3.5-flash-lite'],
-)
-
-_GROK = Provider(
-    key='grok',
-    label='xAI Grok',
-    default='grok-4.6',
-    vision_default='grok-4.6',
-    env_vars=['XAI_API_KEY', 'GROK_API_KEY'],
-    models=[
-        Model('grok-4.6', 'Grok 4.6',
-              'Current xAI flagship. Strong coding and tool use.',
-              context_tokens=2_000_000, max_output_tokens=32_000,
-              vision=True),
-        Model('grok-4.5', 'Grok 4.5',
-              'Previous flagship. Slightly cheaper.',
-              context_tokens=2_000_000, max_output_tokens=32_000,
-              vision=True),
-        Model('grok-4.3', 'Grok 4.3',
-              'Long-context tier with native video input.',
-              context_tokens=1_000_000, max_output_tokens=32_000,
-              vision=True),
-    ],
-    aliases={
-        'grok-2': 'grok-4.6',
-        'grok-3': 'grok-4.6',
-        'grok-3-mini': 'grok-4.3',
-        'grok-4': 'grok-4.6',
-        'grok-4-fast': 'grok-4.3',
-        'grok-4.1': 'grok-4.3',
-        'grok-4.1-fast': 'grok-4.3',
-    },
-    fallbacks=['grok-4.6', 'grok-4.3'],
-)
-
-_DEEPSEEK = Provider(
-    key='deepseek',
-    label='DeepSeek',
-    default='deepseek-v4-flash',
-    env_vars=['DEEPSEEK_API_KEY'],
-    models=[
-        Model('deepseek-v4-flash', 'DeepSeek V4 Flash',
-              'Fast and cheap. Good for code explanation and summaries.',
-              context_tokens=1_000_000, max_output_tokens=32_000),
-        Model('deepseek-v4-pro', 'DeepSeek V4 Pro',
-              'Reasoning tier. Use for hard maths and multi-step problems.',
-              context_tokens=1_000_000, max_output_tokens=64_000),
-    ],
-    aliases={
-        # deepseek-chat / deepseek-reasoner were retired on 24 July 2026.
-        'deepseek-chat': 'deepseek-v4-flash',
-        'deepseek-coder': 'deepseek-v4-flash',
-        'deepseek-reasoner': 'deepseek-v4-pro',
-        'deepseek-v3': 'deepseek-v4-flash',
-        'deepseek-r1': 'deepseek-v4-pro',
-    },
-    fallbacks=['deepseek-v4-flash'],
-)
-
-_PERPLEXITY = Provider(
-    key='perplexity',
-    label='Perplexity Sonar',
-    default='sonar-pro',
-    env_vars=['PERPLEXITY_API_KEY'],
-    models=[
-        Model('sonar', 'Sonar',
-              'Lightweight grounded search with citations.',
-              context_tokens=128_000, max_output_tokens=8_000),
-        Model('sonar-pro', 'Sonar Pro',
-              'Deeper retrieval across more sources. Default.',
-              context_tokens=200_000, max_output_tokens=8_000),
-        Model('sonar-reasoning', 'Sonar Reasoning',
-              'Chain-of-thought answers grounded in live search.',
-              context_tokens=128_000, max_output_tokens=8_000),
-        Model('sonar-reasoning-pro', 'Sonar Reasoning Pro',
-              'Reasoning tier with the wider Pro retrieval set.',
-              context_tokens=200_000, max_output_tokens=8_000),
-        Model('sonar-deep-research', 'Sonar Deep Research',
-              'Exhaustive multi-step research. Slow and expensive.',
-              context_tokens=200_000, max_output_tokens=16_000),
-    ],
-    aliases={
-        'llama-3-sonar-large-32k-online': 'sonar-pro',
-        'llama-3.1-sonar-large-128k-online': 'sonar-pro',
-        'llama-3.1-sonar-small-128k-online': 'sonar',
-        'pplx-70b-online': 'sonar-pro',
-    },
-    fallbacks=['sonar-pro', 'sonar'],
-)
-
-_IMAGES = Provider(
-    key='images',
-    label='OpenAI Images',
-    default='gpt-image-2',
-    env_vars=['OPENAI_API_KEY'],
-    models=[
-        Model('gpt-image-2', 'GPT Image 2',
-              'Current image model. Native reasoning, best prompt adherence.',
-              max_output_tokens=0),
-        Model('gpt-image-1.5', 'GPT Image 1.5',
-              'Previous generation. Cheaper, still high quality.',
-              max_output_tokens=0),
-        Model('gpt-image-1-mini', 'GPT Image 1 Mini',
-              'Cheapest. Use for thumbnails and drafts.',
-              max_output_tokens=0),
-    ],
-    aliases={
-        # The DALL-E endpoints were shut down on 12 May 2026.
-        'dall-e-2': 'gpt-image-1-mini',
-        'dall-e-3': 'gpt-image-2',
-        'gpt-image-1': 'gpt-image-1.5',
-    },
-    fallbacks=['gpt-image-2', 'gpt-image-1.5', 'gpt-image-1-mini'],
-)
-
-_BEDROCK = Provider(
-    key='bedrock',
-    label='AWS Bedrock (Claude)',
-    default='anthropic.claude-sonnet-5',
-    vision_default='anthropic.claude-sonnet-5',
-    env_vars=['BEDROCK_API_KEY'],
-    models=[
-        Model('anthropic.claude-opus-5', 'Claude Opus 5 (Bedrock)',
-              'Most capable Claude on Bedrock.',
-              context_tokens=1_000_000, max_output_tokens=64_000,
-              vision=True, sampling=False),
-        Model('anthropic.claude-sonnet-5', 'Claude Sonnet 5 (Bedrock)',
-              'Balanced default on Bedrock.',
-              context_tokens=1_000_000, max_output_tokens=64_000,
-              vision=True, sampling=False),
-        Model('anthropic.claude-haiku-4-5', 'Claude Haiku 4.5 (Bedrock)',
-              'Fast and cheap on Bedrock.',
-              context_tokens=200_000, max_output_tokens=32_000,
-              vision=True),
-    ],
-    aliases={
-        'anthropic.claude-3-haiku-20240307-v1:0': 'anthropic.claude-haiku-4-5',
-        'anthropic.claude-3-5-haiku-20241022-v1:0': 'anthropic.claude-haiku-4-5',
-        'anthropic.claude-opus-4-20250514-v1:0': 'anthropic.claude-opus-5',
-        'anthropic.claude-sonnet-4-20250514-v1:0': 'anthropic.claude-sonnet-5',
-        'anthropic.claude-sonnet-4-5-20250929-v1:0': 'anthropic.claude-sonnet-5',
-    },
-    fallbacks=['anthropic.claude-sonnet-5', 'anthropic.claude-haiku-4-5'],
-)
-
-PROVIDERS: Dict[str, Provider] = {
-    p.key: p for p in (
-        _OPENAI, _CLAUDE, _GEMINI, _GROK, _DEEPSEEK,
-        _PERPLEXITY, _IMAGES, _BEDROCK,
-    )
 }
 
-#: Providers that are reached through an OpenAI-compatible ``/chat/completions``
-#: endpoint, and the base URL to use for each.
-OPENAI_COMPATIBLE_BASE_URLS: Dict[str, str] = {
-    'openai': 'https://api.openai.com/v1',
-    'grok': 'https://api.x.ai/v1',
-    'deepseek': 'https://api.deepseek.com/v1',
-    'perplexity': 'https://api.perplexity.ai',
-}
-
-#: Names the rest of the codebase has historically used for a provider.
+#: Names other parts of the codebase have historically used for a provider.
 PROVIDER_ALIASES: Dict[str, str] = {
     'anthropic': 'claude',
     'dalle': 'images',
@@ -420,45 +207,298 @@ PROVIDER_ALIASES: Dict[str, str] = {
     'xai': 'grok',
 }
 
+#: Prefix -> provider, for identifiers newer than the catalogue.
+_PROVIDER_PREFIXES = (
+    ('anthropic.claude', 'bedrock'),
+    ('claude', 'claude'),
+    ('gpt-image', 'images'),
+    ('dall-e', 'images'),
+    ('gpt', 'openai'),
+    ('o1', 'openai'),
+    ('o3', 'openai'),
+    ('o4', 'openai'),
+    ('gemini', 'gemini'),
+    ('grok', 'grok'),
+    ('deepseek', 'deepseek'),
+    ('sonar', 'perplexity'),
+)
+
 
 # ---------------------------------------------------------------------------
-# Configuration overrides
+# Loading
 # ---------------------------------------------------------------------------
 
-_config_cache: Optional[Dict[str, Any]] = None
+@dataclass
+class _Catalogue:
+    providers: Dict[str, Provider]
+    reverse: Dict[str, str]
+    source: str
+    warnings: List[str]
+    mtime: float
 
 
-def _yaml_models() -> Dict[str, Any]:
-    """``models:`` block from config.yaml, read once and cached.
+_lock = threading.RLock()
+_cache: Optional[_Catalogue] = None
 
-    A missing or malformed file is not an error: the catalogue defaults
-    above are always sufficient to run.
-    """
-    global _config_cache
-    if _config_cache is not None:
-        return _config_cache
 
-    _config_cache = {}
-    path = os.environ.get('SKILLPILOT_CONFIG', 'config.yaml')
+def config_path() -> str:
+    return os.environ.get('SKILLPILOT_CONFIG', 'config.yaml')
+
+
+def _mtime(path: str) -> float:
     try:
-        import yaml  # Imported lazily: the registry must import without PyYAML.
+        return os.path.getmtime(path)
+    except OSError:
+        return 0.0
+
+
+def _as_bool(value: Any, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def _as_int(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_price(raw: Any) -> Optional[Tuple[float, float]]:
+    if isinstance(raw, dict):
+        try:
+            return float(raw['input']), float(raw['output'])
+        except (KeyError, TypeError, ValueError):
+            return None
+    if isinstance(raw, (list, tuple)) and len(raw) == 2:
+        try:
+            return float(raw[0]), float(raw[1])
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _parse_model(raw: Any, warnings: List[str], provider_key: str) -> Optional[Model]:
+    if not isinstance(raw, dict):
+        warnings.append(f'{provider_key}: skipped a model entry that is not a mapping.')
+        return None
+    model_id = str(raw.get('id') or '').strip()
+    if not model_id:
+        warnings.append(f'{provider_key}: skipped a model with no id.')
+        return None
+    return Model(
+        id=model_id,
+        label=str(raw.get('label') or model_id).strip(),
+        summary=str(raw.get('summary') or '').strip(),
+        context_tokens=_as_int(raw.get('context_tokens'), 0),
+        max_output_tokens=_as_int(raw.get('max_output_tokens'), 4096),
+        vision=_as_bool(raw.get('vision'), False),
+        sampling=_as_bool(raw.get('sampling'), True),
+        max_completion_tokens=_as_bool(raw.get('max_completion_tokens'), False),
+        legacy=_as_bool(raw.get('legacy'), False),
+        price_per_million=_parse_price(raw.get('price_per_million')),
+    )
+
+
+def _parse_provider(key: str, raw: Any, warnings: List[str]) -> Optional[Provider]:
+    if not isinstance(raw, dict):
+        warnings.append(f'{key}: provider entry is not a mapping; ignored.')
+        return None
+
+    models = [m for m in (_parse_model(m, warnings, key)
+                          for m in (raw.get('models') or [])) if m]
+    if not models:
+        warnings.append(f'{key}: no usable models; provider ignored.')
+        return None
+
+    seen = set()
+    unique = []
+    for model in models:
+        if model.id in seen:
+            warnings.append(f'{key}: duplicate model id {model.id}; kept the first.')
+            continue
+        seen.add(model.id)
+        unique.append(model)
+
+    aliases = {}
+    for old, new in (raw.get('aliases') or {}).items():
+        old, new = str(old).strip(), str(new).strip()
+        if not old or not new:
+            continue
+        if old in seen:
+            warnings.append(f'{key}: alias {old} shadows a live model; ignored.')
+            continue
+        if new not in seen:
+            warnings.append(f'{key}: alias {old} -> {new}, which is not '
+                            'catalogued; ignored.')
+            continue
+        aliases[old] = new
+
+    default = str(raw.get('default_model') or '').strip()
+    if default not in seen:
+        replacement = aliases.get(default) or unique[0].id
+        if default:
+            warnings.append(f'{key}: default_model {default} is not catalogued; '
+                            f'using {replacement}.')
+        default = replacement
+
+    vision_default = str(raw.get('vision_model') or '').strip() or None
+    if vision_default and vision_default not in seen:
+        vision_default = aliases.get(vision_default)
+
+    fallbacks = []
+    for candidate in (raw.get('fallbacks') or []):
+        candidate = str(candidate).strip()
+        candidate = candidate if candidate in seen else aliases.get(candidate, '')
+        if candidate and candidate not in fallbacks:
+            fallbacks.append(candidate)
+
+    driver = str(raw.get('driver') or 'openai_compatible').strip()
+    if driver not in KNOWN_DRIVERS:
+        warnings.append(f'{key}: unknown driver "{driver}"; this build cannot '
+                        f'call it. Known drivers: {", ".join(KNOWN_DRIVERS)}.')
+
+    base_url = str(raw.get('base_url') or '').strip().rstrip('/')
+    if driver == 'openai_compatible' and not base_url:
+        warnings.append(f'{key}: driver openai_compatible needs a base_url.')
+
+    return Provider(
+        key=key,
+        label=str(raw.get('label') or key.title()).strip(),
+        driver=driver,
+        default=default,
+        models=unique,
+        enabled=_as_bool(raw.get('enabled'), True),
+        base_url=base_url,
+        discovery_url=str(raw.get('discovery_url') or '').strip(),
+        env_vars=[str(v).strip() for v in (raw.get('env_vars') or []) if str(v).strip()],
+        aliases=aliases,
+        vision_default=vision_default,
+        fallbacks=fallbacks,
+    )
+
+
+def _build(raw_providers: Dict[str, Any], source: str,
+           warnings: List[str], mtime: float) -> _Catalogue:
+    providers: Dict[str, Provider] = {}
+    for key, raw in (raw_providers or {}).items():
+        key = str(key).strip().lower()
+        if not key:
+            continue
+        provider = _parse_provider(key, raw, warnings)
+        if provider is not None:
+            providers[key] = provider
+
+    reverse: Dict[str, str] = {}
+    for provider in providers.values():
+        for model in provider.models:
+            reverse.setdefault(model.id, provider.key)
+        for old in provider.aliases:
+            reverse.setdefault(old, provider.key)
+
+    return _Catalogue(providers=providers, reverse=reverse, source=source,
+                      warnings=warnings, mtime=mtime)
+
+
+def _read_config_block() -> Tuple[Optional[Dict[str, Any]], List[str]]:
+    """The raw ``ai_models`` mapping from config.yaml, plus any warnings."""
+    path = config_path()
+    warnings: List[str] = []
+    try:
+        import yaml
+    except ImportError:
+        return None, ['PyYAML is not installed; using the built-in catalogue.']
+
+    try:
         with open(path, 'r', encoding='utf-8') as handle:
             loaded = yaml.safe_load(handle) or {}
-        models = loaded.get('models')
-        if isinstance(models, dict):
-            _config_cache = models
     except FileNotFoundError:
-        pass
-    except Exception as exc:  # pragma: no cover - defensive
-        print(f'[model_registry] ignoring unreadable {path}: {exc}')
-    return _config_cache
+        return None, [f'{path} not found; using the built-in catalogue.']
+    except yaml.YAMLError as exc:
+        return None, [f'{path} is not valid YAML ({exc}); '
+                      'using the built-in catalogue.']
+    except OSError as exc:
+        return None, [f'{path} could not be read ({exc}); '
+                      'using the built-in catalogue.']
+
+    block = loaded.get('ai_models')
+    if not isinstance(block, dict) or not block:
+        return None, [f'{path} has no ai_models block; '
+                      'using the built-in catalogue.']
+    return block, warnings
+
+
+def _load() -> _Catalogue:
+    path = config_path()
+    mtime = _mtime(path)
+    block, warnings = _read_config_block()
+    if block is None:
+        catalogue = _build(copy.deepcopy(BOOTSTRAP), 'built-in', warnings, mtime)
+        for line in warnings:
+            print(f'[model_registry] {line}')
+        return catalogue
+
+    catalogue = _build(block, path, warnings, mtime)
+    if not catalogue.providers:
+        warnings.append('No usable providers in ai_models; '
+                        'falling back to the built-in catalogue.')
+        catalogue = _build(copy.deepcopy(BOOTSTRAP), 'built-in', warnings, mtime)
+    for line in warnings:
+        print(f'[model_registry] {line}')
+    return catalogue
+
+
+def _catalogue() -> _Catalogue:
+    """The current catalogue, re-reading config.yaml if it changed on disk.
+
+    The timestamp check is what lets one worker process see a model another
+    worker just saved, and what lets a hand edit take effect without a
+    restart.
+    """
+    global _cache
+    with _lock:
+        if _cache is None or _cache.mtime != _mtime(config_path()):
+            _cache = _load()
+        return _cache
 
 
 def reload_config() -> None:
-    """Drop the cached ``config.yaml`` values (used by the admin UI)."""
-    global _config_cache
-    _config_cache = None
+    """Force a re-read on the next access."""
+    global _cache
+    with _lock:
+        _cache = None
 
+
+def catalogue_status() -> Dict[str, Any]:
+    """Where the catalogue came from and anything wrong with it."""
+    catalogue = _catalogue()
+    return {
+        'source': catalogue.source,
+        'path': os.path.abspath(config_path()),
+        'writable': _is_writable(),
+        'provider_count': len(catalogue.providers),
+        'model_count': sum(len(p.models) for p in catalogue.providers.values()),
+        'warnings': list(catalogue.warnings),
+    }
+
+
+def _is_writable() -> bool:
+    path = config_path()
+    try:
+        if os.path.exists(path):
+            return os.access(path, os.W_OK) and os.access(
+                os.path.dirname(os.path.abspath(path)) or '.', os.W_OK)
+        return os.access(os.path.dirname(os.path.abspath(path)) or '.', os.W_OK)
+    except OSError:
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Reading
+# ---------------------------------------------------------------------------
 
 def _normalise_provider(provider: str) -> str:
     key = (provider or '').strip().lower()
@@ -466,37 +506,24 @@ def _normalise_provider(provider: str) -> str:
 
 
 def get_provider(provider: str) -> Optional[Provider]:
-    """The :class:`Provider` for ``provider``, or ``None`` if unknown."""
-    return PROVIDERS.get(_normalise_provider(provider))
+    return _catalogue().providers.get(_normalise_provider(provider))
 
 
-def list_providers() -> List[str]:
-    return list(PROVIDERS)
+def list_providers(*, include_disabled: bool = True) -> List[str]:
+    return [key for key, spec in _catalogue().providers.items()
+            if include_disabled or spec.enabled]
 
 
 def default_model(provider: str, *, vision: bool = False) -> Optional[str]:
-    """Configured default model for ``provider``.
-
-    ``vision=True`` asks for the model that should handle a request carrying
-    an image, which may differ from the text default.
-    """
+    """Configured default model for ``provider``."""
     spec = get_provider(provider)
     if spec is None:
         return None
 
-    env_name = f'SKILLPILOT_MODEL_{spec.key.upper()}'
-    override = os.environ.get(env_name)
-    if override:
-        return spec.aliases.get(override.strip(), override.strip())
-
-    yaml_block = _yaml_models().get(spec.key) or {}
-    if isinstance(yaml_block, dict):
-        key = 'vision_model' if vision else 'default_model'
-        configured = yaml_block.get(key) or yaml_block.get('default_model')
-        if isinstance(configured, str) and configured.strip():
-            # A deployment sitting on an old config.yaml still lands on a
-            # live model rather than a retired identifier.
-            return spec.aliases.get(configured.strip(), configured.strip())
+    override = os.environ.get(f'SKILLPILOT_MODEL_{spec.key.upper()}')
+    if override and override.strip():
+        wanted = override.strip()
+        return spec.aliases.get(wanted, wanted)
 
     if vision and spec.vision_default:
         return spec.vision_default
@@ -506,9 +533,9 @@ def default_model(provider: str, *, vision: bool = False) -> Optional[str]:
 def get_model(provider: str, model_id: str) -> Optional[Model]:
     """Catalogue entry for ``model_id``, or ``None`` if it is not listed.
 
-    A ``None`` result is not a failure — administrators may point the app at a
-    model newer than this catalogue. Callers fall back to conservative request
-    defaults in that case.
+    ``None`` is not a failure: an administrator may point the platform at a
+    model newer than the catalogue, and callers fall back to conservative
+    request defaults.
     """
     spec = get_provider(provider)
     if spec is None:
@@ -521,13 +548,7 @@ def get_model(provider: str, model_id: str) -> Optional[Model]:
 
 def resolve(provider: str, requested: Optional[str] = None, *,
             vision: bool = False) -> Optional[str]:
-    """The identifier to actually send to ``provider``.
-
-    ``requested`` may be ``None`` (use the default), a current identifier
-    (used as-is), a retired identifier (mapped through ``aliases``), or an
-    identifier this catalogue has never heard of (passed through untouched so
-    a newly released model works without a code change).
-    """
+    """The identifier to actually send to ``provider``."""
     spec = get_provider(provider)
     if spec is None:
         return (requested or '').strip() or None
@@ -536,33 +557,23 @@ def resolve(provider: str, requested: Optional[str] = None, *,
     if not wanted:
         return default_model(provider, vision=vision)
 
-    if wanted in spec.aliases:
-        wanted = spec.aliases[wanted]
+    wanted = spec.aliases.get(wanted, wanted)
 
     entry = get_model(spec.key, wanted)
-    if entry is not None and entry.vision is False and vision:
-        # Requested model cannot see the attached image; use the vision default.
+    if entry is not None and vision and not entry.vision:
         return default_model(spec.key, vision=True) or wanted
     return wanted
 
 
 def available_models(provider: str, *, include_legacy: bool = False) -> List[Dict[str, Any]]:
-    """Catalogue for the admin model picker, newest tier first."""
     spec = get_provider(provider)
     if spec is None:
         return []
-    return [
-        m.as_dict() for m in spec.models
-        if include_legacy or not m.legacy
-    ]
+    return [m.as_dict() for m in spec.models if include_legacy or not m.legacy]
 
 
 def fallback_chain(provider: str, model_id: Optional[str] = None) -> List[str]:
-    """Models to try, in order, starting with ``model_id``.
-
-    Used when a provider rejects a model outright (retired, not enabled for
-    the account, wrong region). Duplicates are removed while keeping order.
-    """
+    """Models to try, in order, starting with ``model_id``."""
     spec = get_provider(provider)
     if spec is None:
         return [model_id] if model_id else []
@@ -574,8 +585,87 @@ def fallback_chain(provider: str, model_id: Optional[str] = None) -> List[str]:
     return chain
 
 
-#: Provider error text that means "this model identifier will never work",
-#: as opposed to a transient failure worth retrying with the same model.
+def provider_for_model(model_id: str, default: str = 'openai') -> str:
+    """Which provider serves ``model_id``."""
+    catalogue = _catalogue()
+    wanted = (model_id or '').strip()
+    if not wanted:
+        return default
+    if wanted in catalogue.reverse:
+        return catalogue.reverse[wanted]
+    if wanted in catalogue.providers:
+        return wanted
+    if wanted in PROVIDER_ALIASES:
+        return PROVIDER_ALIASES[wanted]
+
+    lowered = wanted.lower()
+    for prefix, provider in _PROVIDER_PREFIXES:
+        if lowered.startswith(prefix):
+            return provider
+    return default
+
+
+def price_per_1k(provider: str, model_id: Optional[str]) -> Optional[Dict[str, float]]:
+    """Input/output price per 1,000 tokens, or ``None`` if unpriced."""
+    resolved = resolve(provider, model_id)
+    if not resolved:
+        return None
+    entry = get_model(provider, resolved)
+    if entry is None or entry.price_per_million is None:
+        return None
+    return {'input': entry.price_per_million[0] / 1000.0,
+            'output': entry.price_per_million[1] / 1000.0}
+
+
+def base_url(provider: str) -> Optional[str]:
+    spec = get_provider(provider)
+    return spec.base_url or None if spec else None
+
+
+def provider_option(provider: str, option: str, default: Any = None) -> Any:
+    """Any extra key set on a provider in config.yaml.
+
+    Lets a deployment tune a provider — an output-token cap, an image size —
+    without a code change and without the registry needing to know in advance
+    what the option is called.
+    """
+    path = config_path()
+    try:
+        import yaml
+        with open(path, 'r', encoding='utf-8') as handle:
+            block = (yaml.safe_load(handle) or {}).get('ai_models') or {}
+    except Exception:
+        return default
+    entry = block.get(_normalise_provider(provider))
+    if not isinstance(entry, dict) or option not in entry:
+        return default
+    return entry[option]
+
+
+def output_budget(provider: str, default: int = 8000) -> int:
+    """Largest response to ask ``provider`` for.
+
+    A provider may cap this in config.yaml with ``max_tokens``; the transport
+    then caps again at whatever the chosen model actually accepts.
+    """
+    try:
+        return max(1, int(provider_option(provider, 'max_tokens', default)))
+    except (TypeError, ValueError):
+        return default
+
+
+def discovery_url(provider: str) -> Optional[str]:
+    spec = get_provider(provider)
+    return spec.discovery_url or None if spec else None
+
+
+def providers_with_driver(driver: str) -> List[str]:
+    return [key for key, spec in _catalogue().providers.items()
+            if spec.driver == driver]
+
+
+#: Provider error text meaning "this model identifier will never work", as
+#: opposed to a transient failure worth retrying with the same model.
 _UNAVAILABLE_PATTERNS = (
     r'model[_ ]not[_ ]found',
     r'does not exist',
@@ -592,123 +682,12 @@ _UNAVAILABLE_RE = re.compile('|'.join(_UNAVAILABLE_PATTERNS), re.IGNORECASE)
 
 
 def is_model_unavailable_error(error: Any) -> bool:
-    """True when ``error`` says the model identifier itself is the problem."""
     return bool(_UNAVAILABLE_RE.search(str(error or '')))
-
-
-# ---------------------------------------------------------------------------
-# Pricing
-# ---------------------------------------------------------------------------
-#: Published list price in US dollars per **million** tokens, as
-#: ``(input, output)``. Checked 14 September 2026.
-#:
-#: A model absent from this table is *unpriced*, not free. Callers must
-#: distinguish the two — the cost dashboard used to report $0.00 for every
-#: current model because its table only listed retired ones.
-#:
-#: Caveats worth knowing before trusting a figure:
-#: * Several vendors run promotional rates that expire (Gemini 3.x doubles on
-#:   1 January 2027), and some bill long prompts at a multiple of these rates
-#:   (OpenAI above 272K tokens, Gemini and Grok above 200K).
-#: * DeepSeek bills peak and off-peak rates; the peak figure is used here so
-#:   estimates are never optimistic.
-#: * Cached input is cheaper everywhere and is not modelled, so these numbers
-#:   are an upper bound for a cache-friendly workload.
-PRICE_PER_MILLION: Dict[str, tuple] = {
-    # OpenAI
-    'gpt-6-astra': (10.00, 50.00),
-    'gpt-5.6-sol': (4.00, 20.00),
-    'gpt-5.6-terra': (2.00, 12.00),
-    'gpt-5.6-luna': (0.20, 1.20),
-    # Anthropic
-    'claude-opus-5': (5.00, 25.00),
-    'claude-sonnet-5': (2.00, 10.00),
-    'claude-haiku-4-5-20251001': (1.00, 5.00),
-    # Google
-    'gemini-3.1-pro-preview': (2.00, 12.00),
-    'gemini-3.8-flash': (0.75, 3.75),
-    # xAI
-    'grok-4.6': (2.00, 6.00),
-    # DeepSeek (peak rates)
-    'deepseek-v4-flash': (0.44, 1.32),
-    'deepseek-v4-pro': (1.32, 3.96),
-    # Perplexity
-    'sonar': (0.20, 0.20),
-    'sonar-pro': (3.00, 15.00),
-}
-
-
-def price_per_1k(provider: str, model_id: Optional[str]) -> Optional[Dict[str, float]]:
-    """Input/output price per 1,000 tokens, or ``None`` if unpriced.
-
-    Retired identifiers are resolved to their replacement first, so a session
-    logged a year ago is costed against the model that now serves it.
-    """
-    resolved = resolve(provider, model_id)
-    if not resolved:
-        return None
-    rates = PRICE_PER_MILLION.get(resolved)
-    if rates is None:
-        return None
-    return {'input': rates[0] / 1000.0, 'output': rates[1] / 1000.0}
-
-
-#: Prefix -> provider, for identifiers newer than this catalogue.
-_PROVIDER_PREFIXES = (
-    ('anthropic.claude', 'bedrock'),
-    ('claude', 'claude'),
-    ('gpt-image', 'images'),
-    ('dall-e', 'images'),
-    ('gpt', 'openai'),
-    ('o1', 'openai'),
-    ('o3', 'openai'),
-    ('o4', 'openai'),
-    ('gemini', 'gemini'),
-    ('grok', 'grok'),
-    ('deepseek', 'deepseek'),
-    ('sonar', 'perplexity'),
-)
-
-_reverse_index: Optional[Dict[str, str]] = None
-
-
-def provider_for_model(model_id: str, default: str = 'openai') -> str:
-    """Which provider serves ``model_id``.
-
-    Recognises current identifiers, retired ones (through the alias tables),
-    and — for a model released after this catalogue was written — falls back
-    to the vendor's naming prefix.
-    """
-    global _reverse_index
-    if _reverse_index is None:
-        index: Dict[str, str] = {}
-        for spec in PROVIDERS.values():
-            for model in spec.models:
-                index.setdefault(model.id, spec.key)
-            for old in spec.aliases:
-                index.setdefault(old, spec.key)
-        _reverse_index = index
-
-    wanted = (model_id or '').strip()
-    if not wanted:
-        return default
-    if wanted in _reverse_index:
-        return _reverse_index[wanted]
-    if wanted in PROVIDERS:
-        return wanted
-    if wanted in PROVIDER_ALIASES:
-        return PROVIDER_ALIASES[wanted]
-
-    lowered = wanted.lower()
-    for prefix, provider in _PROVIDER_PREFIXES:
-        if lowered.startswith(prefix):
-            return provider
-    return default
 
 
 def describe(providers: Optional[Iterable[str]] = None,
              *, include_legacy: bool = False) -> Dict[str, Any]:
-    """Whole catalogue as JSON, for the admin UI and the public API."""
+    """Whole catalogue as JSON, for the admin screens and the public API."""
     keys = list(providers) if providers is not None else list_providers()
     out: Dict[str, Any] = {}
     for key in keys:
@@ -717,9 +696,342 @@ def describe(providers: Optional[Iterable[str]] = None,
             continue
         out[spec.key] = {
             'label': spec.label,
+            'driver': spec.driver,
+            'supported': spec.supported,
+            'enabled': spec.enabled,
+            'base_url': spec.base_url,
+            'has_discovery': bool(spec.discovery_url),
             'default_model': default_model(spec.key),
             'vision_model': default_model(spec.key, vision=True),
             'env_vars': list(spec.env_vars),
+            'fallbacks': list(spec.fallbacks),
+            'aliases': dict(spec.aliases),
             'models': available_models(spec.key, include_legacy=include_legacy),
         }
     return out
+
+
+# ---------------------------------------------------------------------------
+# Writing
+# ---------------------------------------------------------------------------
+
+def _yaml_rt():
+    """A round-trip YAML handler that preserves comments, or ``None``."""
+    try:
+        from ruamel.yaml import YAML
+    except ImportError:
+        return None
+    handler = YAML()
+    handler.preserve_quotes = True
+    handler.width = 4096
+    handler.indent(mapping=2, sequence=4, offset=2)
+    return handler
+
+
+def _mutate(apply_change, node: str = 'ai_models') -> None:
+    """Load config.yaml, apply ``apply_change``, validate, write atomically.
+
+    ``node`` selects what ``apply_change`` receives: the ``ai_models`` block
+    by default, or the whole document for edits elsewhere in the file.
+
+    Nothing is written unless the result still parses into at least one
+    working provider — a bad edit can never take the platform down.
+    """
+    path = config_path()
+    if not _is_writable():
+        raise CatalogueError(
+            f'{os.path.abspath(path)} is not writable by the server process. '
+            'Grant write permission, or edit the file directly and the change '
+            'will be picked up automatically.'
+        )
+
+    with _lock:
+        handler = _yaml_rt()
+        if handler is None:
+            raise CatalogueError(
+                'Saving needs the ruamel.yaml package, which preserves the '
+                'comments in config.yaml. Install it with: '
+                'pip install -r requirements.txt'
+            )
+
+        try:
+            with open(path, 'r', encoding='utf-8') as source:
+                document = handler.load(source) or {}
+        except FileNotFoundError:
+            raise CatalogueError(f'{path} does not exist.')
+        except Exception as exc:
+            raise CatalogueError(f'{path} could not be parsed: {exc}')
+
+        if node == 'ai_models':
+            block = document.get('ai_models')
+            if not isinstance(block, dict):
+                raise CatalogueError(
+                    f'{path} has no ai_models block to edit. Restore it from '
+                    'the shipped config.yaml before saving from the admin '
+                    'screen.'
+                )
+            apply_change(block)
+        else:
+            apply_change(document)
+
+        # Validate before writing: parse the edited block exactly as a load
+        # would, and refuse anything that leaves no working provider.
+        import io
+        probe = io.StringIO()
+        handler.dump(document, probe)
+        try:
+            import yaml
+            reparsed = yaml.safe_load(probe.getvalue()) or {}
+        except Exception as exc:
+            raise CatalogueError(f'The edit produced invalid YAML: {exc}')
+
+        warnings: List[str] = []
+        candidate = _build(reparsed.get('ai_models') or {}, path, warnings, 0.0)
+        if not candidate.providers:
+            raise CatalogueError(
+                'The edit would leave no usable provider, so it was not '
+                'saved. ' + (warnings[0] if warnings else '')
+            )
+
+        directory = os.path.dirname(os.path.abspath(path)) or '.'
+        handle, temporary = tempfile.mkstemp(dir=directory, prefix='.config.yaml.')
+        try:
+            with os.fdopen(handle, 'w', encoding='utf-8') as out:
+                handler.dump(document, out)
+            if os.path.exists(path):
+                try:  # Keep the original file mode.
+                    os.chmod(temporary, os.stat(path).st_mode & 0o777)
+                except OSError:
+                    pass
+            os.replace(temporary, path)
+        except Exception as exc:
+            try:
+                os.unlink(temporary)
+            except OSError:
+                pass
+            raise CatalogueError(f'Could not write {path}: {exc}')
+
+        reload_config()
+
+
+def _require_provider(block: Dict[str, Any], provider: str) -> Dict[str, Any]:
+    key = _normalise_provider(provider)
+    entry = block.get(key)
+    if not isinstance(entry, dict):
+        raise CatalogueError(f'There is no provider called "{provider}" in the '
+                             'catalogue.')
+    return entry
+
+
+def _validate_model_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    model_id = str(payload.get('id') or '').strip()
+    if not model_id:
+        raise CatalogueError('A model id is required.')
+    if not _ID_PATTERN.match(model_id):
+        raise CatalogueError(
+            f'"{model_id}" is not a valid model id. Use the identifier exactly '
+            'as the provider documents it: letters, digits and . _ - : + /'
+        )
+
+    cleaned: Dict[str, Any] = {
+        'id': model_id,
+        'label': str(payload.get('label') or model_id).strip()[:120],
+    }
+    summary = str(payload.get('summary') or '').strip()[:300]
+    if summary:
+        cleaned['summary'] = summary
+
+    context_tokens = _as_int(payload.get('context_tokens'), 0)
+    if context_tokens > 0:
+        cleaned['context_tokens'] = context_tokens
+
+    max_output = _as_int(payload.get('max_output_tokens'), 4096)
+    cleaned['max_output_tokens'] = max(1, min(max_output, 1_000_000))
+    cleaned['vision'] = _as_bool(payload.get('vision'), False)
+    cleaned['sampling'] = _as_bool(payload.get('sampling'), True)
+    if _as_bool(payload.get('max_completion_tokens'), False):
+        cleaned['max_completion_tokens'] = True
+    if _as_bool(payload.get('legacy'), False):
+        cleaned['legacy'] = True
+
+    price = _parse_price(payload.get('price_per_million'))
+    if price:
+        cleaned['price_per_million'] = {'input': price[0], 'output': price[1]}
+    return cleaned
+
+
+def save_model(provider: str, payload: Dict[str, Any], *,
+               make_default: bool = False) -> Dict[str, Any]:
+    """Add a model, or update it if the id is already catalogued.
+
+    ``make_default`` also points the provider's ``default_model`` at it, which
+    is what the admin screen does once a test call has succeeded.
+
+    Capabilities the caller leaves out are inherited from the provider's
+    current default model. That matters: a model added straight from the
+    Discover list carries only an id, and guessing ``sampling: true`` for a
+    provider whose models reject ``temperature`` would turn every request
+    into a 400. Siblings from one vendor share a request shape far more often
+    than not, so the current default is the right thing to copy.
+    """
+    inherited = dict(payload)
+    template = get_model(provider, default_model(provider) or '')
+    if template is not None:
+        for attribute in ('vision', 'sampling', 'max_completion_tokens',
+                          'max_output_tokens', 'context_tokens'):
+            if inherited.get(attribute) in (None, ''):
+                inherited[attribute] = getattr(template, attribute)
+
+    cleaned = _validate_model_payload(inherited)
+
+    def change(block):
+        entry = _require_provider(block, provider)
+        models = entry.setdefault('models', [])
+        for index, existing in enumerate(models):
+            if isinstance(existing, dict) and str(existing.get('id')) == cleaned['id']:
+                models[index] = cleaned
+                break
+        else:
+            models.append(cleaned)
+
+        # A previously retired id being added back must lose its alias, or it
+        # would be mapped away from itself on the next request.
+        aliases = entry.get('aliases')
+        if isinstance(aliases, dict) and cleaned['id'] in aliases:
+            del aliases[cleaned['id']]
+
+        if make_default:
+            entry['default_model'] = cleaned['id']
+
+    _mutate(change)
+    return cleaned
+
+
+def delete_model(provider: str, model_id: str, *,
+                 alias_to: Optional[str] = None) -> None:
+    """Remove a model from the menus.
+
+    ``alias_to`` records it as an alias of a model that is still current, so
+    anything already storing the old id keeps working. This is what to do
+    when a vendor retires a model; deleting outright is only right for an
+    entry added in error.
+    """
+    model_id = str(model_id or '').strip()
+    if not model_id:
+        raise CatalogueError('A model id is required.')
+
+    def change(block):
+        entry = _require_provider(block, provider)
+        models = entry.get('models') or []
+        remaining = [m for m in models
+                     if not (isinstance(m, dict) and str(m.get('id')) == model_id)]
+        if len(remaining) == len(models):
+            raise CatalogueError(f'{provider} has no model called "{model_id}".')
+        if not remaining:
+            raise CatalogueError(
+                f'"{model_id}" is the only model left for {provider}. Add a '
+                'replacement before removing it, or disable the provider.'
+            )
+        entry['models'] = remaining
+
+        # Who takes over: the caller's choice, else the current default, else
+        # the first surviving entry in the configured fallback chain — which
+        # is the deployment's own stated preference — and only then whatever
+        # is left.
+        surviving = [str(m.get('id')) for m in remaining]
+        replacement = alias_to or str(entry.get('default_model') or '')
+        if replacement == model_id or replacement not in surviving:
+            chain = [str(f) for f in (entry.get('fallbacks') or [])]
+            replacement = next((f for f in chain if f in surviving), surviving[0])
+        if replacement:
+            entry.setdefault('aliases', {})[model_id] = replacement
+
+        if str(entry.get('default_model') or '') == model_id:
+            entry['default_model'] = replacement or str(remaining[0].get('id'))
+        if str(entry.get('vision_model') or '') == model_id:
+            entry['vision_model'] = replacement or str(remaining[0].get('id'))
+        entry['fallbacks'] = [f for f in (entry.get('fallbacks') or [])
+                              if str(f) != model_id] or [entry['default_model']]
+
+    _mutate(change)
+
+
+def set_default_model(provider: str, model_id: str, *,
+                      vision: bool = False) -> None:
+    """Point a provider's default (or vision default) at a catalogued model."""
+    model_id = str(model_id or '').strip()
+
+    def change(block):
+        entry = _require_provider(block, provider)
+        ids = {str(m.get('id')) for m in (entry.get('models') or [])
+               if isinstance(m, dict)}
+        if model_id not in ids:
+            raise CatalogueError(
+                f'"{model_id}" is not in {provider}\'s catalogue. Add and test '
+                'it first.'
+            )
+        entry['vision_model' if vision else 'default_model'] = model_id
+
+    _mutate(change)
+
+
+def set_provider_enabled(provider: str, enabled: bool) -> None:
+    """Show or hide a whole provider."""
+    def change(block):
+        _require_provider(block, provider)['enabled'] = bool(enabled)
+
+    _mutate(change)
+
+
+def get_app_setting(key: str, default: Any = None) -> Any:
+    """A value from the top-level ``app:`` block of config.yaml."""
+    path = config_path()
+    try:
+        import yaml
+        with open(path, 'r', encoding='utf-8') as handle:
+            block = (yaml.safe_load(handle) or {}).get('app') or {}
+    except Exception:
+        return default
+    return block.get(key, default)
+
+
+def set_app_setting(key: str, value: Any) -> None:
+    """Write a value into the ``app:`` block, comments preserved.
+
+    Keeps settings an administrator can change in the same file as the model
+    catalogue, rather than splitting them between a config file and a
+    database table.
+    """
+    def change(document):
+        block = document.get('app')
+        if not isinstance(block, dict):
+            raise CatalogueError(f'{config_path()} has no app: block to edit.')
+        block[key] = value
+
+    _mutate(change, node='app')
+
+
+def __getattr__(name: str) -> Any:
+    """Serve the historical module-level tables from the live catalogue.
+
+    ``PROVIDERS``, ``PRICE_PER_MILLION`` and ``OPENAI_COMPATIBLE_BASE_URLS``
+    were plain dicts before the catalogue moved into config.yaml. They are
+    still read in a few places and in the tests, so they are computed on
+    access rather than frozen at import time.
+    """
+    if name == 'PROVIDERS':
+        return dict(_catalogue().providers)
+    if name == 'PRICE_PER_MILLION':
+        return {
+            model.id: model.price_per_million
+            for provider in _catalogue().providers.values()
+            for model in provider.models
+            if model.price_per_million is not None
+        }
+    if name == 'OPENAI_COMPATIBLE_BASE_URLS':
+        return {
+            key: spec.base_url
+            for key, spec in _catalogue().providers.items()
+            if spec.driver == 'openai_compatible' and spec.base_url
+        }
+    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
