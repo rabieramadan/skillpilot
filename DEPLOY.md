@@ -199,6 +199,29 @@ accounts you do not need from Admin → Users.
 
 ---
 
+## If students say they enrolled but cannot open the course
+
+Enrolling used to record the enrolment as *pending*, and nothing in the
+platform could move it on — the approval screens were removed when
+enrolments became automatic, and the only remaining path to "approved" is
+payment verification. Those students were listed as enrolled, saw
+"No Classes Yet" under Enrolled Courses, and were refused at the course
+itself.
+
+That is fixed: a course with no payment and registration open is usable the
+moment a student enrols. Anyone stuck from before is released by:
+
+```
+.venv/bin/python -m migrations.release_stranded_enrolments             # report only
+.venv/bin/python -m migrations.release_stranded_enrolments --apply     # release them
+```
+
+Run it once after upgrading. Without `--apply` it only prints who is
+affected. It touches nothing else: enrolments on paid courses still wait for
+payment verification, and nothing is deleted. Running it twice is harmless.
+
+---
+
 ## Verifying the AI providers
 
 On startup the server prints a provider status block:
