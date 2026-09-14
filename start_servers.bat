@@ -8,10 +8,9 @@ echo   SkillPilot LMS - Production Startup
 echo ============================================
 echo.
 
-REM Set environment variables
+REM Configuration is read from the .env file in the project directory.
+REM Do not put DATABASE_URL or SESSION_SECRET in this script.
 set FLASK_ENV=production
-set DATABASE_URL=postgresql://user:password@localhost:5432/skillpilot
-set SESSION_SECRET=your-secure-session-secret-here-change-this
 
 REM Change to project directory
 cd /d C:\SkillPilot
@@ -26,16 +25,16 @@ echo Starting Waitress instances...
 echo.
 
 REM Start 4 Waitress workers on different ports
-start "SkillPilot-Worker-1" cmd /c "python waitress_config.py --port 5001 --threads 8"
+start "SkillPilot-Worker-1" cmd /c "python serve.py --port 5001 --threads 8"
 timeout /t 2 /nobreak > nul
 
-start "SkillPilot-Worker-2" cmd /c "python waitress_config.py --port 5002 --threads 8"
+start "SkillPilot-Worker-2" cmd /c "python serve.py --port 5002 --threads 8"
 timeout /t 2 /nobreak > nul
 
-start "SkillPilot-Worker-3" cmd /c "python waitress_config.py --port 5003 --threads 8"
+start "SkillPilot-Worker-3" cmd /c "python serve.py --port 5003 --threads 8"
 timeout /t 2 /nobreak > nul
 
-start "SkillPilot-Worker-4" cmd /c "python waitress_config.py --port 5004 --threads 8"
+start "SkillPilot-Worker-4" cmd /c "python serve.py --port 5004 --threads 8"
 timeout /t 2 /nobreak > nul
 
 echo.

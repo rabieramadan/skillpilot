@@ -26,7 +26,7 @@
 1. Run > Edit Configurations
 2. Click + > Python
 3. Name: "SkillPilot Server"
-4. Script path: `run_server.py`
+4. Script path: `run.py`
 5. Environment variables:
    ```
    DATABASE_URL=postgresql://user:pass@localhost:5432/skillpilot
@@ -41,12 +41,12 @@
 ## Run Configurations
 
 ### Server (Development)
-- **Script**: `run_server.py`
+- **Script**: `run.py`
 - **Environment**: `FLASK_ENV=development`
 - **Runs on**: http://localhost:5000
 
 ### Server (Production)
-- **Script**: `run_server.py`
+- **Script**: `run.py`
 - **Environment**: `FLASK_ENV=production`
 - **Uses**: Waitress with multiple threads
 
@@ -77,7 +77,7 @@
 ## Debugging in PyCharm
 
 1. Set breakpoints by clicking in the gutter
-2. Right-click `run_server.py` > Debug
+2. Right-click `run.py` > Debug
 3. Server starts in debug mode with breakpoints enabled
 
 ---
@@ -106,5 +106,5 @@ PyCharm Professional has built-in database tools:
 
 ### Deploy to production:
 1. Set `FLASK_ENV=production`
-2. Run `run_server.py`
+2. Run `run.py`
 3. Configure nginx reverse proxy

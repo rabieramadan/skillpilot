@@ -19,7 +19,7 @@ if %errorlevel% neq 0 (
 )
 
 set PYTHON_PATH=C:\SkillPilot\venv\Scripts\python.exe
-set SCRIPT_PATH=C:\SkillPilot\waitress_config.py
+set SCRIPT_PATH=C:\SkillPilot\serve.py
 set PROJECT_DIR=C:\SkillPilot
 
 REM Install 4 worker services

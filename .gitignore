@@ -24,6 +24,10 @@ attendance.json
 ethics_assessments.json
 exports/
 uploads/
+course_files/
+exam_data/
+certificates/
+server.log
 instance/
 *.db
 *.sqlite3
