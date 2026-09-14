@@ -1043,15 +1043,20 @@ class ApiCredential(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Supported providers with their display names and env var names
+    # Descriptions deliberately name model families rather than specific
+    # versions: the version list lives in app/services/model_registry.py and
+    # changes far more often than this table.
     PROVIDERS = {
-        'openai': {'name': 'OpenAI', 'env_var': 'OPENAI_API_KEY', 'description': 'GPT-5, GPT-4.1, DALL-E'},
-        'claude': {'name': 'Anthropic Claude', 'env_var': 'CLAUDE_API_KEY', 'description': 'Claude Sonnet 4.5, Opus 4'},
-        'gemini': {'name': 'Google Gemini', 'env_var': 'GEMINI_API_KEY', 'description': 'Gemini 2.5 Pro / Flash'},
-        'perplexity': {'name': 'Perplexity', 'env_var': 'PERPLEXITY_API_KEY', 'description': 'Research AI (Sonar Pro)'},
-        'grok': {'name': 'xAI Grok', 'env_var': 'GROK_API_KEY', 'description': 'Grok 4 / Grok 3'},
-        'deepseek': {'name': 'DeepSeek', 'env_var': 'DEEPSEEK_API_KEY', 'description': 'DeepSeek V3 / R1'},
+        'openai': {'name': 'OpenAI', 'env_var': 'OPENAI_API_KEY', 'description': 'GPT chat and image models'},
+        'claude': {'name': 'Anthropic Claude', 'env_var': 'CLAUDE_API_KEY', 'description': 'Claude Opus / Sonnet / Haiku'},
+        'gemini': {'name': 'Google Gemini', 'env_var': 'GEMINI_API_KEY', 'description': 'Gemini Pro / Flash'},
+        'perplexity': {'name': 'Perplexity', 'env_var': 'PERPLEXITY_API_KEY', 'description': 'Sonar, answers grounded in live search'},
+        'grok': {'name': 'xAI Grok', 'env_var': 'GROK_API_KEY', 'description': 'Grok chat models'},
+        'deepseek': {'name': 'DeepSeek', 'env_var': 'DEEPSEEK_API_KEY', 'description': 'DeepSeek chat and reasoning models'},
+        # Image generation is billed against the OpenAI key.
+        'images': {'name': 'Image generation', 'env_var': 'OPENAI_API_KEY', 'description': 'GPT Image (replaces DALL-E)'},
         'heygen': {'name': 'HeyGen', 'env_var': 'HEYGEN_API_KEY', 'description': 'AI avatar video generation'},
-        'bedrock': {'name': 'AWS Bedrock', 'env_var': 'BEDROCK_API_KEY', 'description': 'Llama / Mistral / Nova (format: access_key|secret_key|region)'},
+        'bedrock': {'name': 'AWS Bedrock', 'env_var': 'BEDROCK_API_KEY', 'description': 'Claude and open models on AWS (format: access_key|secret_key|region)'},
         'paypal': {'name': 'PayPal', 'env_var': 'PAYPAL_CLIENT_ID', 'description': 'Payments (format: client_id|client_secret|mode[sandbox|live])'},
     }
     

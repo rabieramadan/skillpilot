@@ -9,6 +9,12 @@ import re
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
+from app.services.ai_transport import extract_json
+
+#: How much source text to send. Well under the smallest context window in the
+#: catalogue, while still covering a full lecture or chapter.
+MAX_SOURCE_CHARS = 60_000
+
 
 class QuestionGenerator:
     """Generate exam and survey questions from uploaded content using AI"""
@@ -91,7 +97,10 @@ class QuestionGenerator:
         if not content or len(content.strip()) < 50:
             return {'success': False, 'error': 'Content too short for question generation'}
         
-        content_preview = content[:8000]
+        # Current models have context windows measured in hundreds of
+        # thousands of tokens. The old 8,000-character cut discarded most of a
+        # lecture PDF, so questions were generated from the first few pages.
+        content_preview = content[:MAX_SOURCE_CHARS]
         
         prompt = self._build_generation_prompt(
             content_preview,
@@ -169,14 +178,39 @@ class QuestionGenerator:
         
         topic_str = f" about {topic}" if topic else ""
         
-        prompt = f"""You are an expert educational content creator. Generate exam questions{topic_str} based on the following content.
+        prompt = f"""You write assessment items for a university course. Write
+exam questions{topic_str} from the source material below.
 
-REQUIREMENTS:
-1. Generate {num_true_false} True/False questions
-2. Generate {num_mcq} Multiple Choice questions (4 options each, labeled A, B, C, D)
-3. Difficulty level: {difficulty}
-4. ALL questions must be in BOTH English AND Arabic
-5. Provide correct answers for each question
+WHAT TO PRODUCE:
+1. Exactly {num_true_false} true/false questions
+2. Exactly {num_mcq} multiple-choice questions, four options each (A, B, C, D)
+3. Difficulty: {difficulty}
+4. Every question in both English and Arabic
+5. A correct answer for every question
+
+RULES THAT DECIDE WHETHER THESE QUESTIONS ARE USABLE:
+- Every question must be answerable from the source material alone, and the
+  correct answer must be verifiable by pointing at a specific passage in it.
+  Do not draw on outside knowledge and do not invent facts, figures or names
+  that the material does not contain.
+- Test understanding, not recall of a sentence's wording. A student who
+  understood the material should answer correctly; one who only skimmed it
+  should not.
+- Distractors must be plausible to someone who half-learned the material —
+  a common misconception, a neighbouring concept, a plausible wrong number.
+  Never use "all of the above", "none of the above", joke options, or options
+  that are obviously the wrong length or grammatical shape.
+- Spread the correct answers across A, B, C and D roughly evenly. Do not put
+  most of them in one position.
+- Roughly half the true/false statements should be false, and the false ones
+  must be plausible.
+- Each question must stand alone. Do not write "as mentioned above", do not
+  refer to figure or page numbers, and do not repeat a question you have
+  already asked in different words.
+- The Arabic must be a natural translation that a native speaker would write,
+  not a word-for-word transliteration. Keep technical terms, code and
+  mathematical notation in their original form.
+- Keep each question under 40 words and each option under 15.
 
 OUTPUT FORMAT (JSON):
 Return a valid JSON array with this exact structure:
@@ -204,32 +238,28 @@ CONTENT TO GENERATE QUESTIONS FROM:
 {content}
 ---
 
-Generate exactly {num_true_false} true/false questions and {num_mcq} multiple choice questions.
-Return ONLY the JSON array, no other text."""
+Return exactly {num_true_false} true/false and {num_mcq} multiple-choice
+questions as a JSON array, and nothing else — no prose before or after it, no
+code fence, no explanation."""
         
         return prompt
     
     def _parse_ai_response(self, response_text: str) -> List[Dict[str, Any]]:
         """Parse the AI response and extract questions"""
         
-        try:
-            json_match = re.search(r'\[[\s\S]*\]', response_text)
-            if json_match:
-                questions = json.loads(json_match.group())
-                
-                validated_questions = []
-                for q in questions:
-                    q = self._sanitize_question(q)
-                    if self._validate_question(q):
-                        validated_questions.append(q)
-                
-                return validated_questions
-        except json.JSONDecodeError as e:
-            print(f"JSON parsing error: {e}")
-        except Exception as e:
-            print(f"Response parsing error: {e}")
-        
-        return []
+        questions = extract_json(response_text, expect='array')
+        if questions is None:
+            print('Question generator: the model did not return a JSON array.')
+            return []
+
+        validated_questions = []
+        for question in questions:
+            if not isinstance(question, dict):
+                continue
+            question = self._sanitize_question(question)
+            if self._validate_question(question):
+                validated_questions.append(question)
+        return validated_questions
     
     def _sanitize_question(self, question: Dict[str, Any]) -> Dict[str, Any]:
         """Sanitize question data - fix common AI formatting issues.

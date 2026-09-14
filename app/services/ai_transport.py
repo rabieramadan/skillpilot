@@ -32,6 +32,7 @@ import json
 import mimetypes
 import os
 import random
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -50,6 +51,7 @@ __all__ = [
     'chat_anthropic',
     'chat_gemini',
     'chat_openai_compatible',
+    'extract_json',
     'generate_image',
 ]
 
@@ -282,6 +284,76 @@ def _text_attachment_block(attachments: Iterable[Attachment]) -> str:
         'and cite the file name when you rely on one.'
         + ''.join(blocks)
     )
+
+
+def extract_json(raw: str, expect: str = 'any') -> Optional[Any]:
+    """Pull a JSON value out of a model reply.
+
+    Models wrap JSON in code fences or add a sentence of preamble even when
+    told not to. Each caller used to carry its own regex for this, and they
+    disagreed: some only matched ``{...}``, some only ``[...]``, and the
+    greedy ones swallowed trailing prose into an unparseable string.
+
+    ``expect`` is ``'object'``, ``'array'`` or ``'any'``. Returns ``None``
+    when nothing of the requested shape parses.
+    """
+    text = (raw or '').strip()
+    if not text:
+        return None
+
+    fenced = re.match(r'^```(?:json|JSON)?\s*(.*?)\s*```$', text, re.DOTALL)
+    if fenced:
+        text = fenced.group(1).strip()
+
+    def _matches(value: Any) -> bool:
+        if expect == 'object':
+            return isinstance(value, dict)
+        if expect == 'array':
+            return isinstance(value, list)
+        return True
+
+    try:
+        value = json.loads(text)
+        if _matches(value):
+            return value
+    except json.JSONDecodeError:
+        pass
+
+    # Fall back to the first balanced object or array in the text, so a
+    # sentence of preamble or a trailing note does not lose the payload.
+    openers = {'object': '{', 'array': '[', 'any': '{['}[expect]
+    for start, char in enumerate(text):
+        if char not in openers:
+            continue
+        closer = '}' if char == '{' else ']'
+        depth = 0
+        in_string = False
+        escaped = False
+        for end in range(start, len(text)):
+            current = text[end]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif current == '\\':
+                    escaped = True
+                elif current == '"':
+                    in_string = False
+                continue
+            if current == '"':
+                in_string = True
+            elif current == char:
+                depth += 1
+            elif current == closer:
+                depth -= 1
+                if depth == 0:
+                    try:
+                        value = json.loads(text[start:end + 1])
+                    except json.JSONDecodeError:
+                        break
+                    if _matches(value):
+                        return value
+                    break
+    return None
 
 
 def _normalise_history(history: Optional[Sequence[Dict[str, Any]]],

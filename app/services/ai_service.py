@@ -157,6 +157,7 @@ class AIService:
                 'general guidance above:\n' + system_prompt.strip()
             )
         return '\n\n'.join(parts)
+
     @staticmethod
     def build_tutor_system_prompt(course_context: Dict[str, Any],
                                   learner_context: Dict[str, Any],

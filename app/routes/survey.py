@@ -7,11 +7,10 @@ from datetime import datetime
 from typing import Optional
 import json
 import os
-import re
 from pathlib import Path
 from functools import wraps
 
-from app.services.ai_transport import AIError, chat_openai_compatible
+from app.services.ai_transport import AIError, chat_openai_compatible, extract_json
 
 survey_bp = Blueprint('survey', __name__, url_prefix='/api/survey')
 
@@ -158,7 +157,7 @@ fence — in exactly this shape:
         print(f'[survey] could not generate exam questions: {exc.message}')
         return []
 
-    questions = _parse_question_json(result.text)
+    questions = extract_json(result.text, expect='array')
     if questions is None:
         print('[survey] the model did not return a usable JSON array.')
         return []
@@ -181,19 +180,6 @@ fence — in exactly this shape:
             'correct_answer': answer,
         })
     return valid[:count]
-
-
-def _parse_question_json(raw: str):
-    """Read a JSON array from a model reply, tolerating a code fence."""
-    text = (raw or '').strip()
-    fenced = re.match(r'^```(?:json)?\s*(.*?)\s*```$', text, re.DOTALL)
-    if fenced:
-        text = fenced.group(1).strip()
-    try:
-        value = json.loads(text)
-    except json.JSONDecodeError:
-        return None
-    return value if isinstance(value, list) else None
 
 
 def get_hybrid_exit_exam_questions(api_key: Optional[str] = None) -> dict:

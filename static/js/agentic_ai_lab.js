@@ -268,10 +268,10 @@ function displayNodeProperties(nodeId) {
             <div style="margin-bottom: 15px;">
                 <label style="display: block; font-size: 12px; margin-bottom: 5px;">Model</label>
                 <select id="prop_model" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
-                    <option value="gpt-4o" ${properties.model === 'gpt-4o' ? 'selected' : ''}>GPT-4o</option>
-                    <option value="gpt-3.5-turbo" ${properties.model === 'gpt-3.5-turbo' ? 'selected' : ''}>GPT-3.5 Turbo</option>
-                    <option value="claude-3-5-sonnet-20241022" ${properties.model === 'claude-3-5-sonnet-20241022' ? 'selected' : ''}>Claude 3.5 Sonnet</option>
-                    <option value="gemini-1.5-pro" ${properties.model === 'gemini-1.5-pro' ? 'selected' : ''}>Gemini 1.5 Pro</option>
+                    <option value="gpt-5.6-terra" ${properties.model === 'gpt-5.6-terra' ? 'selected' : ''}>GPT-5.6 Terra</option>
+                    <option value="gpt-5.6-luna" ${properties.model === 'gpt-5.6-luna' ? 'selected' : ''}>GPT-5.6 Luna (fast)</option>
+                    <option value="claude-sonnet-5" ${properties.model === 'claude-sonnet-5' ? 'selected' : ''}>Claude Sonnet 5</option>
+                    <option value="gemini-3.8-flash" ${properties.model === 'gemini-3.8-flash' ? 'selected' : ''}>Gemini 3.8 Flash</option>
                 </select>
             </div>
             <div style="margin-bottom: 15px;">

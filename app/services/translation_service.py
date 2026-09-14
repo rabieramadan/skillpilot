@@ -14,10 +14,9 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from typing import Any, Dict, List, Optional, Sequence
 
-from app.services.ai_transport import AIError, chat_openai_compatible
+from app.services.ai_transport import AIError, chat_openai_compatible, extract_json
 
 LANGUAGE_NAMES = {'en': 'English', 'ar': 'Arabic'}
 
@@ -169,26 +168,13 @@ def batch_translate(texts: Sequence[str], source_lang: str = 'en',
     if raw is None:
         return items
 
-    parsed = _parse_json_array(raw)
+    parsed = extract_json(raw, expect='array')
     if parsed is None or len(parsed) != len(items):
         print(f'[translation] expected {len(items)} translations, '
               f'got {len(parsed) if parsed is not None else "unparseable output"}; '
               'leaving the batch untranslated.')
         return items
     return [str(value) for value in parsed]
-
-
-def _parse_json_array(raw: str) -> Optional[List[Any]]:
-    """Read a JSON array out of a model reply, tolerating a code fence."""
-    text = raw.strip()
-    fenced = re.match(r'^```(?:json)?\s*(.*?)\s*```$', text, re.DOTALL)
-    if fenced:
-        text = fenced.group(1).strip()
-    try:
-        value = json.loads(text)
-    except json.JSONDecodeError:
-        return None
-    return value if isinstance(value, list) else None
 
 
 def auto_translate_model_fields(model_instance, fields_mapping: Dict[str, str]):

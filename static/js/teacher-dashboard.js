@@ -325,7 +325,7 @@ class TeacherDashboard {
     // ------------------------------------------------------------------
     async runClassAIAnalysis() {
         if (!this.currentCourse) return;
-        const model = document.getElementById('classAnalysisModel')?.value || 'gpt-4o-mini';
+        const model = document.getElementById('classAnalysisModel')?.value || '';
         const language = document.getElementById('classAnalysisLanguage')?.value || 'English';
         const status = document.getElementById('classAnalysisStatus');
         const out = document.getElementById('classAnalysisResult');

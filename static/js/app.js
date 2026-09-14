@@ -2125,15 +2125,26 @@ Once your slides are generated, type one of these commands:
     }
 
     calculateCost(model, inputTokens, outputTokens) {
-        // Simplified cost calculation (implement properly with API call)
+        // Rough per-1K blended estimate for the live counter only. The rates
+        // it used before named models that were retired in 2025-2026, and it
+        // charged input and output at the same rate. Authoritative costing
+        // lives server-side in app/routes/analytics.py, which reads the model
+        // registry and prices input and output separately.
         const rates = {
-            'gpt-4-turbo-preview': 0.01,
-            'gpt-4': 0.03,
-            'gpt-3.5-turbo': 0.0005,
-            'claude-3-5-sonnet-20241022': 0.003,
-            'gemini-1.5-pro': 0.00125
+            'gpt-6-astra': 0.020,
+            'gpt-5.6-sol': 0.008,
+            'gpt-5.6-terra': 0.005,
+            'gpt-5.6-luna': 0.0005,
+            'claude-opus-5': 0.010,
+            'claude-sonnet-5': 0.004,
+            'claude-haiku-4-5-20251001': 0.002,
+            'gemini-3.1-pro-preview': 0.005,
+            'gemini-3.8-flash': 0.0015,
+            'grok-4.6': 0.003,
+            'deepseek-v4-flash': 0.0007,
+            'sonar-pro': 0.006
         };
-        const rate = rates[model] || 0.001;
+        const rate = rates[model] || 0.002;
         return ((inputTokens + outputTokens) / 1000) * rate;
     }
 

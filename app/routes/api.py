@@ -41,6 +41,33 @@ def allowed_file(filename):
         filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+@api_bp.route('/models/catalogue', methods=['GET'])
+def model_catalogue():
+    """Every model the platform can call, with which providers have a key.
+
+    Lets the frontend build model pickers from live data instead of
+    hardcoding option lists that go stale whenever a provider retires a
+    model. No keys or key fragments are returned — only whether one is set.
+    """
+    from app.services import model_registry as registry
+    from app.utils.api_key_helper import get_api_key
+
+    catalogue = registry.describe()
+    for provider, details in catalogue.items():
+        details.pop('env_vars', None)
+        try:
+            details['configured'] = bool(get_api_key(provider))
+        except Exception:
+            # The key store needs an app context and a database; an
+            # unconfigured deployment should still get the catalogue.
+            details['configured'] = False
+
+    return jsonify({
+        'providers': catalogue,
+        'reviewed': '2026-09-14',
+    })
+
+
 @api_bp.route('/heygen/status/<video_id>', methods=['GET'])
 def heygen_status(video_id):
     """Poll HeyGen for video render status."""

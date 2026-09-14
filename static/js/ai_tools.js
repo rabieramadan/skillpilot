@@ -736,7 +736,9 @@
                 return;
             }
 
-            const model = document.getElementById('aiToolsModelSelect')?.value || 'gpt-4.1';
+            // Empty means "use the server's configured default" — better than
+            // pinning a model name here that will be retired.
+            const model = document.getElementById('aiToolsModelSelect')?.value || '';
             const language = document.getElementById('aiToolsLanguageSelect')?.value || 'English';
 
             const config = TOOL_CONFIGS[currentTool];

@@ -1,29 +1,62 @@
-anthropic>=0.75.0
-boto3>=1.42.18
-certifi>=2025.11.12
-cryptography>=46.0.3
-defusedxml>=0.7.1
-email-validator>=2.3.0
+# SkillPilot runtime dependencies. Python 3.11+.
+#
+# Install:  pip install -r requirements.txt
+#
+# Minimums, not pins: the AI SDKs ship new model support in patch releases, so
+# an upper bound here is what leaves a deployment unable to reach a model.
+
+# --- Web framework ---------------------------------------------------------
 flask>=3.1.2
+werkzeug>=3.1.4
 flask-cors>=6.0.2
 flask-login>=0.6.3
 flask-migrate>=4.1.0
 flask-sqlalchemy>=3.1.1
-google-generativeai>=0.8.6
-gunicorn>=23.0.0
-openai>=2.14.0
-openpyxl>=3.1.5
-pillow>=12.0.0
+sqlalchemy>=2.0.36
+
+# --- Database --------------------------------------------------------------
 psycopg2-binary>=2.9.11
-pytest>=9.0.3
+
+# --- Server ----------------------------------------------------------------
+waitress>=3.0.2          # serve.py, Windows deployment
+gunicorn>=23.0.0         # Linux deployment
+
+# --- Configuration ---------------------------------------------------------
 python-dotenv>=1.2.1
 pyyaml>=6.0.3
-qrcode>=8.2
-reportlab>=4.4.7
-requests>=2.32.5
-signxml>=4.4.0
-urllib3>=2.6.2
-waitress>=3.0.2
-werkzeug>=3.1.4
+
+# --- AI providers ----------------------------------------------------------
+anthropic>=1.5.0         # Claude
+google-genai>=2.23.0     # Gemini. Replaces google-generativeai, which reached
+                         # end of life in November 2025 and cannot reach the
+                         # Gemini 3 family at all.
+boto3>=1.42.18           # Optional: AWS Bedrock providers
+# OpenAI, xAI Grok, DeepSeek and Perplexity are reached over their shared
+# OpenAI-compatible HTTP API via `requests`; no extra SDK is needed.
+
+# --- Document handling -----------------------------------------------------
+pdfplumber>=0.11.4       # Primary PDF text extraction
+pypdf>=5.1.0             # PDF fallback; successor to the abandoned PyPDF2
+python-docx>=1.1.2       # .docx reading
+python-pptx>=1.0.2       # .pptx reading and generation
+openpyxl>=3.1.5          # .xlsx reading
+reportlab>=4.4.7         # Certificate and report PDFs
+pillow>=12.0.0           # Image handling
+qrcode>=8.2              # Certificate verification codes
+
+# --- Arabic text rendering (right-to-left PDFs) ----------------------------
 arabic-reshaper>=3.0.0
-python-bidi==0.4.2
+python-bidi==0.4.2       # Pinned: 0.5 changed the API used in PDF generation
+
+# --- Security --------------------------------------------------------------
+cryptography>=46.0.3     # API key encryption at rest
+defusedxml>=0.7.1        # Safe XML parsing for SAML and SCORM
+signxml>=4.4.0           # SAML signature verification
+lxml>=5.3.0              # Required by signxml
+email-validator>=2.3.0
+certifi>=2025.11.12
+urllib3>=2.6.2
+requests>=2.32.5
+
+# --- Tests -----------------------------------------------------------------
+pytest>=9.0.3

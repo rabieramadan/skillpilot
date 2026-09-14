@@ -4,13 +4,27 @@ from PIL import Image
 import openpyxl
 from typing import Dict, Any
 
-# Try different PDF libraries
+# PDF text extraction, best library first. pypdf is the maintained successor
+# to PyPDF2, which was abandoned in 2022; the old name is still accepted so an
+# existing virtualenv keeps working without a reinstall.
 try:
-    import PyPDF2
+    import pypdf as _pypdf
 
     PYPDF2_AVAILABLE = True
 except ImportError:
-    PYPDF2_AVAILABLE = False
+    try:
+        import PyPDF2 as _pypdf
+
+        PYPDF2_AVAILABLE = True
+    except ImportError:
+        PYPDF2_AVAILABLE = False
+        _pypdf = None
+
+#: A lecture PDF is routinely 40+ pages. The previous 10-page / 15,000-char
+#: limits threw most of one away before a model ever saw it, and context
+#: windows are now large enough that they bought nothing.
+MAX_PDF_PAGES = 200
+MAX_EXTRACTED_CHARS = 120_000
 
 try:
     import pdfplumber
@@ -76,7 +90,7 @@ class FileHandler:
                 import pdfplumber
                 with pdfplumber.open(file_path) as pdf:
                     text = ""
-                    for page_num, page in enumerate(pdf.pages[:10]):  # Limit to first 10 pages
+                    for page_num, page in enumerate(pdf.pages[:MAX_PDF_PAGES]):
                         page_text = page.extract_text()
                         if page_text:
                             text += f"\n--- Page {page_num + 1} ---\n"
@@ -84,7 +98,7 @@ class FileHandler:
 
                     if text.strip():
                         print(f"DEBUG: PDFPlumber extracted {len(text)} characters")
-                        return text[:15000]  # Limit size
+                        return text[:MAX_EXTRACTED_CHARS]
             except Exception as e:
                 print(f"DEBUG: PDFPlumber failed: {e}")
 
@@ -92,10 +106,10 @@ class FileHandler:
         if PYPDF2_AVAILABLE:
             try:
                 with open(file_path, 'rb') as file:
-                    pdf_reader = PyPDF2.PdfReader(file)
+                    pdf_reader = _pypdf.PdfReader(file)
                     text = ""
 
-                    for page_num, page in enumerate(pdf_reader.pages[:10]):  # Limit pages
+                    for page_num, page in enumerate(pdf_reader.pages[:MAX_PDF_PAGES]):
                         try:
                             page_text = page.extract_text()
                             if page_text.strip():
@@ -107,7 +121,7 @@ class FileHandler:
 
                     if text.strip():
                         print(f"DEBUG: PyPDF2 extracted {len(text)} characters")
-                        return text[:15000]
+                        return text[:MAX_EXTRACTED_CHARS]
                     else:
                         return "PDF appears to be image-based or encrypted. No text could be extracted."
 
