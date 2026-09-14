@@ -1,140 +1,76 @@
-# AIACMate Configuration File
-# Configure your API keys and model settings here
+# SkillPilot configuration
+#
+# Model identifiers live in app/services/model_registry.py, which is the
+# single source of truth. The `models:` block below only *overrides* the
+# default for a provider — leave an entry out and the registry default is
+# used, which is what you want unless you have a reason to pin a version.
+#
+# Precedence, highest first:
+#   1. SKILLPILOT_MODEL_<PROVIDER> environment variable
+#   2. models.<provider>.default_model here
+#   3. the registry default
+#
+# A retired identifier written here is mapped to its replacement rather than
+# failing, so an old config file will not take the site down.
 
-# API Keys - DO NOT commit secrets here. Leave blank and load from
-# environment variables / Replit Secrets / the in-app KeyValueSetting admin UI.
-# Any non-empty value here is treated as a fallback for local dev only.
+# API Keys — DO NOT put secrets here. Leave blank and load from environment
+# variables (.env) or the in-app Admin > AI Settings screen. Any non-empty
+# value is treated as a local-development fallback only.
 api_keys:
-  openai: ""        # Use env var OPENAI_API_KEY or admin UI
-  claude: ""        # Use env var ANTHROPIC_API_KEY or admin UI
-  gemini: ""        # Use env var GEMINI_API_KEY or admin UI
-  grok: ""          # Use env var XAI_API_KEY or admin UI
-  deepseek: ""      # Use env var DEEPSEEK_API_KEY or admin UI
-  llama: ""         # Your Meta Llama API key
-  perplexity: ""    # Use env var PERPLEXITY_API_KEY or admin UI
-  census: ""  # Your Census API key
-  dify: ""  # Your Dify API key (from Applications → Access API)
-  bedrock: ""  # AWS credentials: access_key|secret_key|region (e.g., AKIAXXXXXXX|SecretXXXXX|us-west-2)
+  openai: ""        # env: OPENAI_API_KEY
+  claude: ""        # env: ANTHROPIC_API_KEY or CLAUDE_API_KEY
+  gemini: ""        # env: GEMINI_API_KEY
+  grok: ""          # env: XAI_API_KEY or GROK_API_KEY
+  deepseek: ""      # env: DEEPSEEK_API_KEY
+  perplexity: ""    # env: PERPLEXITY_API_KEY
+  census: ""        # env: CENSUS_API_KEY
+  dify: ""          # env: DIFY_API_KEY (Applications -> Access API)
+  heygen: ""        # env: HEYGEN_API_KEY
+  bedrock: ""       # env: BEDROCK_API_KEY, as access_key|secret_key|region
 
-# Model Configurations
+# Model overrides. Catalogue reviewed 14 September 2026.
 models:
   openai:
-    default_model: "gpt-5"
-    vision_model: "gpt-5"
+    # gpt-6-astra (flagship) | gpt-5.6-sol | gpt-5.6-terra | gpt-5.6-luna
+    default_model: "gpt-5.6-terra"
     max_tokens: 16000
-    temperature: 0.7
-    top_p: 1.0
-    available_models:
-      - gpt-5            # Latest flagship (2025)
-      - gpt-5-mini       # Faster GPT-5
-      - gpt-5-nano       # Smallest GPT-5
-      - gpt-4.1
-      - gpt-4.1-mini
-      - gpt-4.1-nano
-      - gpt-4o
-      - gpt-4o-mini
-      - o3
-      - o3-mini
 
   claude:
-    default_model: "claude-sonnet-4-5-20250929"
-    max_tokens: 4000
-    temperature: 0.7
-    available_models:
-      - claude-sonnet-4-5-20250929  # Most capable (default)
-      - claude-opus-4-20250514      # Precision coding
-      - claude-sonnet-4-20250514    # Balanced
-      - claude-haiku-3-5-20241022   # Fast and concise
-  
-  gemini:
-    default_model: "gemini-2.5-flash"
-    vision_model: "gemini-2.5-flash"
+    # claude-opus-5 | claude-sonnet-5 | claude-haiku-4-5
+    default_model: "claude-sonnet-5"
     max_tokens: 8000
-    temperature: 0.7
-    available_models:
-      - gemini-2.5-flash
-      - gemini-2.5-pro
-      - gemini-2.0-flash
-      - gemini-1.5-pro
-  
-  dalle:
-    default_model: "dall-e-3"
+
+  gemini:
+    # gemini-3.1-pro | gemini-3.8-flash | gemini-3.7-flash | gemini-3.5-flash-lite
+    default_model: "gemini-3.8-flash"
+    max_tokens: 8000
+
+  grok:
+    # grok-4.6 | grok-4.5 | grok-4.3
+    default_model: "grok-4.6"
+    max_tokens: 8000
+
+  deepseek:
+    # deepseek-v4-flash | deepseek-v4-pro
+    default_model: "deepseek-v4-flash"
+    max_tokens: 8000
+
+  perplexity:
+    # sonar | sonar-pro | sonar-reasoning | sonar-reasoning-pro | sonar-deep-research
+    default_model: "sonar-pro"
+    max_tokens: 8000
+
+  images:
+    # gpt-image-2 | gpt-image-1.5 | gpt-image-1-mini
+    # The DALL-E endpoints were shut down on 12 May 2026.
+    default_model: "gpt-image-2"
     size: "1024x1024"
-    quality: "standard"  # or "hd"
-    style: "vivid"  # or "natural"
-  
+    quality: "high"
+
   bedrock:
-    default_model: "anthropic.claude-sonnet-4-20250514-v1:0"
-    max_tokens: 4000
-    temperature: 0.7
-    available_models:
-      - anthropic.claude-sonnet-4-5-20250929-v1:0  # Claude Sonnet 4.5 - Most intelligent
-      - anthropic.claude-opus-4-20250514-v1:0  # Claude Opus 4 - Precision coding
-      - anthropic.claude-sonnet-4-20250514-v1:0  # Claude Sonnet 4 - Balanced
-      - anthropic.claude-3-5-haiku-20241022-v1:0  # Claude 3.5 Haiku - Fast
-      - anthropic.claude-3-haiku-20240307-v1:0  # Claude 3 Haiku - Budget-friendly
-  
-  llama_bedrock:
-    default_model: "meta.llama3-2-90b-instruct-v1:0"
-    max_tokens: 4000
-    temperature: 0.7
-    available_models:
-      - meta.llama3-2-90b-instruct-v1:0  # Llama 3.2 90B - Most capable
-      - meta.llama3-2-11b-instruct-v1:0  # Llama 3.2 11B - Balanced
-      - meta.llama3-2-3b-instruct-v1:0  # Llama 3.2 3B - Fast
-      - meta.llama3-2-1b-instruct-v1:0  # Llama 3.2 1B - Ultra fast
-      - meta.llama3-1-405b-instruct-v1:0  # Llama 3.1 405B - Largest
-      - meta.llama3-1-70b-instruct-v1:0  # Llama 3.1 70B - Capable
-      - meta.llama3-1-8b-instruct-v1:0  # Llama 3.1 8B - Efficient
-  
-  mistral_bedrock:
-    default_model: "mistral.mistral-large-2407-v1:0"
-    max_tokens: 4000
-    temperature: 0.7
-    available_models:
-      - mistral.mistral-large-2407-v1:0  # Mistral Large 2 - Most capable
-      - mistral.mistral-large-2402-v1:0  # Mistral Large - Capable
-      - mistral.mistral-small-2402-v1:0  # Mistral Small - Fast
-      - mistral.mixtral-8x7b-instruct-v0:1  # Mixtral 8x7B - Balanced
-      - mistral.mistral-7b-instruct-v0:2  # Mistral 7B - Efficient
-  
-  amazon_nova:
-    default_model: "amazon.nova-pro-v1:0"
-    max_tokens: 4000
-    temperature: 0.7
-    available_models:
-      - amazon.nova-pro-v1:0  # Nova Pro - Most capable
-      - amazon.nova-lite-v1:0  # Nova Lite - Balanced
-      - amazon.nova-micro-v1:0  # Nova Micro - Fast
-  
-  cohere_bedrock:
-    default_model: "cohere.command-r-plus-v1:0"
-    max_tokens: 4000
-    temperature: 0.7
-    available_models:
-      - cohere.command-r-plus-v1:0  # Command R+ - Most capable
-      - cohere.command-r-v1:0  # Command R - Capable
-      - cohere.command-text-v14  # Command - Balanced
-      - cohere.command-light-text-v14  # Command Light - Fast
-  
-  ai21_bedrock:
-    default_model: "ai21.jamba-1-5-large-v1:0"
-    max_tokens: 4000
-    temperature: 0.7
-    available_models:
-      - ai21.jamba-1-5-large-v1:0  # Jamba 1.5 Large - Most capable
-      - ai21.jamba-1-5-mini-v1:0  # Jamba 1.5 Mini - Balanced
-      - ai21.j2-ultra-v1  # Jurassic-2 Ultra - Capable
-      - ai21.j2-mid-v1  # Jurassic-2 Mid - Efficient
-  
-  stable_diffusion:
-    default_model: "stability.sd3-large-v1:0"
-    size: "1024x1024"
-    available_models:
-      - stability.sd3-large-v1:0  # Stable Diffusion 3 Large - Best quality
-      - stability.stable-diffusion-xl-v1  # Stable Diffusion XL - Fast
-      - stability.stable-image-ultra-v1:0  # Stable Image Ultra - Premium
-      - stability.stable-image-core-v1:0  # Stable Image Core - Balanced
+    # Claude on AWS Bedrock. Requires BEDROCK_API_KEY.
+    default_model: "anthropic.claude-sonnet-5"
+    max_tokens: 8000
 
 # File Upload Settings
 files:
@@ -208,7 +144,10 @@ app:
   
 # Admin Authentication
 admin:
-  password: "admin123"  # Change this password for security
+  # Super-admin password. Set ADMIN_PASSWORD in .env instead of putting it
+  # here — this file is committed to version control. Leaving it blank
+  # disables password-only super-admin login entirely.
+  password: ""
   session_timeout: 3600  # Session timeout in seconds (1 hour)
 
 # Prompt Engineering Features

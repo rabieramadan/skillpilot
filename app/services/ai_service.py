@@ -1,37 +1,38 @@
-import requests
-from datetime import datetime
-from typing import List, Dict, Any
-import json
-import os
+"""Multi-provider AI gateway used by every SkillPilot feature.
+
+:class:`AIService` is the single entry point the routes and the other services
+call. It knows *what* to ask for — the tutor's system prompt, the language the
+student is working in, which uploaded files matter — and delegates *how* to
+ask to :mod:`app.services.ai_transport`, which owns HTTP, retries, model
+fallback and response parsing.
+
+Model identifiers are never written here. They come from
+:mod:`app.services.model_registry`, so a provider retiring a model is a
+one-line change in the catalogue rather than an edit in ninety places.
+"""
+
 import base64
+import json
 import mimetypes
+import os
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+import requests
 from werkzeug.utils import secure_filename
 
-# Import AI libraries with error handling
-try:
-    import openai
+from app.services import model_registry as registry
+from app.services.ai_transport import (
+    AIError,
+    build_attachments,
+    chat_anthropic,
+    chat_gemini,
+    chat_openai_compatible,
+)
+from app.services import ai_transport
 
-    OPENAI_AVAILABLE = True
-except ImportError:
-    OPENAI_AVAILABLE = False
-    openai = None
-
-try:
-    import anthropic
-
-    ANTHROPIC_AVAILABLE = True
-except ImportError:
-    ANTHROPIC_AVAILABLE = False
-    anthropic = None
-
-try:
-    import google.generativeai as genai
-
-    GENAI_AVAILABLE = True
-except ImportError:
-    GENAI_AVAILABLE = False
-    genai = None
-
+# boto3 backs the AWS Bedrock providers only. It is optional: a deployment
+# that does not use Bedrock should not be forced to install the AWS SDK.
 try:
     import boto3
 
@@ -40,26 +41,20 @@ except ImportError:
     BOTO3_AVAILABLE = False
     boto3 = None
 
-from PIL import Image
-import io
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
-def _openai_chat_kwargs(model: str, max_value: int, temperature: float = 0.7) -> dict:
-    """Return correct kwargs for OpenAI's Chat Completions API.
-
-    GPT-5 and the o-series reasoning models (o1, o3, o4) reject
-    'max_tokens' (require 'max_completion_tokens') and reject any
-    custom 'temperature' value (only the default is allowed). Older
-    models (gpt-4*, gpt-3.5*) still use 'max_tokens' and support
-    custom temperature.
-    """
-    m = (model or '').lower()
-    if m.startswith(('gpt-5', 'o1', 'o3', 'o4')):
-        return {'max_completion_tokens': max_value}
-    return {'max_tokens': max_value, 'temperature': temperature}
+def _error(provider: str, message: str) -> Dict[str, Any]:
+    """The error shape every caller in the codebase already expects."""
+    return {'error': message, 'provider': provider, 'timestamp': _now()}
 
 
 class AIService:
+    #: Providers reached through the shared OpenAI-compatible transport.
+    OPENAI_COMPATIBLE = ('openai', 'grok', 'deepseek', 'perplexity')
+
     def __init__(self):
         self.providers = {
             'openai': self._chat_openai,
@@ -67,11 +62,9 @@ class AIService:
             'gemini': self._chat_gemini,
             'grok': self._chat_grok,
             'deepseek': self._chat_deepseek,
-            'heygen': self._generate_heygen_video,
-            'llama': self._chat_llama,
             'perplexity': self._chat_perplexity,
             'dalle': self._generate_dalle,
-            'census': self._query_census,
+            'heygen': self._generate_heygen_video,
             'dify': self._chat_dify,
             'bedrock': self._chat_bedrock,
             'llama_bedrock': self._chat_llama_bedrock,
@@ -79,34 +72,88 @@ class AIService:
             'amazon_nova': self._chat_amazon_nova,
             'cohere_bedrock': self._chat_cohere_bedrock,
             'ai21_bedrock': self._chat_ai21_bedrock,
-            'stable_diffusion': self._generate_stable_diffusion
+            'stable_diffusion': self._generate_stable_diffusion,
         }
 
-    def chat(self, provider: str, message: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en', system_prompt: str = None) -> Dict[str, Any]:
-        if provider not in self.providers:
-            return {'error': f'Unsupported provider: {provider}'}
+    def chat(self, provider: str, message: str, api_key: str,
+             files: List[str] = None,
+             conversation_history: List[Dict[str, str]] = None,
+             version: str = None, language: str = 'en',
+             system_prompt: str = None) -> Dict[str, Any]:
+        """Ask ``provider`` a question and return a normalised answer.
 
-        if conversation_history is None:
-            conversation_history = []
+        Returns ``{'text', 'provider', 'model', 'timestamp', ...}`` on success
+        and ``{'error', 'provider', 'timestamp'}`` on failure. Callers only
+        ever have to check for the ``error`` key.
+        """
+        key = registry.PROVIDER_ALIASES.get((provider or '').lower(), provider)
+        handler = self.providers.get(key)
+        if handler is None:
+            return _error(provider, f'Unsupported AI provider: {provider}')
 
-        # Universal system-prompt injection: prepend a clearly delimited
-        # instruction block to the user message. This works across every
-        # provider in `self.providers` without per-provider plumbing and
-        # preserves the existing default chat behaviour when no
-        # system_prompt is supplied (Phase 2 — adaptive course tutor).
-        if system_prompt:
-            message = (
-                "[SYSTEM CONTEXT — follow these tutor instructions strictly]\n"
-                f"{system_prompt}\n"
-                "[END SYSTEM CONTEXT]\n\n"
-                f"{message or ''}"
-            )
-
+        system = self._compose_system_prompt(system_prompt, language)
         try:
-            return self.providers[provider](message, api_key, files, conversation_history, version, language)
-        except Exception as e:
-            return {'error': str(e)}
+            return handler(
+                message, api_key,
+                files=files,
+                conversation_history=conversation_history or [],
+                version=version,
+                language=language,
+                system=system,
+            )
+        except AIError as exc:
+            return _error(key, exc.message)
+        except Exception as exc:  # noqa: BLE001 - a route must never 500 here
+            return _error(key, f'Unexpected {key} error: {exc}')
 
+    # -- prompt construction -------------------------------------------------
+
+    #: Applies to every request. Keeps answers grounded in the material the
+    #: student actually has, which is the difference between a useful tutor
+    #: and a confident guess.
+    BASE_INSTRUCTIONS = (
+        "You are an assistant inside SkillPilot, a university learning "
+        "platform. Answer the question that was asked, directly and without "
+        "preamble.\n"
+        "- Ground every claim in the attached files and the conversation. "
+        "When they do not cover something, say so plainly instead of "
+        "inventing a source, a figure, a citation or a quotation.\n"
+        "- State facts, dates and numbers only when you are confident of "
+        "them; otherwise say what you are unsure about.\n"
+        "- Prefer short paragraphs and lists. Use a heading only when the "
+        "answer genuinely has sections.\n"
+        "- When you are asked for a specific format (JSON, a table, a fixed "
+        "number of items), return exactly that and nothing around it."
+    )
+
+    LANGUAGE_INSTRUCTIONS = {
+        'ar': (
+            "Write the entire reply in Modern Standard Arabic. Keep code, "
+            "URLs and proper nouns in their original script.\n"
+            "اكتب الرد بالكامل باللغة العربية الفصحى."
+        ),
+        'en': "Write the entire reply in English.",
+    }
+
+    def _compose_system_prompt(self, system_prompt: Optional[str],
+                               language: str) -> str:
+        """Merge the caller's instructions with the platform-wide ones.
+
+        Previously a caller's system prompt was pasted into the *user* message
+        between ``[SYSTEM CONTEXT]`` markers. Every provider here supports a
+        real system role, which the model weights differently and which a
+        student's message cannot overwrite, so the instructions go there.
+        """
+        parts = [self.BASE_INSTRUCTIONS]
+        lang = self.LANGUAGE_INSTRUCTIONS.get(
+            (language or 'en').lower(), self.LANGUAGE_INSTRUCTIONS['en'])
+        parts.append(lang)
+        if system_prompt and system_prompt.strip():
+            parts.append(
+                'Task-specific instructions, which take precedence over the '
+                'general guidance above:\n' + system_prompt.strip()
+            )
+        return '\n\n'.join(parts)
     @staticmethod
     def build_tutor_system_prompt(course_context: Dict[str, Any],
                                   learner_context: Dict[str, Any],
@@ -190,440 +237,212 @@ class AIService:
         )
 
     def _extract_file_content(self, file_path: str) -> str:
-        """Extract text content from a file for memory persistence"""
-        if not os.path.exists(file_path):
-            return ""
-        
-        mime_type, _ = mimetypes.guess_type(file_path)
-        
+        """Plain text of one uploaded file, for storing alongside the chat.
+
+        Kept as a method because ``app/routes/api.py`` calls it to persist
+        file context in the conversation history.
+        """
+        attachments = build_attachments([file_path])
+        for attachment in attachments:
+            if not attachment.is_image:
+                return attachment.text
+            return f'[Image: {attachment.name}]'
+        return ''
+    def _chat_openai(self, message: str, api_key: str, files: List[str] = None,
+                     conversation_history: List[Dict[str, str]] = None,
+                     version: str = None, language: str = 'en',
+                     system: str = None) -> Dict[str, Any]:
+        return self._chat_openai_family('openai', message, api_key, files,
+                                        conversation_history, version,
+                                        language, system)
+
+    def _chat_grok(self, message: str, api_key: str, files: List[str] = None,
+                   conversation_history: List[Dict[str, str]] = None,
+                   version: str = None, language: str = 'en',
+                   system: str = None) -> Dict[str, Any]:
+        return self._chat_openai_family('grok', message, api_key, files,
+                                        conversation_history, version,
+                                        language, system)
+
+    def _chat_deepseek(self, message: str, api_key: str, files: List[str] = None,
+                       conversation_history: List[Dict[str, str]] = None,
+                       version: str = None, language: str = 'en',
+                       system: str = None) -> Dict[str, Any]:
+        return self._chat_openai_family('deepseek', message, api_key, files,
+                                        conversation_history, version,
+                                        language, system)
+
+    def _chat_perplexity(self, message: str, api_key: str, files: List[str] = None,
+                         conversation_history: List[Dict[str, str]] = None,
+                         version: str = None, language: str = 'en',
+                         system: str = None) -> Dict[str, Any]:
+        return self._chat_openai_family('perplexity', message, api_key, files,
+                                        conversation_history, version,
+                                        language, system)
+
+    def _chat_openai_family(self, provider: str, message: str, api_key: str,
+                            files: List[str] = None,
+                            conversation_history: List[Dict[str, str]] = None,
+                            version: str = None, language: str = 'en',
+                            system: str = None) -> Dict[str, Any]:
+        """OpenAI, xAI Grok, DeepSeek and Perplexity share one wire format.
+
+        They used to have four near-identical implementations that had drifted
+        apart: Grok discarded the conversation history, DeepSeek built its own
+        system prompt, and only OpenAI handled images.
+        """
         try:
-            # Handle text files
-            if mime_type in ['text/plain', 'text/csv', 'application/json']:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    return f.read()[:15000]
-            
-            # Handle PDFs and other documents
-            from app.utils.file_handler import FileHandler
-            return FileHandler.extract_text(file_path)[:15000]
-        except Exception as e:
-            print(f"DEBUG: Error extracting content from {file_path}: {e}")
-            return f"[Could not extract content: {str(e)}]"
-
-    def _process_files_for_openai(self, files: List[str], api_key: str) -> List[Dict[str, Any]]:
-        """Process uploaded files for OpenAI API"""
-        processed_files = []
-
-        if not files:
-            print("DEBUG: No files to process")
-            return processed_files
-
-        print(f"DEBUG: Processing {len(files)} files")
-
-        try:
-            for file_path in files:
-                if not os.path.exists(file_path):
-                    print(f"DEBUG: File does not exist: {file_path}")
-                    continue
-
-                print(f"DEBUG: Processing file: {file_path}")
-                mime_type, _ = mimetypes.guess_type(file_path)
-                print(f"DEBUG: File MIME type: {mime_type}")
-
-                # Handle images directly in message content
-                if mime_type and mime_type.startswith('image/'):
-                    try:
-                        with open(file_path, 'rb') as f:
-                            image_data = base64.b64encode(f.read()).decode('utf-8')
-                            processed_files.append({
-                                'type': 'image_url',
-                                'image_url': {
-                                    'url': f'data:{mime_type};base64,{image_data}'
-                                }
-                            })
-                            print(f"DEBUG: Added image file: {os.path.basename(file_path)}")
-                    except Exception as e:
-                        print(f"DEBUG: Error processing image {file_path}: {e}")
-
-                # Handle text files
-                elif mime_type in ['text/plain', 'text/csv', 'application/json']:
-                    try:
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            content = f.read()[:10000]  # Limit content size
-                            processed_files.append({
-                                'type': 'text',
-                                'text': f"File: {os.path.basename(file_path)}\n\nContent:\n{content}"
-                            })
-                            print(f"DEBUG: Added text file: {os.path.basename(file_path)}")
-                    except Exception as e:
-                        print(f"DEBUG: Error reading text file {file_path}: {e}")
-                        processed_files.append({
-                            'type': 'text',
-                            'text': f"Could not read file {os.path.basename(file_path)}: {str(e)}"
-                        })
-
-                # For PDFs and other files, extract text if possible
-                else:
-                    try:
-                        from app.utils.file_handler import FileHandler
-                        text_content = FileHandler.extract_text(file_path)
-                        processed_files.append({
-                            'type': 'text',
-                            'text': f"File: {os.path.basename(file_path)} (Type: {mime_type or 'unknown'})\n\nContent:\n{text_content[:5000]}"
-                        })
-                        print(f"DEBUG: Added extracted text from: {os.path.basename(file_path)}")
-                    except Exception as e:
-                        print(f"DEBUG: Error extracting from {file_path}: {e}")
-                        processed_files.append({
-                            'type': 'text',
-                            'text': f"Uploaded file: {os.path.basename(file_path)} (Type: {mime_type or 'unknown'}) - Could not extract content: {str(e)}"
-                        })
-
-        except Exception as e:
-            print(f"DEBUG: Error in file processing: {e}")
-            processed_files.append({
-                'type': 'text',
-                'text': f"Error processing files: {str(e)}"
-            })
-
-        print(f"DEBUG: Finished processing, {len(processed_files)} items created")
-        return processed_files
-
-    def _chat_openai(self, message: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
-        if not api_key:
-            return {'error': 'OpenAI API key required'}
-
-        if conversation_history is None:
-            conversation_history = []
-
-        print(f"DEBUG: OpenAI called with {len(files or [])} files and {len(conversation_history)} history messages")
-
-        try:
-            headers = {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            }
-
-            # Process files
-            file_content = self._process_files_for_openai(files, api_key)
-            print(f"DEBUG: Processed {len(file_content)} file content items")
-
-            # Build message content for current message
-            content = [{'type': 'text', 'text': message}]
-            content.extend(file_content)
-
-            # Choose model based on whether we have images
-            has_images = any(item.get('type') == 'image_url' for item in content)
-            # Use GPT-5 as default (latest 2025); GPT-5 also supports vision
-            model = version if version else 'gpt-5'
-
-            print(f"DEBUG: Using model {model}, has_images: {has_images}")
-
-            # Build messages array with conversation history
-            messages = []
-            
-            # Add language instruction as system message if Arabic
-            if language == 'ar':
-                messages.append({
-                    'role': 'system',
-                    'content': 'You are a helpful AI assistant. Please respond in Arabic language. يرجى الرد باللغة العربية.'
-                })
-            
-            for hist_msg in conversation_history:
-                messages.append({
-                    'role': hist_msg.get('role', 'user'),
-                    'content': hist_msg.get('content', '')
-                })
-            
-            # Add current message
-            messages.append({'role': 'user', 'content': content})
-
-            data = {
-                'model': model,
-                'messages': messages,
-                **_openai_chat_kwargs(model, 4000, 0.7),
-            }
-
-            response = requests.post(
-                'https://api.openai.com/v1/chat/completions',
-                headers=headers,
-                json=data,
-                timeout=120
+            result = chat_openai_compatible(
+                provider,
+                api_key=api_key,
+                user_text=message,
+                system=system or self._compose_system_prompt(None, language),
+                history=conversation_history,
+                attachments=build_attachments(files),
+                model=version,
+                max_tokens=self._max_tokens(provider),
             )
+        except AIError as exc:
+            return _error(provider, exc.message)
+        return result.as_dict()
 
-            if response.status_code == 200:
-                result = response.json()
-                return {
-                    'text': result['choices'][0]['message']['content'],
-                    'provider': 'openai',
-                    'timestamp': datetime.now().isoformat(),
-                    'model': model
-                }
-            else:
-                print(f"DEBUG: OpenAI API error: {response.status_code} - {response.text}")
-                return {'error': f'OpenAI API error: {response.status_code} - {response.text}'}
-
-        except Exception as e:
-            print(f"DEBUG: Exception in OpenAI chat: {str(e)}")
-            return {'error': f'OpenAI API error: {str(e)}'}
-
-    def _chat_claude(self, message: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
-        if not ANTHROPIC_AVAILABLE:
-            return {'error': 'Anthropic library not installed'}
-
-        if not api_key:
-            return {'error': 'Claude API key required'}
-
-        if conversation_history is None:
-            conversation_history = []
-
-        print(f"DEBUG: Claude called with {len(conversation_history)} history messages")
-
+    def _chat_claude(self, message: str, api_key: str, files: List[str] = None,
+                     conversation_history: List[Dict[str, str]] = None,
+                     version: str = None, language: str = 'en',
+                     system: str = None) -> Dict[str, Any]:
         try:
-            client = anthropic.Anthropic(api_key=api_key)
+            result = chat_anthropic(
+                api_key=api_key,
+                user_text=message,
+                system=system or self._compose_system_prompt(None, language),
+                history=conversation_history,
+                attachments=build_attachments(files),
+                model=version,
+                max_tokens=self._max_tokens('claude'),
+            )
+        except AIError as exc:
+            return _error('claude', exc.message)
+        return result.as_dict()
 
-            # Build messages array with conversation history
-            messages = []
-            for hist_msg in conversation_history:
-                role = hist_msg.get('role', 'user')
-                content_text = hist_msg.get('content', '')
-                messages.append({
-                    "role": role,
-                    "content": content_text
-                })
+    def _max_tokens(self, provider: str, default: int = 8000) -> int:
+        """Output budget for ``provider`` from config.yaml, else a default."""
+        block = registry._yaml_models().get(provider) or {}
+        try:
+            return int(block.get('max_tokens') or default)
+        except (TypeError, ValueError):
+            return default
+    def _parse_aws_credentials(self, api_key: str):
+        """Split the ``access_key|secret_key|region`` string used for Bedrock."""
+        parts = [p.strip() for p in (api_key or '').split('|')]
+        if len(parts) < 2 or not parts[0] or not parts[1]:
+            return None
+        region = parts[2] if len(parts) > 2 and parts[2] else 'us-west-2'
+        return parts[0], parts[1], region
 
-            # Process files for Claude (current message)
-            content = [{"type": "text", "text": message}]
-
-            if files:
-                for file_path in files:
-                    if not os.path.exists(file_path):
-                        continue
-
-                    mime_type, _ = mimetypes.guess_type(file_path)
-
-                    # Claude can handle images
-                    if mime_type and mime_type.startswith('image/'):
-                        with open(file_path, 'rb') as f:
-                            image_data = base64.b64encode(f.read()).decode('utf-8')
-                            content.append({
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": mime_type,
-                                    "data": image_data
-                                }
-                            })
-                    # Handle text files
-                    elif mime_type in ['text/plain', 'text/csv', 'application/json']:
-                        try:
-                            with open(file_path, 'r', encoding='utf-8') as f:
-                                file_content = f.read()[:10000]
-                                content.append({
-                                    "type": "text",
-                                    "text": f"\n\nFile: {os.path.basename(file_path)}\n{file_content}"
-                                })
-                        except Exception as e:
-                            content.append({
-                                "type": "text",
-                                "text": f"\n\nCould not read file {os.path.basename(file_path)}: {str(e)}"
-                            })
-                    # Handle PDFs, Word docs, and other documents
-                    else:
-                        try:
-                            from app.utils.file_handler import FileHandler
-                            text_content = FileHandler.extract_text(file_path)
-                            content.append({
-                                "type": "text",
-                                "text": f"\n\nFile: {os.path.basename(file_path)} (Type: {mime_type or 'unknown'})\n\nContent:\n{text_content[:8000]}"
-                            })
-                        except Exception as e:
-                            content.append({
-                                "type": "text",
-                                "text": f"\n\nUploaded file: {os.path.basename(file_path)} (Type: {mime_type or 'unknown'}) - Could not extract content: {str(e)}"
-                            })
-
-            # Add current message to messages array
-            messages.append({"role": "user", "content": content})
-
-            # Build system instruction for language
-            system_instruction = None
-            if language == 'ar':
-                system_instruction = "You are a helpful AI assistant. Please respond in Arabic language. يرجى الرد باللغة العربية."
-
-            # Use version parameter or default to Claude Sonnet 4 (latest)
-            model = version if version else "claude-sonnet-4-5-20250929"
-            create_params = {
-                "model": model,
-                "max_tokens": 4000,
-                "messages": messages
-            }
-            
-            # Add system instruction if language is Arabic
-            if system_instruction:
-                create_params["system"] = system_instruction
-            
-            response = client.messages.create(**create_params)
-
-            return {
-                'text': response.content[0].text,
-                'provider': 'claude',
-                'timestamp': datetime.now().isoformat(),
-                'model': model
-            }
-        except Exception as e:
-            return {'error': f'Claude API error: {str(e)}'}
-
-    def _chat_bedrock(self, message: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
-        """AWS Bedrock integration using Claude models via boto3"""
+    def _bedrock_client(self, api_key: str):
+        """A ``bedrock-runtime`` client, or a ready-to-return error dict."""
         if not BOTO3_AVAILABLE:
-            return {'error': 'boto3 library not installed. Install with: pip install boto3'}
-        
-        if not api_key or '|' not in api_key:
-            return {'error': 'AWS credentials required. Format: access_key|secret_key|region'}
-        
-        if conversation_history is None:
-            conversation_history = []
-        
-        try:
-            # Parse AWS credentials from api_key format: access_key|secret_key|region
-            parts = api_key.split('|')
-            aws_access_key = parts[0]
-            aws_secret_key = parts[1]
-            aws_region = parts[2] if len(parts) > 2 else 'us-west-2'
-            
-            # Initialize Bedrock runtime client
-            bedrock_runtime = boto3.client(
-                service_name='bedrock-runtime',
-                region_name=aws_region,
-                aws_access_key_id=aws_access_key,
-                aws_secret_access_key=aws_secret_key
-            )
-            
-            # Build messages array with conversation history
-            messages = []
-            for hist_msg in conversation_history:
-                role = hist_msg.get('role', 'user')
-                content_text = hist_msg.get('content', '')
-                messages.append({
-                    "role": role,
-                    "content": [{"type": "text", "text": content_text}]
-                })
-            
-            # Process files for current message
-            content = [{"type": "text", "text": message}]
-            
-            if files:
-                for file_path in files:
-                    if not os.path.exists(file_path):
-                        continue
-                    
-                    mime_type, _ = mimetypes.guess_type(file_path)
-                    
-                    # Bedrock Claude can handle images
-                    if mime_type and mime_type.startswith('image/'):
-                        with open(file_path, 'rb') as f:
-                            image_data = base64.b64encode(f.read()).decode('utf-8')
-                            content.append({
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": mime_type,
-                                    "data": image_data
-                                }
-                            })
-                    # Handle text files and documents
-                    else:
-                        try:
-                            if mime_type in ['text/plain', 'text/csv', 'application/json']:
-                                with open(file_path, 'r', encoding='utf-8') as f:
-                                    file_content = f.read()[:10000]
-                            else:
-                                from app.utils.file_handler import FileHandler
-                                file_content = FileHandler.extract_text(file_path)[:10000]
-                            
-                            content.append({
-                                "type": "text",
-                                "text": f"\n\nFile: {os.path.basename(file_path)}\n{file_content}"
-                            })
-                        except Exception as e:
-                            content.append({
-                                "type": "text",
-                                "text": f"\n\nCould not read file {os.path.basename(file_path)}: {str(e)}"
-                            })
-            
-            # Add current message
-            messages.append({
-                "role": "user",
-                "content": content
-            })
-            
-            # Use selected version or default to Claude Sonnet 4
-            model_id = version if version else "anthropic.claude-sonnet-4-20250514-v1:0"
-            
-            # Get max_tokens from config or use default
-            from config.config import Config
-            config = Config()
-            max_tokens = getattr(config, 'BEDROCK_MAX_TOKENS', 4000)
-            temperature = getattr(config, 'BEDROCK_TEMPERATURE', 0.7)
-            
-            # Prepare request payload
-            payload = {
-                "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": max_tokens,
-                "messages": messages,
-                "temperature": temperature
-            }
-            
-            # Call Bedrock API
-            response = bedrock_runtime.invoke_model(
-                modelId=model_id,
-                body=json.dumps(payload)
-            )
-            
-            # Parse response with error handling
-            try:
-                response_body = response['body'].read()
-                result = json.loads(response_body)
-                response_text = result['content'][0]['text']
-            except (json.JSONDecodeError, KeyError) as e:
-                return {'error': f'Failed to parse Bedrock response: {str(e)}'}
-            
-            # Get model display name from version
-            model_names = {
-                "anthropic.claude-sonnet-4-5-20250929-v1:0": "Claude Sonnet 4.5",
-                "anthropic.claude-opus-4-20250514-v1:0": "Claude Opus 4",
-                "anthropic.claude-sonnet-4-20250514-v1:0": "Claude Sonnet 4",
-                "anthropic.claude-3-5-haiku-20241022-v1:0": "Claude 3.5 Haiku",
-                "anthropic.claude-3-haiku-20240307-v1:0": "Claude 3 Haiku"
-            }
-            model_display = model_names.get(model_id, model_id) + " (AWS Bedrock)"
-            
-            return {
-                'text': response_text,
-                'provider': 'bedrock',
-                'timestamp': datetime.now().isoformat(),
-                'model': model_display
-            }
-            
-        except Exception as e:
-            return {'error': f'AWS Bedrock error: {str(e)}'}
+            return None, _error('bedrock', 'boto3 is not installed. '
+                                           'Run: pip install boto3')
+        credentials = self._parse_aws_credentials(api_key)
+        if credentials is None:
+            return None, _error('bedrock', 'AWS credentials required, in the '
+                                           'form access_key|secret_key|region.')
+        access_key, secret_key, region = credentials
+        return boto3.client(
+            service_name='bedrock-runtime',
+            region_name=region,
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+        ), None
 
-    def _chat_llama_bedrock(self, message: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
+    def _chat_bedrock(self, message: str, api_key: str, files: List[str] = None,
+                    conversation_history: List[Dict[str, str]] = None,
+                    version: str = None, language: str = 'en',
+                    system: str = None) -> Dict[str, Any]:
+        """Claude on AWS Bedrock, through the Anthropic Messages payload."""
+        client, failure = self._bedrock_client(api_key)
+        if failure is not None:
+            return failure
+
+        attachments = build_attachments(files)
+        has_image = any(a.is_image for a in attachments)
+        model_id = registry.resolve('bedrock', version, vision=has_image)
+        entry = registry.get_model('bedrock', model_id)
+
+        content: List[Dict[str, Any]] = []
+        if has_image and (entry is None or entry.vision):
+            for image in (a for a in attachments if a.is_image):
+                content.append({
+                    'type': 'image',
+                    'source': {
+                        'type': 'base64',
+                        'media_type': image.mime_type,
+                        'data': base64.b64encode(image.data).decode('ascii'),
+                    },
+                })
+        prompt = (message or '').strip() + ai_transport._text_attachment_block(attachments)
+        content.append({'type': 'text', 'text': prompt})
+
+        messages = [
+            {'role': turn['role'], 'content': [{'type': 'text', 'text': turn['content']}]}
+            for turn in ai_transport._normalise_history(conversation_history)
+        ]
+        messages.append({'role': 'user', 'content': content})
+
+        max_tokens = self._max_tokens('bedrock')
+        if entry is not None:
+            max_tokens = min(max_tokens, entry.max_output_tokens)
+        payload: Dict[str, Any] = {
+            'anthropic_version': 'bedrock-2023-05-31',
+            'max_tokens': max_tokens,
+            'messages': messages,
+        }
+        if system:
+            payload['system'] = system
+        # Claude 5 rejects temperature; only send it where the catalogue says
+        # the model still accepts one.
+        if entry is None or entry.sampling:
+            payload['temperature'] = 0.7
+
+        try:
+            response = client.invoke_model(modelId=model_id, body=json.dumps(payload))
+            result = json.loads(response['body'].read())
+        except Exception as exc:  # noqa: BLE001 - botocore raises many types
+            detail = str(exc)
+            if registry.is_model_unavailable_error(detail):
+                return _error('bedrock', f'{model_id} is not enabled for this '
+                                         'AWS account or region.')
+            return _error('bedrock', f'AWS Bedrock error: {detail[:300]}')
+
+        text = ''.join(
+            block.get('text', '')
+            for block in (result.get('content') or [])
+            if isinstance(block, dict) and block.get('type') == 'text'
+        ).strip()
+        if not text:
+            return _error('bedrock', 'Bedrock returned an empty answer.')
+
+        label = entry.label if entry is not None else model_id
+        return {
+            'text': text,
+            'provider': 'bedrock',
+            'model': label,
+            'model_id': model_id,
+            'timestamp': _now(),
+            'usage': result.get('usage') or {},
+        }
+
+    def _chat_llama_bedrock(self, message: str, api_key: str, files: List[str] = None,
+                    conversation_history: List[Dict[str, str]] = None,
+                    version: str = None, language: str = 'en',
+                    system: str = None) -> Dict[str, Any]:
         """Meta Llama models via AWS Bedrock"""
-        if not BOTO3_AVAILABLE:
-            return {'error': 'boto3 library not installed'}
-        
-        if not api_key or '|' not in api_key:
-            return {'error': 'AWS credentials required. Format: access_key|secret_key|region'}
-        
+        bedrock_runtime, failure = self._bedrock_client(api_key)
+        if failure is not None:
+            return failure
+
         try:
-            parts = api_key.split('|')
-            bedrock_runtime = boto3.client(
-                service_name='bedrock-runtime',
-                region_name=parts[2] if len(parts) > 2 else 'us-west-2',
-                aws_access_key_id=parts[0],
-                aws_secret_access_key=parts[1]
-            )
             
             # Build prompt with conversation history
             prompt_text = message
@@ -670,27 +489,21 @@ class AIService:
                 'text': response_text,
                 'provider': 'llama_bedrock',
                 'timestamp': datetime.now().isoformat(),
-                'model': f"Llama (AWS Bedrock)"
+                'model': "Llama (AWS Bedrock)"
             }
         except Exception as e:
             return {'error': f'Llama Bedrock error: {str(e)}'}
 
-    def _chat_mistral_bedrock(self, message: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
+    def _chat_mistral_bedrock(self, message: str, api_key: str, files: List[str] = None,
+                    conversation_history: List[Dict[str, str]] = None,
+                    version: str = None, language: str = 'en',
+                    system: str = None) -> Dict[str, Any]:
         """Mistral AI models via AWS Bedrock"""
-        if not BOTO3_AVAILABLE:
-            return {'error': 'boto3 library not installed'}
-        
-        if not api_key or '|' not in api_key:
-            return {'error': 'AWS credentials required'}
-        
+        bedrock_runtime, failure = self._bedrock_client(api_key)
+        if failure is not None:
+            return failure
+
         try:
-            parts = api_key.split('|')
-            bedrock_runtime = boto3.client(
-                service_name='bedrock-runtime',
-                region_name=parts[2] if len(parts) > 2 else 'us-west-2',
-                aws_access_key_id=parts[0],
-                aws_secret_access_key=parts[1]
-            )
             
             prompt_text = message
             if files:
@@ -731,27 +544,21 @@ class AIService:
                 'text': response_text,
                 'provider': 'mistral_bedrock',
                 'timestamp': datetime.now().isoformat(),
-                'model': f"Mistral (AWS Bedrock)"
+                'model': "Mistral (AWS Bedrock)"
             }
         except Exception as e:
             return {'error': f'Mistral Bedrock error: {str(e)}'}
 
-    def _chat_amazon_nova(self, message: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
+    def _chat_amazon_nova(self, message: str, api_key: str, files: List[str] = None,
+                    conversation_history: List[Dict[str, str]] = None,
+                    version: str = None, language: str = 'en',
+                    system: str = None) -> Dict[str, Any]:
         """Amazon Nova models via AWS Bedrock"""
-        if not BOTO3_AVAILABLE:
-            return {'error': 'boto3 library not installed'}
-        
-        if not api_key or '|' not in api_key:
-            return {'error': 'AWS credentials required'}
-        
+        bedrock_runtime, failure = self._bedrock_client(api_key)
+        if failure is not None:
+            return failure
+
         try:
-            parts = api_key.split('|')
-            bedrock_runtime = boto3.client(
-                service_name='bedrock-runtime',
-                region_name=parts[2] if len(parts) > 2 else 'us-west-2',
-                aws_access_key_id=parts[0],
-                aws_secret_access_key=parts[1]
-            )
             
             # Build messages with file support
             content = [{"text": message}]
@@ -816,27 +623,21 @@ class AIService:
                 'text': response_text,
                 'provider': 'amazon_nova',
                 'timestamp': datetime.now().isoformat(),
-                'model': f"Amazon Nova (AWS Bedrock)"
+                'model': "Amazon Nova (AWS Bedrock)"
             }
         except Exception as e:
             return {'error': f'Amazon Nova error: {str(e)}'}
 
-    def _chat_cohere_bedrock(self, message: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
+    def _chat_cohere_bedrock(self, message: str, api_key: str, files: List[str] = None,
+                    conversation_history: List[Dict[str, str]] = None,
+                    version: str = None, language: str = 'en',
+                    system: str = None) -> Dict[str, Any]:
         """Cohere models via AWS Bedrock"""
-        if not BOTO3_AVAILABLE:
-            return {'error': 'boto3 library not installed'}
-        
-        if not api_key or '|' not in api_key:
-            return {'error': 'AWS credentials required'}
-        
+        bedrock_runtime, failure = self._bedrock_client(api_key)
+        if failure is not None:
+            return failure
+
         try:
-            parts = api_key.split('|')
-            bedrock_runtime = boto3.client(
-                service_name='bedrock-runtime',
-                region_name=parts[2] if len(parts) > 2 else 'us-west-2',
-                aws_access_key_id=parts[0],
-                aws_secret_access_key=parts[1]
-            )
             
             prompt_text = message
             if files:
@@ -885,27 +686,21 @@ class AIService:
                 'text': response_text,
                 'provider': 'cohere_bedrock',
                 'timestamp': datetime.now().isoformat(),
-                'model': f"Cohere (AWS Bedrock)"
+                'model': "Cohere (AWS Bedrock)"
             }
         except Exception as e:
             return {'error': f'Cohere Bedrock error: {str(e)}'}
 
-    def _chat_ai21_bedrock(self, message: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
+    def _chat_ai21_bedrock(self, message: str, api_key: str, files: List[str] = None,
+                    conversation_history: List[Dict[str, str]] = None,
+                    version: str = None, language: str = 'en',
+                    system: str = None) -> Dict[str, Any]:
         """AI21 Labs models via AWS Bedrock"""
-        if not BOTO3_AVAILABLE:
-            return {'error': 'boto3 library not installed'}
-        
-        if not api_key or '|' not in api_key:
-            return {'error': 'AWS credentials required'}
-        
+        bedrock_runtime, failure = self._bedrock_client(api_key)
+        if failure is not None:
+            return failure
+
         try:
-            parts = api_key.split('|')
-            bedrock_runtime = boto3.client(
-                service_name='bedrock-runtime',
-                region_name=parts[2] if len(parts) > 2 else 'us-west-2',
-                aws_access_key_id=parts[0],
-                aws_secret_access_key=parts[1]
-            )
             
             prompt_text = message
             if files:
@@ -955,27 +750,21 @@ class AIService:
                 'text': response_text,
                 'provider': 'ai21_bedrock',
                 'timestamp': datetime.now().isoformat(),
-                'model': f"AI21 (AWS Bedrock)"
+                'model': "AI21 (AWS Bedrock)"
             }
         except Exception as e:
             return {'error': f'AI21 Bedrock error: {str(e)}'}
 
-    def _generate_stable_diffusion(self, prompt: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
+    def _generate_stable_diffusion(self, prompt: str, api_key: str, files: List[str] = None,
+                    conversation_history: List[Dict[str, str]] = None,
+                    version: str = None, language: str = 'en',
+                    system: str = None) -> Dict[str, Any]:
         """Stable Diffusion image generation via AWS Bedrock"""
-        if not BOTO3_AVAILABLE:
-            return {'error': 'boto3 library not installed'}
-        
-        if not api_key or '|' not in api_key:
-            return {'error': 'AWS credentials required'}
-        
+        bedrock_runtime, failure = self._bedrock_client(api_key)
+        if failure is not None:
+            return failure
+
         try:
-            parts = api_key.split('|')
-            bedrock_runtime = boto3.client(
-                service_name='bedrock-runtime',
-                region_name=parts[2] if len(parts) > 2 else 'us-west-2',
-                aws_access_key_id=parts[0],
-                aws_secret_access_key=parts[1]
-            )
             
             model_id = version or "stability.sd3-large-v1:0"
             
@@ -1017,305 +806,73 @@ class AIService:
         except Exception as e:
             return {'error': f'Stable Diffusion error: {str(e)}'}
 
-    def _chat_gemini(self, message: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
-        if not GENAI_AVAILABLE:
-            return {'error': 'Google Generative AI library not installed'}
-
-        if not api_key:
-            return {'error': 'Gemini API key required'}
-
+    def _chat_gemini(self, message: str, api_key: str, files: List[str] = None,
+                     conversation_history: List[Dict[str, str]] = None,
+                     version: str = None, language: str = 'en',
+                     system: str = None) -> Dict[str, Any]:
         try:
-            genai.configure(api_key=api_key)
-
-            # Check if we have images to use vision model
-            has_images = False
-            content_parts = [message]
-
-            if files:
-                for file_path in files:
-                    if not os.path.exists(file_path):
-                        continue
-
-                    mime_type, _ = mimetypes.guess_type(file_path)
-
-                    if mime_type and mime_type.startswith('image/'):
-                        try:
-                            with open(file_path, 'rb') as f:
-                                image_data = f.read()
-                                content_parts.append({
-                                    'mime_type': mime_type,
-                                    'data': image_data
-                                })
-                                has_images = True
-                        except Exception as e:
-                            content_parts.append(f"\nError reading image {os.path.basename(file_path)}: {str(e)}")
-
-                    elif mime_type in ['text/plain', 'text/csv', 'application/json']:
-                        try:
-                            with open(file_path, 'r', encoding='utf-8') as f:
-                                file_content = f.read()[:10000]
-                                content_parts.append(f"\n\nFile: {os.path.basename(file_path)}\n{file_content}")
-                        except Exception as e:
-                            content_parts.append(f"\nCould not read file {os.path.basename(file_path)}: {str(e)}")
-                    # Handle PDFs, Word docs, and other documents
-                    else:
-                        try:
-                            from app.utils.file_handler import FileHandler
-                            text_content = FileHandler.extract_text(file_path)
-                            content_parts.append(f"\n\nFile: {os.path.basename(file_path)} (Type: {mime_type or 'unknown'})\n\nContent:\n{text_content[:8000]}")
-                        except Exception as e:
-                            content_parts.append(f"\nUploaded file: {os.path.basename(file_path)} (Type: {mime_type or 'unknown'}) - Could not extract content: {str(e)}")
-
-            model_name = version if version else 'gemini-2.5-flash'
-            model = genai.GenerativeModel(model_name)
-
-            response = model.generate_content(content_parts)
-
-            return {
-                'text': response.text,
-                'provider': 'gemini',
-                'timestamp': datetime.now().isoformat(),
-                'model': model_name
-            }
-        except Exception as e:
-            return {'error': f'Gemini API error: {str(e)}'}
-
-    def _generate_dalle(self, prompt: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
-        if not api_key:
-            return {'error': 'OpenAI API key required for DALL-E'}
-
-        try:
-            headers = {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            }
-
-            data = {
-                'model': 'dall-e-3',
-                'prompt': prompt,
-                'n': 1,
-                'size': '1024x1024',
-                'quality': 'standard',
-                'response_format': 'b64_json'  # Get base64 instead of URL
-            }
-
-            response = requests.post(
-                'https://api.openai.com/v1/images/generations',
-                headers=headers,
-                json=data,
-                timeout=60
+            result = chat_gemini(
+                api_key=api_key,
+                user_text=message,
+                system=system or self._compose_system_prompt(None, language),
+                history=conversation_history,
+                attachments=build_attachments(files),
+                model=version,
+                max_tokens=self._max_tokens('gemini'),
             )
+        except AIError as exc:
+            return _error('gemini', exc.message)
+        return result.as_dict()
 
-            if response.status_code == 200:
-                result = response.json()
+    def _generate_dalle(self, prompt: str, api_key: str, files: List[str] = None,
+                        conversation_history: List[Dict[str, str]] = None,
+                        version: str = None, language: str = 'en',
+                        system: str = None) -> Dict[str, Any]:
+        """Generate an image and save it under ``uploads/``.
 
-                # Save image to uploads directory
-                b64_data = result['data'][0]['b64_json']
-                image_data = base64.b64decode(b64_data)
-
-                # Generate unique filename
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                filename = f'dalle_generated_{timestamp}.png'
-                filepath = os.path.join('uploads', filename)
-
-                # Ensure uploads directory exists
-                os.makedirs('uploads', exist_ok=True)
-
-                with open(filepath, 'wb') as f:
-                    f.write(image_data)
-
-                # Return both base64 and file path with download URL
-                return {
-                    'text': f'Generated image saved as {filename}',
-                    'image_url': f'data:image/png;base64,{b64_data}',
-                    'image_path': filepath,
-                    'filename': filename,
-                    'download_url': f'/api/downloads/dalle/{filename}',
-                    'provider': 'dalle',
-                    'timestamp': datetime.now().isoformat(),
-                    'model': 'dall-e-3'
-                }
-            else:
-                return {'error': f'DALL-E API error: {response.status_code} - {response.text}'}
-
-        except Exception as e:
-            return {'error': f'DALL-E API error: {str(e)}'}
-
-    def _chat_grok(self, message: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
-        """Real Grok API integration using X.AI API"""
-        if not api_key:
-            return {'error': 'Grok API key required'}
-
+        The provider key is still called ``dalle`` because that is what is
+        stored in existing chat sessions; the DALL-E endpoints themselves were
+        shut down in May 2026 and the registry maps them onto GPT Image.
+        """
+        image_config = registry._yaml_models().get('images') or {}
         try:
-            headers = {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            }
-
-            # Add file content to message if files are present
-            enhanced_message = message
-            if files:
-                file_contents = []
-                for file_path in files:
-                    if not os.path.exists(file_path):
-                        continue
-                    
-                    mime_type, _ = mimetypes.guess_type(file_path)
-                    
-                    # Grok doesn't support images - warn user
-                    if mime_type and mime_type.startswith('image/'):
-                        file_contents.append(f"\n\n⚠️ Note: {os.path.basename(file_path)} is an image. Grok doesn't support image analysis.")
-                        continue
-                    
-                    # Handle text files
-                    if mime_type in ['text/plain', 'text/csv', 'application/json']:
-                        try:
-                            with open(file_path, 'r', encoding='utf-8') as f:
-                                content = f.read()[:8000]
-                                file_contents.append(f"\n\n--- File: {os.path.basename(file_path)} ---\n{content}")
-                        except Exception as e:
-                            file_contents.append(f"\n\nCould not read {os.path.basename(file_path)}: {str(e)}")
-                    # Handle PDFs, Word docs, and other documents
-                    else:
-                        try:
-                            from app.utils.file_handler import FileHandler
-                            text_content = FileHandler.extract_text(file_path)
-                            file_contents.append(f"\n\n--- File: {os.path.basename(file_path)} (Type: {mime_type or 'unknown'}) ---\n{text_content[:8000]}")
-                        except Exception as e:
-                            file_contents.append(f"\n\nUploaded file: {os.path.basename(file_path)} - Could not extract content: {str(e)}")
-                
-                if file_contents:
-                    enhanced_message += "\n\n=== UPLOADED FILES ===\n" + "\n".join(file_contents)
-
-            model = version if version else 'grok-4'
-            
-            data = {
-                'model': model,
-                'messages': [{'role': 'user', 'content': enhanced_message}],
-                'max_tokens': 3000,
-                'temperature': 0.7
-            }
-
-            response = requests.post(
-                'https://api.x.ai/v1/chat/completions',
-                headers=headers,
-                json=data,
-                timeout=60
+            generated = ai_transport.generate_image(
+                api_key=api_key,
+                prompt=prompt,
+                model=version,
+                size=str(image_config.get('size') or '1024x1024'),
+                quality=str(image_config.get('quality') or 'high'),
             )
+        except AIError as exc:
+            return _error('dalle', exc.message)
 
-            if response.status_code == 200:
-                result = response.json()
-                return {
-                    'text': result['choices'][0]['message']['content'],
-                    'provider': 'grok',
-                    'timestamp': datetime.now().isoformat(),
-                    'model': result.get('model', 'grok-3'),
-                    'usage': result.get('usage', {})
-                }
-            else:
-                return {'error': f'Grok API error: {response.status_code} - {response.text}'}
-
-        except Exception as e:
-            return {'error': f'Grok API error: {str(e)}'}
-
-    def _chat_deepseek(self, message: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
-        """Real DeepSeek API integration"""
-        if not api_key:
-            return {'error': 'DeepSeek API key required'}
-
+        upload_dir = 'uploads'
+        os.makedirs(upload_dir, exist_ok=True)
+        filename = secure_filename(
+            f"generated_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.png"
+        )
+        filepath = os.path.join(upload_dir, filename)
         try:
-            headers = {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            }
+            with open(filepath, 'wb') as handle:
+                handle.write(generated['image_bytes'])
+        except OSError as exc:
+            return _error('dalle', f'Could not save the generated image: {exc}')
 
-            # Add file content to message if files are present
-            enhanced_message = message
-            if files:
-                file_contents = []
-                for file_path in files:
-                    if not os.path.exists(file_path):
-                        continue
-                    
-                    mime_type, _ = mimetypes.guess_type(file_path)
-                    
-                    # DeepSeek doesn't support images - warn user
-                    if mime_type and mime_type.startswith('image/'):
-                        file_contents.append(f"\n\n⚠️ Note: {os.path.basename(file_path)} is an image. DeepSeek doesn't support image analysis.")
-                        continue
-                    
-                    # Handle text files (especially code files for DeepSeek)
-                    if mime_type in ['text/plain', 'text/csv', 'application/json'] or \
-                       file_path.endswith(('.py', '.js', '.java', '.cpp', '.c', '.ts', '.jsx', '.tsx', '.go', '.rb', '.php', '.html', '.css')):
-                        try:
-                            with open(file_path, 'r', encoding='utf-8') as f:
-                                content = f.read()[:10000]  # DeepSeek is good with code
-                                file_contents.append(f"\n\n--- File: {os.path.basename(file_path)} ---\n{content}")
-                        except Exception as e:
-                            file_contents.append(f"\n\nCould not read {os.path.basename(file_path)}: {str(e)}")
-                    # Handle PDFs, Word docs, and other documents
-                    else:
-                        try:
-                            from app.utils.file_handler import FileHandler
-                            text_content = FileHandler.extract_text(file_path)
-                            file_contents.append(f"\n\n--- File: {os.path.basename(file_path)} (Type: {mime_type or 'unknown'}) ---\n{text_content[:8000]}")
-                        except Exception as e:
-                            file_contents.append(f"\n\nUploaded file: {os.path.basename(file_path)} - Could not extract content: {str(e)}")
-                
-                if file_contents:
-                    enhanced_message += "\n\n=== UPLOADED FILES ===\n" + "\n".join(file_contents)
-
-            # Build messages with system prompt for language control
-            messages = []
-            
-            # Add system message to control response language
-            # DeepSeek defaults to Chinese, so we must explicitly set language
-            lang_name = 'English' if language == 'en' else 'Arabic' if language == 'ar' else 'English'
-            system_prompt = f"You are a helpful AI assistant. Always respond in {lang_name}. Do not respond in Chinese unless the user explicitly asks you to."
-            messages.append({'role': 'system', 'content': system_prompt})
-            
-            # Add conversation history if provided
-            if conversation_history:
-                for msg in conversation_history[-10:]:  # Last 10 messages for context
-                    messages.append({
-                        'role': msg.get('role', 'user'),
-                        'content': msg.get('content', '')
-                    })
-            
-            # Add current user message
-            messages.append({'role': 'user', 'content': enhanced_message})
-            
-            model = version if version else 'deepseek-chat'
-            data = {
-                'model': model,
-                'messages': messages,
-                'max_tokens': 3000,
-                'temperature': 0.7
-            }
-
-            response = requests.post(
-                'https://api.deepseek.com/v1/chat/completions',
-                headers=headers,
-                json=data,
-                timeout=60
-            )
-
-            if response.status_code == 200:
-                result = response.json()
-                return {
-                    'text': result['choices'][0]['message']['content'],
-                    'provider': 'deepseek',
-                    'timestamp': datetime.now().isoformat(),
-                    'model': result.get('model', 'deepseek-chat'),
-                    'usage': result.get('usage', {})
-                }
-            else:
-                return {'error': f'DeepSeek API error: {response.status_code} - {response.text}'}
-
-        except Exception as e:
-            return {'error': f'DeepSeek API error: {str(e)}'}
-
-    def _generate_heygen_video(self, message: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
+        payload = {
+            'text': generated.get('revised_prompt') or f'Generated image for: {prompt}',
+            'provider': 'dalle',
+            'model': generated['model'],
+            'timestamp': _now(),
+            'image_url': f'/uploads/{filename}',
+            'image_path': filepath,
+        }
+        if generated.get('fallback_from'):
+            payload['fallback_from'] = generated['fallback_from']
+        return payload
+    def _generate_heygen_video(self, message: str, api_key: str, files: List[str] = None,
+                    conversation_history: List[Dict[str, str]] = None,
+                    version: str = None, language: str = 'en',
+                    system: str = None) -> Dict[str, Any]:
         """Generate an AI avatar video using the HeyGen API.
         The `message` is used as the spoken script. `version` may carry a JSON payload with
         avatar_id / voice_id / background overrides; otherwise sensible defaults are used.
@@ -1416,106 +973,15 @@ class AIService:
         except Exception as e:
             return {'error': f'HeyGen status error: {str(e)}'}
 
-    def _chat_llama(self, message: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
-        file_info = ""
-        if files:
-            file_names = [os.path.basename(f) for f in files if os.path.exists(f)]
-            file_info = f" (with {len(file_names)} file(s): {', '.join(file_names)})"
+    def generate_image(self, prompt: str, api_key: str,
+                       version: str = None) -> Dict[str, Any]:
+        """Public image-generation entry point used by ``/api/generate-image``."""
+        return self._generate_dalle(prompt, api_key, version=version)
 
-        return {
-            'text': f'Mock Llama response to: "{message}"{file_info}',
-            'provider': 'llama',
-            'timestamp': datetime.now().isoformat(),
-            'model': 'llama-2-70b'
-        }
-
-    def _chat_perplexity(self, message: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
-        if not api_key:
-            return {'error': 'Perplexity API key required'}
-
-        try:
-            headers = {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            }
-
-            # Add file information to message if files are present
-            enhanced_message = message
-            if files:
-                file_names = [os.path.basename(f) for f in files if os.path.exists(f)]
-                if file_names:
-                    enhanced_message += f"\n\nNote: User has uploaded {len(file_names)} file(s): {', '.join(file_names)}"
-
-            model = version if version else 'sonar-pro'
-
-            # Build messages with conversation history
-            messages = []
-            if conversation_history:
-                for msg in conversation_history[-10:]:
-                    messages.append({
-                        'role': msg.get('role', 'user'),
-                        'content': msg.get('content', '')
-                    })
-            messages.append({'role': 'user', 'content': enhanced_message})
-
-            data = {
-                'model': model,
-                'messages': messages,
-                'max_tokens': 2000,
-                'temperature': 0.2,
-                'return_citations': True
-            }
-
-            # Increased timeout to 120 seconds for Perplexity's search functionality
-            response = requests.post(
-                'https://api.perplexity.ai/chat/completions',
-                headers=headers,
-                json=data,
-                timeout=120
-            )
-
-            if response.status_code == 200:
-                result = response.json()
-                content = result['choices'][0]['message']['content']
-                
-                # Add citations if available
-                citations = result.get('citations', [])
-                if citations:
-                    content += "\n\n**Sources:**\n"
-                    for i, cite in enumerate(citations[:5], 1):
-                        content += f"{i}. {cite}\n"
-                
-                return {
-                    'text': content,
-                    'provider': 'perplexity',
-                    'timestamp': datetime.now().isoformat(),
-                    'model': result.get('model', model),
-                    'usage': result.get('usage', {})
-                }
-            else:
-                error_text = response.text[:200] if response.text else 'Unknown error'
-                return {'error': f'Perplexity API error: {response.status_code} - {error_text}'}
-
-        except Exception as e:
-            return {'error': f'Perplexity API error: {str(e)}'}
-
-    def _query_census(self, query: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
-        file_info = ""
-        if files:
-            file_names = [os.path.basename(f) for f in files if os.path.exists(f)]
-            file_info = f" (analyzing {len(file_names)} file(s): {', '.join(file_names)})"
-
-        return {
-            'text': f'Mock Census data response for: "{query}"{file_info}',
-            'provider': 'census',
-            'timestamp': datetime.now().isoformat(),
-            'model': 'census-api'
-        }
-
-    def generate_image(self, prompt: str, api_key: str) -> Dict[str, Any]:
-        return self._generate_dalle(prompt, api_key)
-
-    def _chat_dify(self, message: str, api_key: str, files: List[str] = None, conversation_history: List[Dict[str, str]] = None, version: str = None, language: str = 'en') -> Dict[str, Any]:
+    def _chat_dify(self, message: str, api_key: str, files: List[str] = None,
+                    conversation_history: List[Dict[str, str]] = None,
+                    version: str = None, language: str = 'en',
+                    system: str = None) -> Dict[str, Any]:
         """Chat with Dify AI Application"""
         if not api_key:
             return {'error': 'Dify API key required'}
