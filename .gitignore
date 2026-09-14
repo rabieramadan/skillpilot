@@ -47,5 +47,9 @@ dist/
 *.tar.gz
 *.rar
 *.bak
+*.bak[0-9]
+*.lnk
+Thumbs.db
+desktop.ini
 skillpilot_deployment/
 config.local.yaml
