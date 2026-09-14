@@ -129,6 +129,26 @@
     font-weight: 700;
 }
 
+/* An enrolment the administrator has not acted on yet. Pinned to the bottom
+   of the image so it does not compete with the type and price badges, which
+   share the top row. */
+.course-status-badge {
+    position: absolute;
+    left: 15px;
+    bottom: 15px;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.course-status-badge i {
+    margin-right: 5px;
+}
+
 .course-info {
     padding: 20px;
     flex-grow: 1;

@@ -107,6 +107,11 @@ class StudentCoursesManager {
         // Payment status
         const isFree = course.is_free !== false;
         const price = course.price || 0;
+
+        // An enrolment the admin has not acted on yet. The card still belongs
+        // in "My Courses" - the student asked for it and the request exists -
+        // but it must not claim access the student does not have.
+        const awaitingApproval = isEnrolled && course.awaiting_approval === true;
         
         return `
             <div class="course-preview-card" data-testid="course-card-${course.class_id}">
@@ -118,6 +123,10 @@ class StudentCoursesManager {
                     ${isFree ? 
                         '<div class="course-price-badge" style="background: #27ae60;">FREE</div>' : 
                         `<div class="course-price-badge" style="background: #e74c3c;">${price} OMR</div>`
+                    }
+                    ${awaitingApproval ?
+                        '<div class="course-status-badge" style="background: #f39c12;" data-testid="badge-pending-' + course.class_id + '"><i class="fas fa-hourglass-half"></i> Awaiting approval</div>' :
+                        ''
                     }
                 </div>
                 
@@ -154,17 +163,47 @@ class StudentCoursesManager {
                     
                     <!-- Action Button -->
                     <div class="course-actions">
-                        ${isEnrolled ? 
-                            `<button class="btn-success" disabled data-testid="button-enrolled-${course.class_id}">
-                                <i class="fas fa-check-circle"></i> Enrolled
-                            </button>` :
-                            `<button class="btn-primary" onclick="window.studentCoursesManager.enrollInCourse('${course.class_id}', ${!isFree})" data-testid="button-enroll-${course.class_id}">
-                                <i class="fas fa-plus-circle"></i> ${isFree ? 'Enroll Now' : 'Enroll (Payment Required)'}
-                            </button>`
-                        }
+                        ${this.renderCourseAction(course, isEnrolled, isFree)}
                     </div>
                 </div>
             </div>
+        `;
+    }
+
+    /**
+     * The button at the bottom of a card.
+     *
+     * Three states, not two: not enrolled, waiting for an administrator, and
+     * approved. Showing "Enrolled" on a pending request tells the student
+     * they have access when the server will refuse them.
+     */
+    renderCourseAction(course, isEnrolled, isFree) {
+        if (!isEnrolled) {
+            return `
+                <button class="btn-primary" onclick="window.studentCoursesManager.enrollInCourse('${course.class_id}', ${!isFree})" data-testid="button-enroll-${course.class_id}">
+                    <i class="fas fa-plus-circle"></i> ${isFree ? 'Enroll Now' : 'Enroll (Payment Required)'}
+                </button>
+            `;
+        }
+
+        if (course.awaiting_approval === true) {
+            const reason = course.payment_verified === false
+                ? 'Waiting for your payment to be verified'
+                : 'Waiting for an administrator to approve your request';
+            return `
+                <button class="btn-secondary" disabled title="${reason}" data-testid="button-pending-${course.class_id}">
+                    <i class="fas fa-hourglass-half"></i> Pending approval
+                </button>
+                <p class="course-pending-note" style="margin: 8px 0 0; font-size: 0.85em; color: #7f8c8d;">
+                    ${reason}. You will get access as soon as it is.
+                </p>
+            `;
+        }
+
+        return `
+            <button class="btn-success" disabled data-testid="button-enrolled-${course.class_id}">
+                <i class="fas fa-check-circle"></i> Enrolled
+            </button>
         `;
     }
 
@@ -191,10 +230,19 @@ class StudentCoursesManager {
             const data = await response.json();
 
             if (response.ok) {
+                // Say what the server said. It decides whether the enrolment
+                // is active or pending approval; announcing "Successfully
+                // enrolled" regardless is what made a pending request look
+                // like it had been granted and then vanished.
+                const status = (data.enrollment && data.enrollment.status) || '';
+                const pending = status === 'pending';
+
                 if (requiresPayment) {
                     alert(`Enrollment request submitted!\n\nPlease make your payment to: AIAC@unizwa.edu.om\nAmount: ${data.amount || 'See course details'}\n\nOnce payment is verified by an administrator, you will gain access to the course.`);
+                } else if (pending) {
+                    alert(`${data.message || 'Registration submitted.'}\n\nThe course is now in "My Courses" marked "Pending approval". You will be able to open it once an administrator approves the request.`);
                 } else {
-                    alert('Successfully enrolled in the course!');
+                    alert(data.message || 'Successfully enrolled in the course!');
                 }
                 
                 // Reload courses

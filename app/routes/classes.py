@@ -767,7 +767,12 @@ def get_my_enrollments():
 @classes_bp.route('/enroll', methods=['POST'])
 @authenticated_required
 def enroll_in_class():
-    """Enroll in a class (auto-approved) - Database only"""
+    """Request enrolment in a class.
+
+    Creates the enrolment as `pending`; an administrator approves it before
+    the student can open the course. The response message says so — callers
+    must show it rather than assuming success means access was granted.
+    """
     try:
         from app.models import Course, Enrollment, User, db
         import hashlib
@@ -2000,13 +2005,15 @@ def get_my_courses():
         user_id = session.get('user_id')
         course_types = load_course_types()
 
-        # Get user's enrollments from database
+        # Enrolments that matter to the student: granted, or waiting on an
+        # admin. A pending request used to be fetched here and then dropped,
+        # so the course fell back into "Available" with an Enrol button and
+        # the student's request appeared to have vanished.
         user_enrollments = Enrollment.query.filter(
             Enrollment.user_id == user_id,
             Enrollment.status.in_(['approved', 'active', 'pending'])
         ).all()
-
-        enrolled_course_ids = [e.course_id for e in user_enrollments if e.status in ['approved', 'active']]
+        enrollment_by_course = {e.course_id: e for e in user_enrollments}
 
         # Get all published courses
         all_courses = Course.query.filter(
@@ -2031,18 +2038,30 @@ def get_my_courses():
                 'preview_image': course.thumbnail_url or ''
             }
             
-            if course.id in enrolled_course_ids:
-                enrollment = next((e for e in user_enrollments if e.course_id == course.id), None)
-                class_info['enrollment_date'] = enrollment.enrolled_at.isoformat() if enrollment and enrollment.enrolled_at else None
-                class_info['payment_verified'] = enrollment.payment_status in ['paid', 'not_required', 'waived'] if enrollment else False
-                enrolled_courses.append(class_info)
-            else:
+            enrollment = enrollment_by_course.get(course.id)
+            if enrollment is None:
                 available_courses.append(class_info)
+                continue
+
+            granted = enrollment.status in ('approved', 'active')
+            class_info['status'] = enrollment.status
+            class_info['awaiting_approval'] = not granted
+            class_info['enrollment_date'] = (
+                enrollment.enrolled_at.isoformat() if enrollment.enrolled_at else None)
+            class_info['payment_verified'] = enrollment.payment_status in (
+                'paid', 'not_required', 'waived')
+            # A pending course is listed so the student can see the request was
+            # received. Access to its content is a separate check, and still
+            # requires an approved or active enrolment.
+            class_info['can_open'] = granted
+            enrolled_courses.append(class_info)
         
         return jsonify({
             'success': True,
             'enrolled_courses': enrolled_courses,
             'available_courses': available_courses,
+            'pending_count': sum(1 for c in enrolled_courses
+                                 if c.get('awaiting_approval')),
             'course_types': course_types.get('course_types', [])
         })
         
