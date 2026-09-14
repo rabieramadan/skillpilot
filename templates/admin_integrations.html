@@ -195,13 +195,37 @@
             }[c]));
         }
 
+        // A response is not always JSON: a session that has expired, a proxy
+        // error page or a misrouted call all return HTML, and `r.json()` then
+        // throws "Unexpected token '<', \"<!doctype \"...", which tells the
+        // administrator nothing. Read the body once and say what happened.
+        async function readJson(r) {
+            const text = await r.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                if (r.status === 401 || r.status === 403 ||
+                    /^\s*<(!doctype|html)/i.test(text)) {
+                    throw new Error(
+                        'Your session is no longer signed in as a super admin. '
+                        + 'Open the admin login in a new tab, sign in, then reload '
+                        + 'this page.');
+                }
+                throw new Error(`The server replied with ${r.status} `
+                    + `${r.statusText || ''} instead of data.`.trim());
+            }
+        }
+
         async function loadProviders() {
             const grid = document.getElementById('providerGrid');
             grid.innerHTML = '<div class="card"><em>Loading…</em></div>';
             try {
-                const r = await fetch(api('/admin/api/ai-config'), { credentials: 'same-origin' });
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                const data = await r.json();
+                const r = await fetch(api('/admin/api/ai-config'), {
+                    credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' },
+                });
+                const data = await readJson(r);
+                if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
                 allProviders = data.providers || [];
                 renderSummary();
                 renderGrid();
@@ -214,12 +238,14 @@
             const total = allProviders.length;
             const configured = allProviders.filter(p => p.configured).length;
             const env = allProviders.filter(p => p.source === 'env').length;
+            const yaml = allProviders.filter(p => p.source === 'config.yaml').length;
             const dbk = allProviders.filter(p => p.source === 'database').length;
             const missing = total - configured;
             document.getElementById('summaryPills').innerHTML = `
                 <span class="pill" data-testid="pill-total">${total} total</span>
                 <span class="pill pill-ok" data-testid="pill-configured">${configured} configured</span>
                 <span class="pill" data-testid="pill-env">${env} from env</span>
+                <span class="pill" data-testid="pill-yaml">${yaml} from config.yaml</span>
                 <span class="pill" data-testid="pill-db">${dbk} from DB</span>
                 <span class="pill pill-${missing ? 'err' : 'ok'}" data-testid="pill-missing">${missing} missing</span>
             `;
@@ -238,10 +264,34 @@
             list.forEach(p => grid.appendChild(renderCard(p)));
         }
 
+        // Where the key actually comes from: environment, config.yaml, or the
+        // encrypted database store. This used to call anything that was not an
+        // environment variable "DB", which mislabelled every key in config.yaml.
+        const SOURCE_LABEL = {
+            'env': 'env',
+            'config.yaml': 'config.yaml',
+            'database': 'DB',
+        };
+
         function statusBadge(p) {
             if (!p.configured) return '<span class="badge badge-none">Not set</span>';
-            if (p.source === 'env') return '<span class="badge badge-ok">Configured</span><span class="badge badge-src">env</span>';
-            return '<span class="badge badge-ok">Configured</span><span class="badge badge-src">DB</span>';
+            const label = SOURCE_LABEL[p.source] || p.source || 'unknown';
+            return '<span class="badge badge-ok">Configured</span>'
+                 + `<span class="badge badge-src">${escapeHtml(label)}</span>`;
+        }
+
+        // Keys resolve environment first, then config.yaml, then the database,
+        // so saving here has no effect while an earlier source holds a key.
+        function sourceNote(p) {
+            if (p.source === 'env') {
+                return ' (the environment variable is in use; a key saved here '
+                     + 'is ignored while it is set)';
+            }
+            if (p.source === 'config.yaml') {
+                return ' (in use from config.yaml; a key saved here is ignored '
+                     + 'unless you clear it there)';
+            }
+            return '';
         }
 
         function renderCard(p) {
@@ -261,7 +311,7 @@
                     <div>${statusBadge(p)}</div>
                 </div>
                 <div class="field">
-                    <label for="key-${p.id}">API Key${p.source === 'env' ? ' (env var is in use; DB key is ignored when env is set)' : ''}</label>
+                    <label for="key-${p.id}">API Key${sourceNote(p)}</label>
                     <input id="key-${p.id}" type="password" autocomplete="off" placeholder="${escapeHtml(placeholder)}" data-testid="input-key-${p.id}" />
                     <div class="preview-line">${p.configured ? 'Current: ' + escapeHtml(p.key_preview) : 'No key configured.'}</div>
                 </div>
@@ -314,7 +364,7 @@
                     credentials: 'same-origin',
                     body: JSON.stringify({ provider: p.id, api_key: key, is_active: true }),
                 });
-                const d = await r.json();
+                const d = await readJson(r);
                 if (!r.ok) { showResult(p.id, 'err', d.error || 'Save failed'); return; }
                 showResult(p.id, 'ok', d.message || 'Saved.');
                 document.getElementById('key-' + p.id).value = '';
@@ -336,7 +386,7 @@
                     credentials: 'same-origin',
                     body: JSON.stringify(body),
                 });
-                const d = await r.json();
+                const d = await readJson(r);
                 showResult(
                     p.id,
                     d.success ? 'ok' : 'err',
@@ -349,12 +399,25 @@
         }
 
         async function deleteKey(p) {
-            if (!confirm(`Remove the saved ${p.name} key from the database? (Env var, if set, will still be used.)`)) return;
+            // Remove only clears the database copy. Saying so plainly avoids
+            // the obvious trap: removing, seeing the key still reported as
+            // configured, and assuming the screen is broken.
+            if (!p.stored_in_database) {
+                showResult(p.id, 'err', p.configured
+                    ? `There is no ${p.name} key in the database to remove. `
+                      + `This one comes from ${p.source}, so edit it there.`
+                    : `No ${p.name} key is saved.`);
+                return;
+            }
+            if (!confirm(`Remove the saved ${p.name} key from the database?\n\n`
+                + `A key in the environment or in config.yaml is not touched, `
+                + `and would still be used.`)) return;
             try {
                 const r = await fetch(api('/admin/api/ai-credentials/' + encodeURIComponent(p.id)), {
-                    method: 'DELETE', credentials: 'same-origin'
+                    method: 'DELETE', credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' },
                 });
-                const d = await r.json();
+                const d = await readJson(r);
                 if (!r.ok) { showResult(p.id, 'err', d.error || 'Delete failed'); return; }
                 showResult(p.id, 'ok', d.message || 'Removed.');
                 loadProviders();

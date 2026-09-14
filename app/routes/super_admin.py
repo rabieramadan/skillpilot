@@ -22,20 +22,43 @@ def get_db():
         return None
 
 
+def _expects_json() -> bool:
+    """Whether a refusal should be JSON rather than a redirect to the login page.
+
+    ``request.is_json`` only describes what the caller *sent*, so a GET or a
+    DELETE never matched it: the admin screens got a 302 to the login page and
+    the HTML that followed, which their `await r.json()` reported as
+    "Unexpected token '<', \"<!doctype \"... is not valid JSON" instead of
+    saying the session had expired.
+    """
+    if request.is_json:
+        return True
+    if '/api/' in request.path:
+        return True
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return True
+    accept = request.accept_mimetypes
+    return bool(accept['application/json']) and \
+        accept['application/json'] >= accept['text/html']
+
+
+def _refuse(message: str, status: int):
+    """Answer an unauthorised request in the shape the caller can read."""
+    if _expects_json():
+        return jsonify({'error': message}), status
+    return redirect(url_for('super_admin.login_page'))
+
+
 def super_admin_required(f):
     """Decorator to require super_admin role"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('logged_in'):
-            if request.is_json:
-                return jsonify({'error': 'Authentication required'}), 401
-            return redirect(url_for('super_admin.login_page'))
+            return _refuse('Your session has expired. Please sign in again.', 401)
 
-        role = session.get('role', '').lower()
+        role = session.get('role', '').lower().replace(' ', '_')
         if role not in ['super_admin', 'superadmin']:
-            if request.is_json:
-                return jsonify({'error': 'Super admin access required'}), 403
-            return redirect(url_for('super_admin.login_page'))
+            return _refuse('Super admin access required', 403)
 
         return f(*args, **kwargs)
     return decorated_function
@@ -46,15 +69,11 @@ def admin_dashboard_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('logged_in'):
-            if request.is_json:
-                return jsonify({'error': 'Authentication required'}), 401
-            return redirect(url_for('super_admin.login_page'))
+            return _refuse('Your session has expired. Please sign in again.', 401)
 
-        role = session.get('role', '').lower()
+        role = session.get('role', '').lower().replace(' ', '_')
         if role not in ['super_admin', 'superadmin', 'admin', 'institution_admin']:
-            if request.is_json:
-                return jsonify({'error': 'Admin access required'}), 403
-            return redirect(url_for('super_admin.login_page'))
+            return _refuse('Admin access required', 403)
 
         return f(*args, **kwargs)
     return decorated_function
@@ -1857,8 +1876,12 @@ def restore_app():
 @super_admin_bp.route('/api/ai-config', methods=['GET'])
 @super_admin_required
 def get_ai_config():
-    """Get AI provider configuration status - checks both env vars and database"""
-    import os
+    """Report, per provider, whether a key is configured and where it lives.
+
+    Reads through app.utils.api_key_helper, the one resolver the rest of the
+    platform uses, so this screen cannot disagree with what a feature will
+    actually do.
+    """
     from app.models import ApiCredential
     from app.utils.encryption import decrypt_api_key, mask_api_key
 
@@ -1897,24 +1920,32 @@ def get_ai_config():
          'description': 'Payments. Combined format: client_id|client_secret|mode (sandbox|live)'},
     ])
 
+    # What the platform will actually use, from the one resolver every other
+    # caller goes through: environment, then config.yaml, then the encrypted
+    # database store. This screen used to look only at the environment and the
+    # database, so a key living in config.yaml -- where the installer puts
+    # them -- was reported as "Not set" while the platform was using it
+    # perfectly well.
+    from app.utils.api_key_helper import get_api_key, get_api_key_source
+
+    SOURCE_LABELS = {'environment': 'env', 'config.yaml': 'config.yaml',
+                     'database': 'database'}
+
     config = []
     for provider in providers:
-        env_key = os.environ.get(provider['key'], '')
-        has_env_key = bool(env_key)
-        
+        effective_key = get_api_key(provider['id']) or ''
+        has_key = bool(effective_key)
+        source = SOURCE_LABELS.get(get_api_key_source(provider['id']), 'none')
+
+        # Still reported separately: the Remove button only clears the
+        # database copy, and it should say so honestly.
         db_credential = ApiCredential.query.filter_by(provider=provider['id']).first()
-        db_key = None
         has_db_key = False
         if db_credential and db_credential.encrypted_key:
             try:
-                db_key = decrypt_api_key(db_credential.encrypted_key)
-                has_db_key = bool(db_key)
+                has_db_key = bool(decrypt_api_key(db_credential.encrypted_key))
             except Exception:
                 has_db_key = False
-        
-        effective_key = env_key if has_env_key else (db_key if has_db_key else '')
-        has_key = bool(effective_key)
-        source = 'env' if has_env_key else ('database' if has_db_key else 'none')
         
         config.append({
             'id': provider['id'],
@@ -1923,6 +1954,7 @@ def get_ai_config():
             'category': provider.get('category', 'ai'),
             'configured': has_key,
             'source': source,
+            'stored_in_database': has_db_key,
             'key_preview': mask_api_key(effective_key) if has_key else '',
             'models': provider['models'],
             'description': provider['description'],
@@ -2003,52 +2035,29 @@ def delete_ai_credential(provider_id):
 @super_admin_required
 def test_all_apis():
     """Test all configured AI provider API keys with a simple prompt"""
-    import os
     import time
-    import requests as http_requests
     from app.utils.api_key_helper import get_api_key
 
     test_prompt = "Say hello in one sentence."
     results = []
 
-    provider_tests = [
-        {
-            'id': 'openai',
-            'name': 'OpenAI',
-            'model': 'gpt-4.1',
-            'test_fn': lambda key: _test_openai(key, test_prompt, http_requests)
-        },
-        {
-            'id': 'claude',
-            'name': 'Claude',
-            'model': 'claude-sonnet-4-20250514',
-            'test_fn': lambda key: _test_claude(key, test_prompt)
-        },
-        {
-            'id': 'gemini',
-            'name': 'Gemini',
-            'model': 'gemini-2.5-flash',
-            'test_fn': lambda key: _test_gemini(key, test_prompt)
-        },
-        {
-            'id': 'perplexity',
-            'name': 'Perplexity',
-            'model': 'sonar',
-            'test_fn': lambda key: _test_perplexity(key, test_prompt, http_requests)
-        },
-        {
-            'id': 'grok',
-            'name': 'Grok',
-            'model': 'grok-3-mini',
-            'test_fn': lambda key: _test_grok(key, test_prompt, http_requests)
-        },
-        {
-            'id': 'deepseek',
-            'name': 'DeepSeek',
-            'model': 'deepseek-chat',
-            'test_fn': lambda key: _test_deepseek(key, test_prompt, http_requests)
-        }
-    ]
+    # Built from the catalogue, so this list cannot name a model the
+    # platform no longer has. It used to repeat "gpt-4.1",
+    # "claude-sonnet-4-20250514" and friends inline, which went stale.
+    from app.services import model_registry as registry
+
+    provider_tests = []
+    for key in ('openai', 'claude', 'gemini', 'perplexity', 'grok', 'deepseek'):
+        spec = registry.get_provider(key)
+        if spec is None:
+            continue
+        provider_tests.append({
+            'id': key,
+            'name': spec.label,
+            'model': registry.default_model(key) or '',
+            'test_fn': (lambda k: lambda api_key:
+                        _test_chat_provider(k, api_key, test_prompt))(key),
+        })
 
     for provider in provider_tests:
         api_key = get_api_key(provider['id'])
@@ -2101,71 +2110,96 @@ def test_all_apis():
     })
 
 
-def _test_openai(api_key, prompt, http_requests):
-    response = http_requests.post(
-        'https://api.openai.com/v1/chat/completions',
-        headers={'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'},
-        json={'model': 'gpt-4.1', 'messages': [{'role': 'user', 'content': prompt}], 'max_tokens': 50},
-        timeout=30
-    )
-    if response.status_code == 200:
-        text = response.json()['choices'][0]['message']['content']
-        return {'success': True, 'message': text[:100]}
-    else:
-        return {'success': False, 'message': f'HTTP {response.status_code}: {response.text[:150]}'}
+def _test_by_listing_models(provider, api_key, spec):
+    """Verify a key by asking the provider what it can see.
 
+    Used for providers that do not answer prompts -- image models -- where
+    the only other proof would be paying to generate something.
+    """
+    from app.services import ai_transport
 
-def _test_claude(api_key, prompt):
+    url = spec.discovery_url
+    if not url:
+        return {'success': False,
+                'message': f'No discovery_url is set for {provider} in '
+                           'config.yaml, so its key cannot be checked.'}
     try:
-        import anthropic
-        client = anthropic.Anthropic(api_key=api_key)
-        response = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=50,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return {'success': True, 'message': response.content[0].text[:100]}
-    except Exception as e:
-        return {'success': False, 'message': str(e)[:150]}
+        response = ai_transport._http().get(
+            url, headers={'Authorization': f'Bearer {api_key}'}, timeout=20)
+    except Exception as exc:
+        return {'success': False,
+                'message': f'Could not reach {provider}: {str(exc)[:140]}'}
 
-
-def _test_gemini(api_key, prompt):
+    if response.status_code != 200:
+        return {'success': False,
+                'message': f'HTTP {response.status_code}: '
+                           f'{response.text[:140]}'}
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        response = model.generate_content(prompt)
-        return {'success': True, 'message': response.text[:100]}
-    except Exception as e:
-        return {'success': False, 'message': str(e)[:150]}
+        count = len((response.json() or {}).get('data') or [])
+    except Exception:
+        count = 0
+    return {'success': True,
+            'message': f'Key accepted. {count} models visible.'}
 
 
-def _test_perplexity(api_key, prompt, http_requests):
-    response = http_requests.post(
-        'https://api.perplexity.ai/chat/completions',
-        headers={'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'},
-        json={'model': 'sonar', 'messages': [{'role': 'user', 'content': prompt}], 'max_tokens': 50},
-        timeout=30
-    )
-    if response.status_code == 200:
-        text = response.json()['choices'][0]['message']['content']
-        return {'success': True, 'message': text[:100]}
-    else:
-        return {'success': False, 'message': f'HTTP {response.status_code}: {response.text[:150]}'}
+def _test_chat_provider(provider, api_key, prompt):
+    """Send one short prompt through the provider's real call path.
 
+    Each of these used to be a hand-rolled request naming a model inline --
+    "gpt-4.1", "claude-sonnet-4-20250514", "gemini-2.5-flash", "sonar",
+    "grok-3-mini". Those are exactly the identifiers the catalogue exists to
+    keep current, and they went stale: testing a perfectly good Claude key
+    returned "404 not_found_error: model: claude-sonnet-4-20250514", which
+    reads as a broken key rather than a retired model.
 
-def _test_grok(api_key, prompt, http_requests):
-    response = http_requests.post(
-        'https://api.x.ai/v1/chat/completions',
-        headers={'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'},
-        json={'model': 'grok-3-mini', 'messages': [{'role': 'user', 'content': prompt}], 'max_tokens': 50},
-        timeout=30
-    )
-    if response.status_code == 200:
-        text = response.json()['choices'][0]['message']['content']
-        return {'success': True, 'message': text[:100]}
-    else:
-        return {'success': False, 'message': f'HTTP {response.status_code}: {response.text[:150]}'}
+    Now the model comes from config.yaml and the request goes through
+    ai_transport, so a passing test means the platform itself can call the
+    provider -- not that a parallel code path can.
+    """
+    from app.services import ai_transport
+    from app.services import model_registry as registry
+
+    spec = registry.get_provider(provider)
+    if spec is None:
+        return {'success': False,
+                'message': f'{provider} is not in the model catalogue.'}
+
+    model = registry.default_model(provider)
+    if not model:
+        return {'success': False,
+                'message': f'No default model is set for {provider} in '
+                           'config.yaml.'}
+
+    # Room to answer. A tight budget looks like a broken key on a reasoning
+    # model: the thinking tokens use it up and the reply comes back empty,
+    # reported as "hit its output limit before writing an answer".
+    common = dict(api_key=api_key, user_text=prompt, model=model,
+                  max_tokens=512, timeout=30)
+    try:
+        if spec.driver == 'anthropic':
+            result = ai_transport.chat_anthropic(**common)
+        elif spec.driver == 'gemini':
+            result = ai_transport.chat_gemini(**common)
+        elif spec.driver == 'openai_compatible':
+            result = ai_transport.chat_openai_compatible(provider, **common)
+        elif spec.driver == 'openai_images':
+            # An image model cannot answer a prompt, and generating a picture
+            # to prove a key works costs real money. Ask the provider which
+            # models the key can see instead: same credential, no charge.
+            return _test_by_listing_models(provider, api_key, spec)
+        else:
+            return {'success': False,
+                    'message': f'No chat test for the "{spec.driver}" driver.'}
+    except ai_transport.AIError as exc:
+        return {'success': False, 'message': str(exc)[:200], 'model': model}
+
+    message = (result.text or '').strip()[:100] or 'Replied, with no text.'
+    answer = {'success': True, 'message': message, 'model': result.model}
+    if result.fallback_from:
+        answer['message'] = (
+            f'{message}  (note: {result.fallback_from} was unavailable, '
+            f'{result.model} answered)')
+    return answer
 
 
 def _test_heygen(api_key, http_requests):
@@ -2258,18 +2292,9 @@ def test_single_api_key():
     test_prompt = "Say hello in one sentence."
     start = time.time()
     try:
-        if provider == 'openai':
-            result = _test_openai(api_key, test_prompt, http_requests)
-        elif provider == 'claude':
-            result = _test_claude(api_key, test_prompt)
-        elif provider == 'gemini':
-            result = _test_gemini(api_key, test_prompt)
-        elif provider == 'perplexity':
-            result = _test_perplexity(api_key, test_prompt, http_requests)
-        elif provider == 'grok':
-            result = _test_grok(api_key, test_prompt, http_requests)
-        elif provider == 'deepseek':
-            result = _test_deepseek(api_key, test_prompt, http_requests)
+        if provider in ('openai', 'claude', 'gemini', 'perplexity', 'grok',
+                        'deepseek', 'images'):
+            result = _test_chat_provider(provider, api_key, test_prompt)
         elif provider == 'heygen':
             result = _test_heygen(api_key, http_requests)
         elif provider == 'bedrock':
@@ -2293,20 +2318,6 @@ def test_single_api_key():
 @super_admin_required
 def integrations_page():
     return render_template('admin_integrations.html')
-
-
-def _test_deepseek(api_key, prompt, http_requests):
-    response = http_requests.post(
-        'https://api.deepseek.com/v1/chat/completions',
-        headers={'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'},
-        json={'model': 'deepseek-chat', 'messages': [{'role': 'user', 'content': prompt}], 'max_tokens': 50},
-        timeout=30
-    )
-    if response.status_code == 200:
-        text = response.json()['choices'][0]['message']['content']
-        return {'success': True, 'message': text[:100]}
-    else:
-        return {'success': False, 'message': f'HTTP {response.status_code}: {response.text[:150]}'}
 
 
 # ============================================

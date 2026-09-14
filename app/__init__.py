@@ -1,4 +1,4 @@
-from flask import Flask, session
+from flask import Flask, jsonify, request, session
 from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 from config.config import Config
@@ -340,5 +340,40 @@ h2{color:#0d9488;}p{color:#555;}#status{font-weight:600;color:#166534;}</style>
                 "form-action 'self'"
             )
         return resp
+
+    # ---- API errors must be JSON ------------------------------------------
+    # Flask answers an error with an HTML page. Every screen in this platform
+    # reads its API responses with `r.json()`, so any 404, 405, 415 or crash
+    # reached the user as
+    #     Unexpected token '<', "<!doctype "... is not valid JSON
+    # which says nothing about what went wrong. Under /api/ the same errors
+    # are returned as JSON, with the HTML pages left alone everywhere else.
+    from werkzeug.exceptions import HTTPException
+
+    def _is_api_request() -> bool:
+        return '/api/' in request.path
+
+    @app.errorhandler(HTTPException)
+    def _http_error(error):
+        if not _is_api_request():
+            return error
+        return jsonify({
+            'error': error.description or error.name,
+            'status': error.code,
+        }), error.code or 500
+
+    @app.errorhandler(Exception)
+    def _unexpected_error(error):
+        if isinstance(error, HTTPException):
+            return error
+        app.logger.exception('Unhandled error on %s', request.path)
+        if not _is_api_request():
+            raise error
+        # The detail goes to the log, not to the browser.
+        return jsonify({
+            'error': 'The server hit an unexpected error handling this '
+                     'request. Check server.log for the details.',
+            'status': 500,
+        }), 500
 
     return app
