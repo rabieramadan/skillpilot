@@ -157,3 +157,38 @@ class TestPdfExportDegrades:
         guard = export[:export.index('const { jsPDF }')]
         assert 'window.jspdf' in guard and 'return' in guard, \
             'exportChat() must bail out with a message when jsPDF is missing'
+
+
+class TestTheDeveloperPortalRevokeButton:
+    def test_the_key_is_actually_revoked(self, app, client, login_as, api_key):
+        """The button sent DELETE /api/v1/keys/<id>, which matches no route,
+        so the key stayed live and the list still showed it."""
+        from app.models import ApiKey
+
+        login_as('superadmin')
+        _, key_id = api_key(['read'])
+
+        response = client.post(f'/api/v1/keys/{key_id}/revoke')
+        assert response.status_code == 200, response.data
+
+        with app.app_context():
+            assert ApiKey.query.get(key_id).revoked is True
+
+    def test_the_page_calls_that_endpoint(self):
+        source = pathlib.Path('templates/developer_portal.html').read_text(
+            encoding='utf-8')
+        revoke = source[source.index('async function revokeKey'):]
+        revoke = revoke[:revoke.index('\n}')]
+        assert "'/revoke'" in revoke or '/revoke' in revoke
+        assert "method: 'DELETE'" not in revoke
+
+
+class TestFaviconIsServed:
+    def test_the_browser_gets_an_icon_instead_of_a_404(self, client):
+        """Browsers request /favicon.ico on every page whether it is linked
+        or not; there was no route, so each page load logged a 404."""
+        response = client.get('/favicon.ico')
+        assert response.status_code == 200
+        assert response.data[:4] == b'\x00\x00\x01\x00', 'not an .ico'
+        assert len(response.data) < 50_000, \
+            'the icon should be small; it is fetched on every page'

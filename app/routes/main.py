@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, send_from_directory
+from flask import (Blueprint, render_template, request, jsonify, session,
+                   redirect, url_for, send_from_directory, current_app)
 from app.services.ai_service import AIService
 import os
 import json
@@ -61,6 +62,15 @@ def verify_certificate(cert_number):
         course=course,
         issued=issued,
     )
+
+@main_bp.route('/favicon.ico')
+def favicon():
+    """Browsers ask for this on every page whether or not it is linked, and a
+    missing one logged a 404 for each page load. Serve the site logo."""
+    return send_from_directory(
+        os.path.join(current_app.root_path, '..', 'static'),
+        'favicon.ico', mimetype='image/vnd.microsoft.icon')
+
 
 @main_bp.route('/')
 def landing():

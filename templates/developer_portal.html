@@ -75,7 +75,16 @@ async function createKey() {
 }
 async function revokeKey(id) {
   if (!confirm('Revoke this API key? Existing clients using it will stop working.')) return;
-  await fetch('/api/v1/keys/' + encodeURIComponent(id), {method: 'DELETE', credentials: 'same-origin'});
+  // The endpoint is POST /<id>/revoke. This used to send DELETE /<id>, which
+  // matches no route: the key stayed live and the button appeared to work.
+  const r = await fetch('/api/v1/keys/' + encodeURIComponent(id) + '/revoke',
+                        {method: 'POST', credentials: 'same-origin'});
+  if (!r.ok) {
+    let detail = '';
+    try { detail = (await r.json()).error || ''; } catch (e) {}
+    alert('The key could not be revoked. ' + (detail || 'Please try again.'));
+    return;
+  }
   loadKeys();
 }
 document.getElementById('createKeyBtn').addEventListener('click', createKey);
