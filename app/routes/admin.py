@@ -39,6 +39,9 @@ def _provider_view(key, spec):
     return {
         'enabled': spec.enabled,
         'label': spec.label,
+        # 'image' answers with a picture rather than text, so the picker can
+        # say so and the chat can set expectations.
+        'kind': 'image' if spec.driver == 'openai_images' else 'chat',
         'versions': versions,
         'default_version': registry.default_model(key),
         'has_api_key': has_key,
@@ -57,8 +60,13 @@ def get_models():
     providers = {}
     for key in registry.list_providers():
         spec = registry.get_provider(key)
-        if spec is None or key in ('images', 'bedrock'):
+        if spec is None:
             continue
+        # Every provider the platform can call is offered. Image generation
+        # used to be filtered out here, so DALL-E -- now GPT Image -- never
+        # appeared in the chat even though the whole path behind it works:
+        # AIService routes the openai_images driver to _generate_dalle, and
+        # the chat already renders the image_url it returns.
         providers[key] = _provider_view(key, spec)
 
     return jsonify({

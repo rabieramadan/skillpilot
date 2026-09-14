@@ -936,9 +936,17 @@ Once your slides are generated, type one of these commands:
                 icon: 'fa-google', 
                 tips: ['Multimodal (text, images, video)', 'Fast responses', 'Large context window', 'Best for: quick queries, multimedia']
             },
-            'dalle': { 
-                icon: 'fa-image', 
-                tips: ['Image generation from text', 'High quality visuals', 'Creative artwork', 'Best for: graphics, illustrations, design']
+            // The catalogue calls this provider 'images'. 'dalle' is kept
+            // because older saved chat sessions still name it.
+            'images': {
+                icon: 'fa-image',
+                tips: ['Answers with a picture, not text', 'Describe what you want to see',
+                       'GPT Image (replaces DALL-E)', 'Best for: graphics, illustrations, design']
+            },
+            'dalle': {
+                icon: 'fa-image',
+                tips: ['Answers with a picture, not text', 'Describe what you want to see',
+                       'GPT Image (replaces DALL-E)', 'Best for: graphics, illustrations, design']
             },
             'perplexity': { 
                 icon: 'fa-search', 
@@ -970,29 +978,46 @@ Once your slides are generated, type one of these commands:
             const modelItem = document.createElement('div');
             modelItem.className = 'model-item';
             
-            // Add disabled class if model is not enabled
-            if (!config.enabled) {
+            // Unusable either way: switched off, or no key to call it with.
+            if (!config.enabled || config.has_api_key === false) {
                 modelItem.classList.add('model-disabled');
             }
 
-            const statusBadge = config.enabled 
-                ? '<span class="model-status-badge status-active">Active</span>' 
-                : '<span class="model-status-badge status-inactive">Not Configured</span>';
+            // "Active" has to mean "you can use this now". The catalogue's
+            // enabled flag only says the provider is switched on; without a
+            // key the request fails the moment it is sent.
+            const usable = config.enabled && config.has_api_key !== false;
+            const statusBadge = usable
+                ? '<span class="model-status-badge status-active">Active</span>'
+                : `<span class="model-status-badge status-inactive" title="${
+                    config.enabled
+                      ? 'No API key is configured for this provider. Add one in Administration > API Keys & Integrations.'
+                      : 'Switched off in config.yaml.'
+                  }">${config.enabled ? 'No API key' : 'Disabled'}</span>`;
 
             const caps = this.getModelCapabilities(provider);
             const tooltipContent = caps.tips.map(t => `• ${t}`).join('\n');
 
+            // "OpenAI Images" reads better than "IMAGES"; the label comes
+            // from config.yaml so renaming a provider needs no code change.
+            const displayName = config.label || provider.toUpperCase();
+            const kindBadge = config.kind === 'image'
+                ? '<span class="model-kind-badge" title="Replies with a generated image">'
+                  + '<i class="fas fa-image"></i> image</span>'
+                : '';
+
             modelItem.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <strong>${provider.toUpperCase()}</strong>
+                        <strong>${displayName}</strong>
+                        ${kindBadge}
                         <span class="model-help-hint" title="${tooltipContent}" style="cursor: help; color: #6b7280; font-size: 14px;">
                             <i class="fas fa-question-circle"></i>
                         </span>
                     </div>
                     ${statusBadge}
                 </div>
-                <select class="model-version-select" data-provider="${provider}" ${!config.enabled ? 'disabled' : ''}>
+                <select class="model-version-select" data-provider="${provider}" ${!usable ? 'disabled' : ''}>
                     ${config.versions
                         .filter(v => v.enabled)
                         .map(v => `
@@ -1003,8 +1028,8 @@ Once your slides are generated, type one of these commands:
                 </select>
             `;
 
-            // Only add click handlers if model is enabled
-            if (config.enabled) {
+            // Only wire up a provider that can actually answer.
+            if (config.enabled && config.has_api_key !== false) {
                 const selectElement = modelItem.querySelector('select');
                 
                 modelItem.addEventListener('click', (e) => {
@@ -1037,6 +1062,17 @@ Once your slides are generated, type one of these commands:
     selectModel(provider, version) {
         this.selectedModel = provider;
         this.selectedVersion = version;
+
+        // An image provider answers with a picture, so ask for a description
+        // rather than a question.
+        const input = document.getElementById('messageInput');
+        const config = this.modelsConfig[provider] || {};
+        if (input) {
+            input.placeholder = config.kind === 'image'
+                ? 'Describe the image you want, for example: a watercolour of Nizwa fort at sunrise'
+                : (input.dataset.defaultPlaceholder
+                   || 'Type your message here...');
+        }
     }
 
     renderComparisonModels() {
@@ -1052,13 +1088,16 @@ Once your slides are generated, type one of these commands:
         });
         
         sortedModels.forEach(([provider, config]) => {
-            if (!config.enabled) return;
-            
+            if (!config.enabled || config.has_api_key === false) return;
+            // Comparison puts answers side by side; an image provider has no
+            // answer to line up against the others.
+            if (config.kind === 'image') return;
+
             const label = document.createElement('label');
             label.className = 'comparison-model-label';
             label.innerHTML = `
                 <input type="checkbox" value="${provider}" class="comparison-model-checkbox">
-                <span>${provider.toUpperCase()}</span>
+                <span>${config.label || provider.toUpperCase()}</span>
             `;
             container.appendChild(label);
         });

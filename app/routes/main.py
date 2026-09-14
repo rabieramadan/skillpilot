@@ -1,6 +1,7 @@
 from flask import (Blueprint, render_template, request, jsonify, session,
                    redirect, url_for, send_from_directory, current_app)
 from app.services.ai_service import AIService
+from app.utils.decorators import login_required
 import os
 import json
 from datetime import datetime
@@ -12,6 +13,25 @@ main_bp = Blueprint('main', __name__)
 def serve_material(filename):
     """Serve uploaded material files"""
     upload_dir = os.path.join(os.getcwd(), 'uploads', 'materials')
+    return send_from_directory(upload_dir, filename)
+
+
+@main_bp.route('/uploads/<path:filename>')
+@login_required
+def serve_upload(filename):
+    """Serve a file from the uploads folder.
+
+    Generated images are written here and handed to the chat as
+    ``/uploads/<name>``, but only ``/uploads/materials/`` had a route, so
+    every image the platform produced came back 404 and rendered as a broken
+    picture. Chat attachments had the same gap.
+
+    Signed-in users only: the folder holds documents people uploaded to their
+    own conversations, and the filenames are guessable enough that serving it
+    to anonymous callers would be a leak. ``send_from_directory`` rejects
+    paths that try to climb out of the folder.
+    """
+    upload_dir = os.path.join(os.getcwd(), 'uploads')
     return send_from_directory(upload_dir, filename)
 
 

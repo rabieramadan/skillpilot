@@ -534,7 +534,9 @@
                                 <span id="tutorContextSummary" data-testid="text-tutor-context" style="display:none;font-size:0.85em;opacity:0.75;"></span>
                             </div>
                             <div class="input-container">
-                                <textarea id="messageInput" placeholder="Enter your prompt here..." rows="5"></textarea>
+                                <textarea id="messageInput" placeholder="Enter your prompt here..."
+                                          data-default-placeholder="Enter your prompt here..."
+                                          rows="5"></textarea>
                                 <img src="{{ url_for('static', filename='images/skillpilot-logo.png') }}" alt="SkillPilot" class="input-genai-icon" title="SkillPilot GenAI">
                                 <button class="prompt-helper-btn" id="promptHelper" title="Get AI-powered suggestions">
                                     <i class="fas fa-lightbulb"></i>
