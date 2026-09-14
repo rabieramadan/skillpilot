@@ -30,24 +30,43 @@ IDE configuration.
 
 ## Configuration
 
-Settings resolve in this order, highest first:
+Two files, both kept on the server and neither committed:
 
-1. environment variables, loaded from `.env` (falling back to `.env.server`)
-2. `config.yaml`
-3. the defaults in `config/config.py`
+| File | Holds | Template in the repo |
+|---|---|---|
+| `config.yaml` | AI provider keys and the model catalogue | `config.example.yaml` |
+| `.env` | Database URL and session secret | `.env.example` |
 
-`.env` holds the secrets and is never committed — `.env.example` lists every
-variable the application reads. `config.yaml` holds everything else, including
-the AI model catalogue, and is safe to commit; leave its `api_keys` block
-empty.
+`config.yaml` is git-ignored because it carries live credentials;
+`config.example.yaml` is the tracked copy, with the same model catalogue and
+the keys blank. The installer creates `config.yaml` from it on a fresh
+install.
 
-Required for a working install:
+**API keys** resolve in one place — `app/utils/api_key_helper.get_api_key()` —
+checking three sources, first match wins:
 
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` | `postgresql://user:password@host:5432/skillpilot` |
-| `SECRET_KEY` | Session signing. 64 random hex characters. Without it sessions do not survive a restart and do not work across workers. |
-| `ADMIN_PASSWORD` | Super-admin login. Empty (the default) disables password-only super-admin access. |
+1. an **environment variable** (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, …), for
+   overriding one key on one deployment
+2. **`config.yaml`** under `api_keys:` — where they normally live
+3. the **`api_credentials` table**, Fernet-encrypted, written by
+   Admin → AI Settings
+
+Everything uses that one lookup, so what the admin screen reports as
+configured is what the platform will actually use. Changes to `config.yaml`
+take effect without a restart. No screen or API response ever returns a key.
+
+> The database encryption key is derived from `SESSION_SECRET`. Changing that
+> value makes every key stored through Admin → AI Settings undecryptable, so
+> set it once and leave it.
+
+Everything else resolves as: environment variable, then `config.yaml`, then
+the defaults in `config/config.py`. Required for a working install:
+
+| Variable | Where | Purpose |
+|---|---|---|
+| `DATABASE_URL` | `.env` | `postgresql://user:password@host:5432/skillpilot` |
+| `SECRET_KEY` / `SESSION_SECRET` | `.env` | Session signing and key encryption. 64 random hex characters. |
+| `ADMIN_PASSWORD` | `.env` | Super-admin login. Empty (the default) disables password-only access. |
 
 At least one AI provider key is needed for the AI features; the platform
 enables only the providers that have one.
@@ -180,7 +199,9 @@ app/
     model_registry.py   loads and edits the config.yaml model catalogue
     ai_transport.py     how the platform calls each provider
   utils/         file handling, encryption, serializers, decorators
-config.yaml      settings and the AI model catalogue
+    api_key_helper.py   the one place an API key is resolved
+config.yaml      API keys, settings and the model catalogue (git-ignored)
+config.example.yaml   tracked template for the above
 config/          configuration loading
 docs/            architecture, deployment, security audit
 migrations/      one-off schema migrations

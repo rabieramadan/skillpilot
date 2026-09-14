@@ -1,11 +1,10 @@
-from flask import Blueprint, request, jsonify, current_app, session, send_file
+from flask import Blueprint, request, jsonify, current_app, send_file
 from werkzeug.utils import secure_filename
 import os
+import time
+
 from app.services.ai_service import AIService
 from app.services.presentation_service import PresentationService
-from app.utils.file_handler import FileHandler
-import time
-import uuid
 
 api_bp = Blueprint('api', __name__)
 presentation_service = None
@@ -72,17 +71,8 @@ def model_catalogue():
 def heygen_status(video_id):
     """Poll HeyGen for video render status."""
     try:
-        from config.config import Config
-        from app.models import ApiCredential
-        api_key = Config.HEYGEN_API_KEY
-        if not api_key:
-            cred = ApiCredential.query.filter_by(provider='heygen', is_active=True).first()
-            if cred:
-                from app.utils.encryption import decrypt_api_key
-                try:
-                    api_key = decrypt_api_key(cred.encrypted_key)
-                except Exception:
-                    api_key = None
+        from app.utils.api_key_helper import get_api_key
+        api_key = get_api_key('heygen')
         if not api_key:
             return jsonify({'error': 'HeyGen API key not configured'}), 400
         svc = AIService()
@@ -121,21 +111,19 @@ def chat_with_ai(provider):
         
         print(f"DEBUG: Language: {language}")
         
-        # If no API key provided, fetch from config
+        # If the caller did not supply a key, resolve it the one way the
+        # whole platform resolves keys: environment, then config.yaml, then
+        # the encrypted store behind Admin > AI Settings.
         if not api_key:
-            from config.config import Config
-            config = Config()
-            # DALL-E uses OpenAI API key
-            if provider.lower() == 'dalle':
-                api_key = config.OPENAI_API_KEY
-                print(f"DEBUG: Using OpenAI API key for DALL-E")
-            # All AWS Bedrock models use the same Bedrock credentials
-            elif provider.lower() in ['bedrock', 'llama_bedrock', 'mistral_bedrock', 'amazon_nova', 'cohere_bedrock', 'ai21_bedrock', 'stable_diffusion']:
-                api_key = config.BEDROCK_API_KEY
-                print(f"DEBUG: Using Bedrock API key for {provider}")
-            else:
-                api_key = getattr(config, f'{provider.upper()}_API_KEY', None)
-                print(f"DEBUG: Fetched API key from config for {provider}")
+            from app.utils.api_key_helper import get_api_key
+
+            lookup = provider.lower()
+            # Every AWS Bedrock family shares one credential.
+            if lookup in ('bedrock', 'llama_bedrock', 'mistral_bedrock',
+                          'amazon_nova', 'cohere_bedrock', 'ai21_bedrock',
+                          'stable_diffusion'):
+                lookup = 'bedrock'
+            api_key = get_api_key(lookup)
 
         print(f"DEBUG: Received message: {message}")
         print(f"DEBUG: Provider: {provider}")

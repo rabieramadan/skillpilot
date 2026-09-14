@@ -1,3 +1,21 @@
+# ===========================================================================
+#  config.example.yaml — the template tracked in version control
+# ===========================================================================
+#  Copy this to config.yaml on the server and fill in the api_keys block:
+#
+#      cp config.example.yaml config.yaml     (Windows: copy config.example.yaml config.yaml)
+#      chmod 600 config.yaml                  (Linux/macOS)
+#
+#  install.sh / install.bat do that for you if config.yaml is missing.
+#
+#  config.yaml is git-ignored because it holds live credentials. This file
+#  carries the same model catalogue with the keys blank, so the catalogue
+#  stays versioned and a fresh checkout has a working starting point.
+#
+#  Keep the two in step: when you change the catalogue here, or the admin
+#  screens change it in config.yaml, copy the ai_models block across if you
+#  want the repository to reflect it.
+
 # SkillPilot configuration
 #
 # This file is the source of truth for which AI models the platform can call.
@@ -20,16 +38,30 @@
 # to one that is, and a file that will not parse at all leaves the platform
 # running on a minimal built-in catalogue with a warning in the log.
 
-# API Keys — DO NOT put secrets here. Leave blank and load from environment
-# variables (.env) or the in-app Admin > AI Settings screen. Any non-empty
-# value is treated as a local-development fallback only.
+# ===========================================================================
+#  API KEYS
+# ===========================================================================
+#  This file holds live credentials, so it is git-ignored and should be
+#  chmod 600 on Linux. The version tracked in the repository is
+#  config.example.yaml, which carries the same model catalogue with the keys
+#  blank. Never commit this file.
+#
+#  A key is looked up in three places, first match wins:
+#    1. an environment variable (see the name beside each entry) — use this
+#       to override one key for one deployment without editing the file
+#    2. here
+#    3. the encrypted api_credentials table, written by Admin > AI Settings
+#
+#  Changes here are picked up without a restart. A blank entry simply means
+#  that provider is switched off; the platform reports which providers have a
+#  key and never displays the key itself.
 api_keys:
-  openai: ""        # env: OPENAI_API_KEY
-  claude: ""        # env: ANTHROPIC_API_KEY or CLAUDE_API_KEY
-  gemini: ""        # env: GEMINI_API_KEY
-  grok: ""          # env: XAI_API_KEY or GROK_API_KEY
-  deepseek: ""      # env: DEEPSEEK_API_KEY
-  perplexity: ""    # env: PERPLEXITY_API_KEY
+  openai: ""                                                                                                                                                                     # env: OPENAI_API_KEY
+  claude: ""                                                                                                             # env: ANTHROPIC_API_KEY or CLAUDE_API_KEY
+  gemini: ""                                        # env: GEMINI_API_KEY
+  grok: ""                                                                                     # env: XAI_API_KEY or GROK_API_KEY
+  deepseek: ""                                    # env: DEEPSEEK_API_KEY
+  perplexity: ""                                                      # env: PERPLEXITY_API_KEY
   census: ""        # env: CENSUS_API_KEY
   dify: ""          # env: DIFY_API_KEY (Applications -> Access API)
   heygen: ""        # env: HEYGEN_API_KEY
@@ -103,51 +135,51 @@ ai_models:
     vision_model: "gpt-5.6-terra"
     fallbacks: ["gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.2"]
     models:
-      - id: "gpt-6-astra"
-        label: "GPT-6 Astra"
-        summary: "Flagship reasoning model. Highest quality, highest cost."
-        context_tokens: 1050000
-        max_output_tokens: 128000
-        vision: true
-        sampling: false
-        max_completion_tokens: true
-        price_per_million: {input: 10.0, output: 50.0}
-      - id: "gpt-5.6-sol"
-        label: "GPT-5.6 Sol"
-        summary: "Frontier tier below Astra. Strong reasoning at lower cost."
-        context_tokens: 400000
-        max_output_tokens: 128000
-        vision: true
-        sampling: false
-        max_completion_tokens: true
-        price_per_million: {input: 4.0, output: 20.0}
-      - id: "gpt-5.6-terra"
-        label: "GPT-5.6 Terra"
-        summary: "Balanced default: good reasoning, sensible price."
-        context_tokens: 400000
-        max_output_tokens: 128000
-        vision: true
-        sampling: false
-        max_completion_tokens: true
-        price_per_million: {input: 2.0, output: 12.0}
-      - id: "gpt-5.6-luna"
-        label: "GPT-5.6 Luna"
-        summary: "Cheapest tier. Use for high-volume classification and drafts."
-        context_tokens: 400000
-        max_output_tokens: 128000
-        vision: true
-        sampling: false
-        max_completion_tokens: true
-        price_per_million: {input: 0.2, output: 1.2}
-      - id: "gpt-5.2"
-        label: "GPT-5.2"
-        summary: "Previous flagship. Kept for reproducing earlier output."
-        context_tokens: 400000
-        max_output_tokens: 128000
-        vision: true
-        sampling: false
-        max_completion_tokens: true
-        legacy: true
+    - id: "gpt-6-astra"
+      label: "GPT-6 Astra"
+      summary: "Flagship reasoning model. Highest quality, highest cost."
+      context_tokens: 1050000
+      max_output_tokens: 128000
+      vision: true
+      sampling: false
+      max_completion_tokens: true
+      price_per_million: {input: 10.0, output: 50.0}
+    - id: "gpt-5.6-sol"
+      label: "GPT-5.6 Sol"
+      summary: "Frontier tier below Astra. Strong reasoning at lower cost."
+      context_tokens: 400000
+      max_output_tokens: 128000
+      vision: true
+      sampling: false
+      max_completion_tokens: true
+      price_per_million: {input: 4.0, output: 20.0}
+    - id: "gpt-5.6-terra"
+      label: "GPT-5.6 Terra"
+      summary: "Balanced default: good reasoning, sensible price."
+      context_tokens: 400000
+      max_output_tokens: 128000
+      vision: true
+      sampling: false
+      max_completion_tokens: true
+      price_per_million: {input: 2.0, output: 12.0}
+    - id: "gpt-5.6-luna"
+      label: "GPT-5.6 Luna"
+      summary: "Cheapest tier. Use for high-volume classification and drafts."
+      context_tokens: 400000
+      max_output_tokens: 128000
+      vision: true
+      sampling: false
+      max_completion_tokens: true
+      price_per_million: {input: 0.2, output: 1.2}
+    - id: "gpt-5.2"
+      label: "GPT-5.2"
+      summary: "Previous flagship. Kept for reproducing earlier output."
+      context_tokens: 400000
+      max_output_tokens: 128000
+      vision: true
+      sampling: false
+      max_completion_tokens: true
+      legacy: true
     aliases:
       "gpt-3.5-turbo": "gpt-5.6-luna"
       "gpt-4": "gpt-5.6-terra"
@@ -181,30 +213,30 @@ ai_models:
     vision_model: "claude-sonnet-5"
     fallbacks: ["claude-sonnet-5", "claude-haiku-4-5-20251001"]
     models:
-      - id: "claude-opus-5"
-        label: "Claude Opus 5"
-        summary: "Most capable Claude. Use for grading, rubrics and analysis."
-        context_tokens: 1000000
-        max_output_tokens: 64000
-        vision: true
-        sampling: false
-        price_per_million: {input: 5.0, output: 25.0}
-      - id: "claude-sonnet-5"
-        label: "Claude Sonnet 5"
-        summary: "Balanced default: near-Opus quality at a fraction of the cost."
-        context_tokens: 1000000
-        max_output_tokens: 64000
-        vision: true
-        sampling: false
-        price_per_million: {input: 2.0, output: 10.0}
-      - id: "claude-haiku-4-5-20251001"
-        label: "Claude Haiku 4.5"
-        summary: "Fastest and cheapest. Good for short tutoring turns."
-        context_tokens: 200000
-        max_output_tokens: 32000
-        vision: true
-        sampling: false
-        price_per_million: {input: 1.0, output: 5.0}
+    - id: "claude-opus-5"
+      label: "Claude Opus 5"
+      summary: "Most capable Claude. Use for grading, rubrics and analysis."
+      context_tokens: 1000000
+      max_output_tokens: 64000
+      vision: true
+      sampling: false
+      price_per_million: {input: 5.0, output: 25.0}
+    - id: "claude-sonnet-5"
+      label: "Claude Sonnet 5"
+      summary: "Balanced default: near-Opus quality at a fraction of the cost."
+      context_tokens: 1000000
+      max_output_tokens: 64000
+      vision: true
+      sampling: false
+      price_per_million: {input: 2.0, output: 10.0}
+    - id: "claude-haiku-4-5-20251001"
+      label: "Claude Haiku 4.5"
+      summary: "Fastest and cheapest. Good for short tutoring turns."
+      context_tokens: 200000
+      max_output_tokens: 32000
+      vision: true
+      sampling: false
+      price_per_million: {input: 1.0, output: 5.0}
     aliases:
       "claude-3-5-haiku-20241022": "claude-haiku-4-5-20251001"
       "claude-3-5-sonnet-20241022": "claude-sonnet-5"
@@ -232,36 +264,36 @@ ai_models:
     vision_model: "gemini-3.8-flash"
     fallbacks: ["gemini-3.8-flash", "gemini-3.5-flash-lite"]
     models:
-      - id: "gemini-3.1-pro-preview"
-        label: "Gemini 3.1 Pro"
-        summary: "Most capable Gemini. Long documents and deep analysis."
-        context_tokens: 1000000
-        max_output_tokens: 64000
-        vision: true
-        sampling: false
-        price_per_million: {input: 2.0, output: 12.0}
-      - id: "gemini-3.8-flash"
-        label: "Gemini 3.8 Flash"
-        summary: "Balanced default: fast, 1M context, tunable thinking."
-        context_tokens: 1000000
-        max_output_tokens: 64000
-        vision: true
-        sampling: false
-        price_per_million: {input: 0.75, output: 3.75}
-      - id: "gemini-3.7-flash"
-        label: "Gemini 3.7 Flash"
-        summary: "Previous Flash generation. Kept for cost comparison."
-        context_tokens: 1000000
-        max_output_tokens: 64000
-        vision: true
-        sampling: false
-      - id: "gemini-3.5-flash-lite"
-        label: "Gemini 3.5 Flash-Lite"
-        summary: "Cheapest Gemini. Bulk classification and short answers."
-        context_tokens: 1000000
-        max_output_tokens: 32000
-        vision: true
-        sampling: false
+    - id: "gemini-3.1-pro-preview"
+      label: "Gemini 3.1 Pro"
+      summary: "Most capable Gemini. Long documents and deep analysis."
+      context_tokens: 1000000
+      max_output_tokens: 64000
+      vision: true
+      sampling: false
+      price_per_million: {input: 2.0, output: 12.0}
+    - id: "gemini-3.8-flash"
+      label: "Gemini 3.8 Flash"
+      summary: "Balanced default: fast, 1M context, tunable thinking."
+      context_tokens: 1000000
+      max_output_tokens: 64000
+      vision: true
+      sampling: false
+      price_per_million: {input: 0.75, output: 3.75}
+    - id: "gemini-3.7-flash"
+      label: "Gemini 3.7 Flash"
+      summary: "Previous Flash generation. Kept for cost comparison."
+      context_tokens: 1000000
+      max_output_tokens: 64000
+      vision: true
+      sampling: false
+    - id: "gemini-3.5-flash-lite"
+      label: "Gemini 3.5 Flash-Lite"
+      summary: "Cheapest Gemini. Bulk classification and short answers."
+      context_tokens: 1000000
+      max_output_tokens: 32000
+      vision: true
+      sampling: false
     aliases:
       "gemini-1.5-flash": "gemini-3.8-flash"
       "gemini-1.5-pro": "gemini-3.1-pro-preview"
@@ -286,28 +318,28 @@ ai_models:
     vision_model: "grok-4.6"
     fallbacks: ["grok-4.6", "grok-4.3"]
     models:
-      - id: "grok-4.6"
-        label: "Grok 4.6"
-        summary: "Current xAI flagship. Strong coding and tool use."
-        context_tokens: 2000000
-        max_output_tokens: 32000
-        vision: true
-        sampling: true
-        price_per_million: {input: 2.0, output: 6.0}
-      - id: "grok-4.5"
-        label: "Grok 4.5"
-        summary: "Previous flagship. Slightly cheaper."
-        context_tokens: 2000000
-        max_output_tokens: 32000
-        vision: true
-        sampling: true
-      - id: "grok-4.3"
-        label: "Grok 4.3"
-        summary: "Long-context tier with native video input."
-        context_tokens: 1000000
-        max_output_tokens: 32000
-        vision: true
-        sampling: true
+    - id: "grok-4.6"
+      label: "Grok 4.6"
+      summary: "Current xAI flagship. Strong coding and tool use."
+      context_tokens: 2000000
+      max_output_tokens: 32000
+      vision: true
+      sampling: true
+      price_per_million: {input: 2.0, output: 6.0}
+    - id: "grok-4.5"
+      label: "Grok 4.5"
+      summary: "Previous flagship. Slightly cheaper."
+      context_tokens: 2000000
+      max_output_tokens: 32000
+      vision: true
+      sampling: true
+    - id: "grok-4.3"
+      label: "Grok 4.3"
+      summary: "Long-context tier with native video input."
+      context_tokens: 1000000
+      max_output_tokens: 32000
+      vision: true
+      sampling: true
     aliases:
       "grok-2": "grok-4.6"
       "grok-3": "grok-4.6"
@@ -327,22 +359,22 @@ ai_models:
     default_model: "deepseek-v4-flash"
     fallbacks: ["deepseek-v4-flash"]
     models:
-      - id: "deepseek-v4-flash"
-        label: "DeepSeek V4 Flash"
-        summary: "Fast and cheap. Good for code explanation and summaries."
-        context_tokens: 1000000
-        max_output_tokens: 32000
-        vision: false
-        sampling: true
-        price_per_million: {input: 0.44, output: 1.32}
-      - id: "deepseek-v4-pro"
-        label: "DeepSeek V4 Pro"
-        summary: "Reasoning tier. Use for hard maths and multi-step problems."
-        context_tokens: 1000000
-        max_output_tokens: 64000
-        vision: false
-        sampling: true
-        price_per_million: {input: 1.32, output: 3.96}
+    - id: "deepseek-v4-flash"
+      label: "DeepSeek V4 Flash"
+      summary: "Fast and cheap. Good for code explanation and summaries."
+      context_tokens: 1000000
+      max_output_tokens: 32000
+      vision: false
+      sampling: true
+      price_per_million: {input: 0.44, output: 1.32}
+    - id: "deepseek-v4-pro"
+      label: "DeepSeek V4 Pro"
+      summary: "Reasoning tier. Use for hard maths and multi-step problems."
+      context_tokens: 1000000
+      max_output_tokens: 64000
+      vision: false
+      sampling: true
+      price_per_million: {input: 1.32, output: 3.96}
     aliases:
       "deepseek-chat": "deepseek-v4-flash"
       "deepseek-coder": "deepseek-v4-flash"
@@ -359,43 +391,43 @@ ai_models:
     default_model: "sonar-pro"
     fallbacks: ["sonar-pro", "sonar"]
     models:
-      - id: "sonar"
-        label: "Sonar"
-        summary: "Lightweight grounded search with citations."
-        context_tokens: 128000
-        max_output_tokens: 8000
-        vision: false
-        sampling: true
-        price_per_million: {input: 0.2, output: 0.2}
-      - id: "sonar-pro"
-        label: "Sonar Pro"
-        summary: "Deeper retrieval across more sources. Default."
-        context_tokens: 200000
-        max_output_tokens: 8000
-        vision: false
-        sampling: true
-        price_per_million: {input: 3.0, output: 15.0}
-      - id: "sonar-reasoning"
-        label: "Sonar Reasoning"
-        summary: "Chain-of-thought answers grounded in live search."
-        context_tokens: 128000
-        max_output_tokens: 8000
-        vision: false
-        sampling: true
-      - id: "sonar-reasoning-pro"
-        label: "Sonar Reasoning Pro"
-        summary: "Reasoning tier with the wider Pro retrieval set."
-        context_tokens: 200000
-        max_output_tokens: 8000
-        vision: false
-        sampling: true
-      - id: "sonar-deep-research"
-        label: "Sonar Deep Research"
-        summary: "Exhaustive multi-step research. Slow and expensive."
-        context_tokens: 200000
-        max_output_tokens: 16000
-        vision: false
-        sampling: true
+    - id: "sonar"
+      label: "Sonar"
+      summary: "Lightweight grounded search with citations."
+      context_tokens: 128000
+      max_output_tokens: 8000
+      vision: false
+      sampling: true
+      price_per_million: {input: 0.2, output: 0.2}
+    - id: "sonar-pro"
+      label: "Sonar Pro"
+      summary: "Deeper retrieval across more sources. Default."
+      context_tokens: 200000
+      max_output_tokens: 8000
+      vision: false
+      sampling: true
+      price_per_million: {input: 3.0, output: 15.0}
+    - id: "sonar-reasoning"
+      label: "Sonar Reasoning"
+      summary: "Chain-of-thought answers grounded in live search."
+      context_tokens: 128000
+      max_output_tokens: 8000
+      vision: false
+      sampling: true
+    - id: "sonar-reasoning-pro"
+      label: "Sonar Reasoning Pro"
+      summary: "Reasoning tier with the wider Pro retrieval set."
+      context_tokens: 200000
+      max_output_tokens: 8000
+      vision: false
+      sampling: true
+    - id: "sonar-deep-research"
+      label: "Sonar Deep Research"
+      summary: "Exhaustive multi-step research. Slow and expensive."
+      context_tokens: 200000
+      max_output_tokens: 16000
+      vision: false
+      sampling: true
     aliases:
       "llama-3-sonar-large-32k-online": "sonar-pro"
       "llama-3.1-sonar-large-128k-online": "sonar-pro"
@@ -411,24 +443,24 @@ ai_models:
     default_model: "gpt-image-2"
     fallbacks: ["gpt-image-2", "gpt-image-1.5", "gpt-image-1-mini"]
     models:
-      - id: "gpt-image-2"
-        label: "GPT Image 2"
-        summary: "Current image model. Native reasoning, best prompt adherence."
-        max_output_tokens: 0
-        vision: false
-        sampling: true
-      - id: "gpt-image-1.5"
-        label: "GPT Image 1.5"
-        summary: "Previous generation. Cheaper, still high quality."
-        max_output_tokens: 0
-        vision: false
-        sampling: true
-      - id: "gpt-image-1-mini"
-        label: "GPT Image 1 Mini"
-        summary: "Cheapest. Use for thumbnails and drafts."
-        max_output_tokens: 0
-        vision: false
-        sampling: true
+    - id: "gpt-image-2"
+      label: "GPT Image 2"
+      summary: "Current image model. Native reasoning, best prompt adherence."
+      max_output_tokens: 0
+      vision: false
+      sampling: true
+    - id: "gpt-image-1.5"
+      label: "GPT Image 1.5"
+      summary: "Previous generation. Cheaper, still high quality."
+      max_output_tokens: 0
+      vision: false
+      sampling: true
+    - id: "gpt-image-1-mini"
+      label: "GPT Image 1 Mini"
+      summary: "Cheapest. Use for thumbnails and drafts."
+      max_output_tokens: 0
+      vision: false
+      sampling: true
     aliases:
       "dall-e-2": "gpt-image-1-mini"
       "dall-e-3": "gpt-image-2"
@@ -443,27 +475,27 @@ ai_models:
     vision_model: "anthropic.claude-sonnet-5"
     fallbacks: ["anthropic.claude-sonnet-5", "anthropic.claude-haiku-4-5"]
     models:
-      - id: "anthropic.claude-opus-5"
-        label: "Claude Opus 5 (Bedrock)"
-        summary: "Most capable Claude on Bedrock."
-        context_tokens: 1000000
-        max_output_tokens: 64000
-        vision: true
-        sampling: false
-      - id: "anthropic.claude-sonnet-5"
-        label: "Claude Sonnet 5 (Bedrock)"
-        summary: "Balanced default on Bedrock."
-        context_tokens: 1000000
-        max_output_tokens: 64000
-        vision: true
-        sampling: false
-      - id: "anthropic.claude-haiku-4-5"
-        label: "Claude Haiku 4.5 (Bedrock)"
-        summary: "Fast and cheap on Bedrock."
-        context_tokens: 200000
-        max_output_tokens: 32000
-        vision: true
-        sampling: true
+    - id: "anthropic.claude-opus-5"
+      label: "Claude Opus 5 (Bedrock)"
+      summary: "Most capable Claude on Bedrock."
+      context_tokens: 1000000
+      max_output_tokens: 64000
+      vision: true
+      sampling: false
+    - id: "anthropic.claude-sonnet-5"
+      label: "Claude Sonnet 5 (Bedrock)"
+      summary: "Balanced default on Bedrock."
+      context_tokens: 1000000
+      max_output_tokens: 64000
+      vision: true
+      sampling: false
+    - id: "anthropic.claude-haiku-4-5"
+      label: "Claude Haiku 4.5 (Bedrock)"
+      summary: "Fast and cheap on Bedrock."
+      context_tokens: 200000
+      max_output_tokens: 32000
+      vision: true
+      sampling: true
     aliases:
       "anthropic.claude-3-5-haiku-20241022-v1:0": "anthropic.claude-haiku-4-5"
       "anthropic.claude-3-haiku-20240307-v1:0": "anthropic.claude-haiku-4-5"
@@ -476,57 +508,57 @@ files:
   max_size_mb: 50
   allowed_extensions:
     documents:
-      - pdf
-      - doc
-      - docx
-      - txt
-      - rtf
-      - odt
+    - pdf
+    - doc
+    - docx
+    - txt
+    - rtf
+    - odt
     spreadsheets:
-      - xls
-      - xlsx
-      - csv
-      - ods
+    - xls
+    - xlsx
+    - csv
+    - ods
     presentations:
-      - ppt
-      - pptx
-      - odp
+    - ppt
+    - pptx
+    - odp
     images:
-      - jpg
-      - jpeg
-      - png
-      - gif
-      - bmp
-      - webp
-      - svg
-      - tiff
+    - jpg
+    - jpeg
+    - png
+    - gif
+    - bmp
+    - webp
+    - svg
+    - tiff
     data:
-      - json
-      - xml
-      - yaml
-      - yml
+    - json
+    - xml
+    - yaml
+    - yml
     code:
-      - py
-      - js
-      - ts
-      - jsx
-      - tsx
-      - java
-      - cpp
-      - c
-      - h
-      - cs
-      - rb
-      - go
-      - rs
-      - php
-      - html
-      - css
-      - sql
+    - py
+    - js
+    - ts
+    - jsx
+    - tsx
+    - java
+    - cpp
+    - c
+    - h
+    - cs
+    - rb
+    - go
+    - rs
+    - php
+    - html
+    - css
+    - sql
     archives:
-      - zip
-      - tar
-      - gz
+    - zip
+    - tar
+    - gz
 
   # Maximum content to extract per file (characters)
   max_content_length: 50000

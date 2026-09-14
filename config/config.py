@@ -47,9 +47,37 @@ def _load_yaml(path: str) -> Dict[str, Any]:
 
 yaml_config: Dict[str, Any] = _load_yaml(CONFIG_PATH)
 _api_keys: Dict[str, Any] = yaml_config.get('api_keys') or {}
+_api_keys_path: str = CONFIG_PATH
+try:
+    _api_keys_mtime: float = os.path.getmtime(CONFIG_PATH)
+except OSError:
+    _api_keys_mtime = 0.0
 _admin: Dict[str, Any] = yaml_config.get('admin') or {}
 _app_settings: Dict[str, Any] = yaml_config.get('app') or {}
 _files: Dict[str, Any] = yaml_config.get('files') or {}
+
+
+def reload_api_keys() -> Dict[str, Any]:
+    """The ``api_keys:`` block, re-read if config.yaml changed on disk.
+
+    Keys live in config.yaml on the server, so editing that file must not
+    require a restart — the model catalogue in the same file already behaves
+    this way.
+    """
+    global _api_keys, _api_keys_mtime, _api_keys_path
+    # Read the path per call rather than at import: tests point
+    # SKILLPILOT_CONFIG at a temporary file after this module is loaded.
+    path = os.environ.get('SKILLPILOT_CONFIG', 'config.yaml')
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        return _api_keys if path == _api_keys_path else {}
+    if mtime != _api_keys_mtime or path != _api_keys_path:
+        block = _load_yaml(path).get('api_keys')
+        _api_keys = block if isinstance(block, dict) else {}
+        _api_keys_mtime = mtime
+        _api_keys_path = path
+    return _api_keys
 
 
 def _key(*env_names: str, yaml_name: Optional[str] = None) -> Optional[str]:
@@ -59,7 +87,7 @@ def _key(*env_names: str, yaml_name: Optional[str] = None) -> Optional[str]:
         if value and value.strip():
             return value.strip()
     if yaml_name:
-        value = _api_keys.get(yaml_name)
+        value = reload_api_keys().get(yaml_name)
         if isinstance(value, str) and value.strip():
             return value.strip()
     return None
