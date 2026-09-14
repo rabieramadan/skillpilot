@@ -1460,7 +1460,7 @@ def translate_exam_questions(exam_id):
         if getattr(config, 'DEEPSEEK_API_KEY', None):
             providers.append(('deepseek', config.DEEPSEEK_API_KEY, None))
         if getattr(config, 'ANTHROPIC_API_KEY', None):
-            providers.append(('claude', config.ANTHROPIC_API_KEY, 'claude-3-sonnet-20240229'))
+            providers.append(('claude', config.ANTHROPIC_API_KEY, None))
         if not providers:
             return jsonify({'error': 'No AI API key configured — add one in Admin → Integrations first.'}), 400
 

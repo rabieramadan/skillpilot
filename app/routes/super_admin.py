@@ -1859,17 +1859,40 @@ def get_ai_config():
     from app.models import ApiCredential
     from app.utils.encryption import decrypt_api_key, mask_api_key
 
-    providers = [
-        {'id': 'openai', 'name': 'OpenAI', 'key': 'OPENAI_API_KEY', 'category': 'ai', 'models': ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4o', 'gpt-4o-mini', 'o3-mini'], 'description': 'GPT-4.1 and o3 models for chat and reasoning'},
-        {'id': 'claude', 'name': 'Claude', 'key': 'CLAUDE_API_KEY', 'category': 'ai', 'models': ['claude-sonnet-4-5-20250929', 'claude-opus-4-20250514', 'claude-sonnet-4-20250514', 'claude-haiku-3-5-20241022'], 'description': 'Anthropic Claude for advanced reasoning'},
-        {'id': 'gemini', 'name': 'Gemini', 'key': 'GEMINI_API_KEY', 'category': 'ai', 'models': ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'], 'description': 'Google Gemini 2.5 for multimodal AI'},
-        {'id': 'perplexity', 'name': 'Perplexity', 'key': 'PERPLEXITY_API_KEY', 'category': 'ai', 'models': ['sonar-pro', 'sonar', 'sonar-reasoning-pro', 'sonar-reasoning'], 'description': 'Perplexity for real-time web search AI'},
-        {'id': 'grok', 'name': 'Grok', 'key': 'GROK_API_KEY', 'category': 'ai', 'models': ['grok-3', 'grok-3-mini'], 'description': 'xAI Grok 3 for conversational AI'},
-        {'id': 'deepseek', 'name': 'DeepSeek', 'key': 'DEEPSEEK_API_KEY', 'category': 'ai', 'models': ['deepseek-chat', 'deepseek-reasoner'], 'description': 'DeepSeek V3 for chat and R1 for reasoning'},
-        {'id': 'heygen', 'name': 'HeyGen', 'key': 'HEYGEN_API_KEY', 'category': 'video', 'models': ['avatar.video.v2'], 'description': 'AI avatar video generation'},
-        {'id': 'bedrock', 'name': 'AWS Bedrock', 'key': 'BEDROCK_API_KEY', 'category': 'ai', 'models': ['Llama 3', 'Mistral', 'Amazon Nova'], 'description': 'Combined credential format: access_key|secret_key|region'},
-        {'id': 'paypal', 'name': 'PayPal', 'key': 'PAYPAL_CLIENT_ID', 'category': 'payment', 'models': ['orders.v2'], 'description': 'Payments. Combined format: client_id|client_secret|mode (sandbox|live)'},
-    ]
+    # AI provider entries are built from the model registry so this screen can
+    # never offer a model the platform cannot call. Non-AI integrations are
+    # listed explicitly because they have no model catalogue.
+    from app.services import model_registry as registry
+
+    providers = []
+    for key in ('openai', 'claude', 'gemini', 'perplexity', 'grok', 'deepseek', 'images'):
+        spec = registry.get_provider(key)
+        if spec is None:
+            continue
+        # The environment variable name comes from ApiCredential.PROVIDERS,
+        # which is what the rest of the credential system reads and writes.
+        credential = ApiCredential.PROVIDERS.get(key, {})
+        providers.append({
+            'id': spec.key,
+            'name': credential.get('name') or spec.label,
+            'key': credential.get('env_var') or (spec.env_vars[0] if spec.env_vars else ''),
+            'category': 'image' if key == 'images' else 'ai',
+            'models': [m['id'] for m in registry.available_models(key)],
+            'default_model': registry.default_model(key),
+            'description': credential.get('description', ''),
+        })
+
+    providers.extend([
+        {'id': 'heygen', 'name': 'HeyGen', 'key': 'HEYGEN_API_KEY', 'category': 'video',
+         'models': ['avatar.video.v2'], 'description': 'AI avatar video generation'},
+        {'id': 'bedrock', 'name': 'AWS Bedrock', 'key': 'BEDROCK_API_KEY', 'category': 'ai',
+         'models': [m['id'] for m in registry.available_models('bedrock')],
+         'default_model': registry.default_model('bedrock'),
+         'description': 'Combined credential format: access_key|secret_key|region'},
+        {'id': 'paypal', 'name': 'PayPal', 'key': 'PAYPAL_CLIENT_ID', 'category': 'payment',
+         'models': ['orders.v2'],
+         'description': 'Payments. Combined format: client_id|client_secret|mode (sandbox|live)'},
+    ])
 
     config = []
     for provider in providers:

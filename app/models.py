@@ -1238,7 +1238,10 @@ class LearningPath(db.Model):
 
     # Provenance
     generated_by = db.Column(db.String(32), default='system')   # system|teacher|ai
-    generator_model = db.Column(db.String(64))                  # e.g. 'gpt-5-mini'
+    # Exact model identifier as sent to the provider, for audit. Resolve it
+    # through app.services.model_registry before reusing it: the model may
+    # have been retired since the row was written.
+    generator_model = db.Column(db.String(64))
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
