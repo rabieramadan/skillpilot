@@ -46,6 +46,8 @@ __all__ = [
     'get_model',
     'is_model_unavailable_error',
     'list_providers',
+    'price_per_1k',
+    'provider_for_model',
     'resolve',
 ]
 
@@ -183,29 +185,30 @@ _CLAUDE = Provider(
               'Balanced default: near-Opus quality at a fraction of the cost.',
               context_tokens=1_000_000, max_output_tokens=64_000,
               vision=True, sampling=False),
-        Model('claude-haiku-4-5', 'Claude Haiku 4.5',
+        Model('claude-haiku-4-5-20251001', 'Claude Haiku 4.5',
               'Fastest and cheapest. Good for short tutoring turns.',
               context_tokens=200_000, max_output_tokens=32_000,
               vision=True, sampling=True),
     ],
     aliases={
-        'claude-3-haiku-20240307': 'claude-haiku-4-5',
+        'claude-3-haiku-20240307': 'claude-haiku-4-5-20251001',
+        # Anthropic's Models API lists Haiku 4.5 only in its dated form.
+        'claude-haiku-4-5': 'claude-haiku-4-5-20251001',
         'claude-3-opus-20240229': 'claude-opus-5',
         'claude-3-sonnet-20240229': 'claude-sonnet-5',
-        'claude-3-5-haiku-20241022': 'claude-haiku-4-5',
+        'claude-3-5-haiku-20241022': 'claude-haiku-4-5-20251001',
         'claude-3-5-sonnet-20241022': 'claude-sonnet-5',
         'claude-3-7-sonnet-20250219': 'claude-sonnet-5',
-        'claude-haiku-3-5-20241022': 'claude-haiku-4-5',
+        'claude-haiku-3-5-20241022': 'claude-haiku-4-5-20251001',
         'claude-opus-4-20250514': 'claude-opus-5',
         'claude-opus-4-1-20250805': 'claude-opus-5',
         'claude-sonnet-4-20250514': 'claude-sonnet-5',
         'claude-sonnet-4-5-20250929': 'claude-sonnet-5',
-        'claude-haiku-4-5-20251001': 'claude-haiku-4-5',
         'claude-opus-4-5': 'claude-opus-5',
         'claude-opus-4-6': 'claude-opus-5',
         'claude-sonnet-4-6': 'claude-sonnet-5',
     },
-    fallbacks=['claude-sonnet-5', 'claude-haiku-4-5'],
+    fallbacks=['claude-sonnet-5', 'claude-haiku-4-5-20251001'],
 )
 
 _GEMINI = Provider(
@@ -215,7 +218,7 @@ _GEMINI = Provider(
     vision_default='gemini-3.8-flash',
     env_vars=['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
     models=[
-        Model('gemini-3.1-pro', 'Gemini 3.1 Pro',
+        Model('gemini-3.1-pro-preview', 'Gemini 3.1 Pro',
               'Most capable Gemini. Long documents and deep analysis.',
               context_tokens=1_000_000, max_output_tokens=64_000,
               vision=True, sampling=False),
@@ -236,11 +239,13 @@ _GEMINI = Provider(
         'gemini-pro': 'gemini-3.8-flash',
         'gemini-pro-vision': 'gemini-3.8-flash',
         'gemini-1.5-flash': 'gemini-3.8-flash',
-        'gemini-1.5-pro': 'gemini-3.1-pro',
+        'gemini-1.5-pro': 'gemini-3.1-pro-preview',
+        # Gemini 3.1 Pro is served under its -preview identifier.
+        'gemini-3.1-pro': 'gemini-3.1-pro-preview',
         'gemini-2.0-flash': 'gemini-3.8-flash',
         'gemini-2.5-flash': 'gemini-3.8-flash',
-        'gemini-2.5-pro': 'gemini-3.1-pro',
-        'gemini-3-pro-preview': 'gemini-3.1-pro',
+        'gemini-2.5-pro': 'gemini-3.1-pro-preview',
+        'gemini-3-pro-preview': 'gemini-3.1-pro-preview',
         'gemini-3-flash-preview': 'gemini-3.8-flash',
         'gemini-3.5-flash': 'gemini-3.8-flash',
     },
@@ -589,6 +594,116 @@ _UNAVAILABLE_RE = re.compile('|'.join(_UNAVAILABLE_PATTERNS), re.IGNORECASE)
 def is_model_unavailable_error(error: Any) -> bool:
     """True when ``error`` says the model identifier itself is the problem."""
     return bool(_UNAVAILABLE_RE.search(str(error or '')))
+
+
+# ---------------------------------------------------------------------------
+# Pricing
+# ---------------------------------------------------------------------------
+#: Published list price in US dollars per **million** tokens, as
+#: ``(input, output)``. Checked 14 September 2026.
+#:
+#: A model absent from this table is *unpriced*, not free. Callers must
+#: distinguish the two — the cost dashboard used to report $0.00 for every
+#: current model because its table only listed retired ones.
+#:
+#: Caveats worth knowing before trusting a figure:
+#: * Several vendors run promotional rates that expire (Gemini 3.x doubles on
+#:   1 January 2027), and some bill long prompts at a multiple of these rates
+#:   (OpenAI above 272K tokens, Gemini and Grok above 200K).
+#: * DeepSeek bills peak and off-peak rates; the peak figure is used here so
+#:   estimates are never optimistic.
+#: * Cached input is cheaper everywhere and is not modelled, so these numbers
+#:   are an upper bound for a cache-friendly workload.
+PRICE_PER_MILLION: Dict[str, tuple] = {
+    # OpenAI
+    'gpt-6-astra': (10.00, 50.00),
+    'gpt-5.6-sol': (4.00, 20.00),
+    'gpt-5.6-terra': (2.00, 12.00),
+    'gpt-5.6-luna': (0.20, 1.20),
+    # Anthropic
+    'claude-opus-5': (5.00, 25.00),
+    'claude-sonnet-5': (2.00, 10.00),
+    'claude-haiku-4-5-20251001': (1.00, 5.00),
+    # Google
+    'gemini-3.1-pro-preview': (2.00, 12.00),
+    'gemini-3.8-flash': (0.75, 3.75),
+    # xAI
+    'grok-4.6': (2.00, 6.00),
+    # DeepSeek (peak rates)
+    'deepseek-v4-flash': (0.44, 1.32),
+    'deepseek-v4-pro': (1.32, 3.96),
+    # Perplexity
+    'sonar': (0.20, 0.20),
+    'sonar-pro': (3.00, 15.00),
+}
+
+
+def price_per_1k(provider: str, model_id: Optional[str]) -> Optional[Dict[str, float]]:
+    """Input/output price per 1,000 tokens, or ``None`` if unpriced.
+
+    Retired identifiers are resolved to their replacement first, so a session
+    logged a year ago is costed against the model that now serves it.
+    """
+    resolved = resolve(provider, model_id)
+    if not resolved:
+        return None
+    rates = PRICE_PER_MILLION.get(resolved)
+    if rates is None:
+        return None
+    return {'input': rates[0] / 1000.0, 'output': rates[1] / 1000.0}
+
+
+#: Prefix -> provider, for identifiers newer than this catalogue.
+_PROVIDER_PREFIXES = (
+    ('anthropic.claude', 'bedrock'),
+    ('claude', 'claude'),
+    ('gpt-image', 'images'),
+    ('dall-e', 'images'),
+    ('gpt', 'openai'),
+    ('o1', 'openai'),
+    ('o3', 'openai'),
+    ('o4', 'openai'),
+    ('gemini', 'gemini'),
+    ('grok', 'grok'),
+    ('deepseek', 'deepseek'),
+    ('sonar', 'perplexity'),
+)
+
+_reverse_index: Optional[Dict[str, str]] = None
+
+
+def provider_for_model(model_id: str, default: str = 'openai') -> str:
+    """Which provider serves ``model_id``.
+
+    Recognises current identifiers, retired ones (through the alias tables),
+    and — for a model released after this catalogue was written — falls back
+    to the vendor's naming prefix.
+    """
+    global _reverse_index
+    if _reverse_index is None:
+        index: Dict[str, str] = {}
+        for spec in PROVIDERS.values():
+            for model in spec.models:
+                index.setdefault(model.id, spec.key)
+            for old in spec.aliases:
+                index.setdefault(old, spec.key)
+        _reverse_index = index
+
+    wanted = (model_id or '').strip()
+    if not wanted:
+        return default
+    if wanted in _reverse_index:
+        return _reverse_index[wanted]
+    if wanted in PROVIDERS:
+        return wanted
+    if wanted in PROVIDER_ALIASES:
+        return PROVIDER_ALIASES[wanted]
+
+    lowered = wanted.lower()
+    for prefix, provider in _PROVIDER_PREFIXES:
+        if lowered.startswith(prefix):
+            return provider
+    return default
 
 
 def describe(providers: Optional[Iterable[str]] = None,

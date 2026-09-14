@@ -85,7 +85,7 @@ Make it professional, clear, and engaging."""
                 api_key=api_key,
                 files=files,
                 conversation_history=[],
-                version='gpt-4-turbo'
+                version=None
             )
             
             # Parse the response
@@ -202,7 +202,7 @@ Make it professional, clear, and engaging."""
                     api_key=api_key,
                     files=None,
                     conversation_history=[],
-                    version='dall-e-3'
+                    version=None
                 )
                 
                 if 'error' in image_result:

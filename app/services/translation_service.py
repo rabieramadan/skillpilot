@@ -1,218 +1,206 @@
-"""
-Translation Service for SkillPilot
-Uses OpenAI for automatic English <-> Arabic translation
+"""English <-> Arabic translation for course and assessment content.
+
+Translation goes through :mod:`app.services.ai_transport` like every other
+model call, so it inherits retries, model fallback and the current model
+identifier. It used to call ``gpt-4o-mini`` directly with ``temperature`` and
+``max_tokens``, all three of which current OpenAI models reject.
+
+Every function degrades to returning its input unchanged when no key is
+configured or the model call fails. A page that shows untranslated text is
+strictly better than a page that raises.
 """
 
-import os
+from __future__ import annotations
+
 import json
-from openai import OpenAI
+import os
+import re
+from typing import Any, Dict, List, Optional, Sequence
 
-def get_openai_client():
-    """Get OpenAI client with API key"""
-    api_key = os.environ.get('OPENAI_API_KEY')
+from app.services.ai_transport import AIError, chat_openai_compatible
+
+LANGUAGE_NAMES = {'en': 'English', 'ar': 'Arabic'}
+
+#: Translation is a mechanical task, so the cheapest tier is the right one.
+#: Named explicitly rather than taken from the default so that switching the
+#: platform's chat model does not silently change translation cost.
+TRANSLATION_MODEL = 'gpt-5.6-luna'
+
+_SYSTEM_PROMPT = (
+    'You are a professional translator working on university course '
+    'material.\n'
+    '- Translate from {source} into {target}. Preserve meaning, register and '
+    'formatting exactly.\n'
+    '- Keep code, mathematical notation, URLs, file names and proper nouns in '
+    'their original form.\n'
+    '- Do not explain, annotate, summarise or answer the content. Return the '
+    'translation and nothing else.'
+)
+
+
+def _api_key() -> Optional[str]:
+    return os.environ.get('OPENAI_API_KEY') or None
+
+
+def _language_name(code: str, fallback: str = 'English') -> str:
+    return LANGUAGE_NAMES.get((code or '').lower(), fallback)
+
+
+def _translate(prompt: str, system: str, *, max_tokens: int = 4000) -> Optional[str]:
+    """One translation call, or ``None`` if it could not be made."""
+    api_key = _api_key()
     if not api_key:
+        print('[translation] OPENAI_API_KEY is not set; leaving text untranslated.')
         return None
-    return OpenAI(api_key=api_key)
-
-
-def translate_text(text, source_lang='en', target_lang='ar'):
-    """
-    Translate text between English and Arabic using OpenAI
-    
-    Args:
-        text: Text to translate
-        source_lang: Source language ('en' or 'ar')
-        target_lang: Target language ('en' or 'ar')
-    
-    Returns:
-        Translated text or original if translation fails
-    """
-    if not text or not text.strip():
-        return text
-    
-    client = get_openai_client()
-    if not client:
-        print("Translation service: No OpenAI API key configured")
-        return text
-    
     try:
-        lang_names = {'en': 'English', 'ar': 'Arabic'}
-        source_name = lang_names.get(source_lang, 'English')
-        target_name = lang_names.get(target_lang, 'Arabic')
-        
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": f"You are a professional translator. Translate the following text from {source_name} to {target_name}. Only provide the translation, no explanations or additional text. Maintain the same tone and meaning."
-                },
-                {
-                    "role": "user",
-                    "content": text
-                }
-            ],
-            temperature=0.3,
-            max_tokens=2000
+        result = chat_openai_compatible(
+            'openai',
+            api_key=api_key,
+            user_text=prompt,
+            system=system,
+            model=TRANSLATION_MODEL,
+            max_tokens=max_tokens,
         )
-        
-        translated = response.choices[0].message.content.strip()
-        return translated
-        
-    except Exception as e:
-        print(f"Translation error: {e}")
+    except AIError as exc:
+        print(f'[translation] {exc.message}')
+        return None
+    return result.text.strip()
+
+
+def translate_text(text: str, source_lang: str = 'en',
+                   target_lang: str = 'ar') -> str:
+    """Translate one string, returning it unchanged on any failure."""
+    if not text or not str(text).strip():
         return text
 
+    system = _SYSTEM_PROMPT.format(
+        source=_language_name(source_lang),
+        target=_language_name(target_lang, 'Arabic'),
+    )
+    return _translate(str(text), system) or text
 
-def translate_to_arabic(text):
-    """Translate English text to Arabic"""
+
+def translate_to_arabic(text: str) -> str:
     return translate_text(text, source_lang='en', target_lang='ar')
 
 
-def translate_to_english(text):
-    """Translate Arabic text to English"""
+def translate_to_english(text: str) -> str:
     return translate_text(text, source_lang='ar', target_lang='en')
 
 
-def translate_course_content(title, description=None, source_lang='en'):
-    """
-    Translate course title and description
-    
-    Args:
-        title: Course title
-        description: Course description (optional)
-        source_lang: Source language ('en' or 'ar')
-    
-    Returns:
-        dict with translated title and description
-    """
+def translate_course_content(title: str, description: str = None,
+                             source_lang: str = 'en') -> Dict[str, str]:
+    """Translate a course title and description in one pass."""
     target_lang = 'ar' if source_lang == 'en' else 'en'
-    
-    result = {
+    return {
         'title': translate_text(title, source_lang, target_lang) if title else '',
-        'description': translate_text(description, source_lang, target_lang) if description else ''
+        'description': (translate_text(description, source_lang, target_lang)
+                        if description else ''),
     }
-    
-    return result
 
 
-def translate_survey_exam_content(questions, source_lang='en'):
-    """
-    Translate survey/exam questions and options
-    
-    Args:
-        questions: List of question dicts with 'text' and 'options'
-        source_lang: Source language ('en' or 'ar')
-    
-    Returns:
-        List of translated question dicts
+def translate_survey_exam_content(questions: Sequence[Dict[str, Any]],
+                                  source_lang: str = 'en') -> List[Dict[str, Any]]:
+    """Translate question text and options, one batch per question set.
+
+    Each question used to cost one API call per field, so a 40-question exam
+    with four options each was 200 round trips. Collecting the strings into a
+    single batch makes it one.
     """
     if not questions:
         return []
-    
+
     target_lang = 'ar' if source_lang == 'en' else 'en'
-    translated_questions = []
-    
-    for q in questions:
-        translated_q = q.copy()
-        
-        if 'text' in q:
-            translated_q['text_translated'] = translate_text(q['text'], source_lang, target_lang)
-        
-        if 'question_text' in q:
-            translated_q['question_text_translated'] = translate_text(q['question_text'], source_lang, target_lang)
-        
-        if 'options' in q and isinstance(q['options'], list):
-            translated_q['options_translated'] = [
-                translate_text(opt, source_lang, target_lang) for opt in q['options']
-            ]
-        
-        translated_questions.append(translated_q)
-    
-    return translated_questions
 
+    # Collect every translatable string, remembering where it came from.
+    strings: List[str] = []
+    slots: List[tuple] = []
+    for index, question in enumerate(questions):
+        for field in ('text', 'question_text'):
+            value = question.get(field)
+            if isinstance(value, str) and value.strip():
+                slots.append((index, field, None))
+                strings.append(value)
+        options = question.get('options')
+        if isinstance(options, list):
+            for position, option in enumerate(options):
+                if isinstance(option, str) and option.strip():
+                    slots.append((index, 'options', position))
+                    strings.append(option)
 
-def batch_translate(texts, source_lang='en', target_lang='ar'):
-    """
-    Translate multiple texts at once for efficiency
-    
-    Args:
-        texts: List of texts to translate
-        source_lang: Source language
-        target_lang: Target language
-    
-    Returns:
-        List of translated texts
-    """
-    if not texts:
-        return []
-    
-    client = get_openai_client()
-    if not client:
-        print("Translation service: No OpenAI API key configured")
-        return texts
-    
-    try:
-        lang_names = {'en': 'English', 'ar': 'Arabic'}
-        source_name = lang_names.get(source_lang, 'English')
-        target_name = lang_names.get(target_lang, 'Arabic')
-        
-        numbered_texts = "\n".join([f"{i+1}. {text}" for i, text in enumerate(texts)])
-        
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": f"""You are a professional translator. Translate each numbered item from {source_name} to {target_name}.
-Return ONLY a JSON array of translated strings in the same order.
-Example input: "1. Hello\n2. World"
-Example output: ["مرحبا", "العالم"]
-Only output the JSON array, nothing else."""
-                },
-                {
-                    "role": "user",
-                    "content": numbered_texts
-                }
-            ],
-            temperature=0.3,
-            max_tokens=4000
-        )
-        
-        result_text = response.choices[0].message.content.strip()
-        if result_text.startswith('```'):
-            result_text = result_text.split('\n', 1)[1]
-            if result_text.endswith('```'):
-                result_text = result_text.rsplit('```', 1)[0]
-        
-        translated = json.loads(result_text)
-        
-        if len(translated) == len(texts):
-            return translated
+    translations = batch_translate(strings, source_lang, target_lang)
+
+    out = [dict(question) for question in questions]
+    for (index, field, position), translated in zip(slots, translations):
+        if field == 'options':
+            bucket = out[index].setdefault(
+                'options_translated', [''] * len(questions[index]['options']))
+            bucket[position] = translated
         else:
-            return [translate_text(t, source_lang, target_lang) for t in texts]
-            
-    except Exception as e:
-        print(f"Batch translation error: {e}")
-        return [translate_text(t, source_lang, target_lang) for t in texts]
+            out[index][f'{field}_translated'] = translated
+    return out
 
 
-def auto_translate_model_fields(model_instance, fields_mapping):
+def batch_translate(texts: Sequence[str], source_lang: str = 'en',
+                    target_lang: str = 'ar') -> List[str]:
+    """Translate many strings in one call, preserving order.
+
+    Falls back to the untranslated input rather than to one call per string:
+    a failure usually means no key or a provider outage, and firing hundreds
+    of individual requests into that makes it worse.
     """
-    Automatically translate model fields
-    
-    Args:
-        model_instance: SQLAlchemy model instance
-        fields_mapping: Dict mapping source fields to target fields
-                       e.g. {'title': 'title_ar', 'description': 'description_ar'}
-    
-    Returns:
-        Updated model instance
+    items = list(texts or [])
+    if not items:
+        return []
+
+    system = (
+        _SYSTEM_PROMPT.format(
+            source=_language_name(source_lang),
+            target=_language_name(target_lang, 'Arabic'),
+        )
+        + '\n\nYou will receive a JSON array of strings. Return a JSON array '
+          'of exactly the same length, in the same order, containing only the '
+          'translations. Return the array alone, with no prose and no code '
+          'fence.'
+    )
+    prompt = json.dumps(items, ensure_ascii=False)
+
+    raw = _translate(prompt, system, max_tokens=min(16000, 200 + len(prompt) * 3))
+    if raw is None:
+        return items
+
+    parsed = _parse_json_array(raw)
+    if parsed is None or len(parsed) != len(items):
+        print(f'[translation] expected {len(items)} translations, '
+              f'got {len(parsed) if parsed is not None else "unparseable output"}; '
+              'leaving the batch untranslated.')
+        return items
+    return [str(value) for value in parsed]
+
+
+def _parse_json_array(raw: str) -> Optional[List[Any]]:
+    """Read a JSON array out of a model reply, tolerating a code fence."""
+    text = raw.strip()
+    fenced = re.match(r'^```(?:json)?\s*(.*?)\s*```$', text, re.DOTALL)
+    if fenced:
+        text = fenced.group(1).strip()
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    return value if isinstance(value, list) else None
+
+
+def auto_translate_model_fields(model_instance, fields_mapping: Dict[str, str]):
+    """Fill empty Arabic columns from their English counterparts.
+
+    ``fields_mapping`` maps source field to target field, e.g.
+    ``{'title': 'title_ar', 'description': 'description_ar'}``. A target that
+    already has a value is left alone, so a human translation is never
+    overwritten.
     """
     for source_field, target_field in fields_mapping.items():
         source_value = getattr(model_instance, source_field, None)
         if source_value and not getattr(model_instance, target_field, None):
-            translated = translate_to_arabic(source_value)
-            setattr(model_instance, target_field, translated)
-    
+            setattr(model_instance, target_field, translate_to_arabic(source_value))
     return model_instance

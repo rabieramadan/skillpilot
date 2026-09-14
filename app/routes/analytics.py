@@ -7,6 +7,8 @@ from collections import defaultdict
 from functools import wraps
 from sqlalchemy import func
 
+from app.services import model_registry as registry
+
 analytics_bp = Blueprint('analytics', __name__)
 
 def admin_required(f):
@@ -69,22 +71,10 @@ def get_lms_stats():
     except Exception as e:
         return {'error': str(e)}
 
-# Token costs per 1K tokens (approximate)
-TOKEN_COSTS = {
-    'gpt-4-turbo-preview': {'input': 0.01, 'output': 0.03},
-    'gpt-4-vision-preview': {'input': 0.01, 'output': 0.03},
-    'gpt-4': {'input': 0.03, 'output': 0.06},
-    'gpt-4-32k': {'input': 0.06, 'output': 0.12},
-    'gpt-3.5-turbo': {'input': 0.0005, 'output': 0.0015},
-    'claude-3-5-sonnet-20241022': {'input': 0.003, 'output': 0.015},
-    'claude-3-opus-20240229': {'input': 0.015, 'output': 0.075},
-    'claude-3-sonnet-20240229': {'input': 0.003, 'output': 0.015},
-    'claude-3-haiku-20240307': {'input': 0.00025, 'output': 0.00125},
-    'gemini-2.0-flash': {'input': 0.00010, 'output': 0.00040},
-    'gemini-1.5-flash': {'input': 0.000075, 'output': 0.0003},
-    'dall-e-3': {'per_image': 0.04},
-    'dall-e-2': {'per_image': 0.02}
-}
+# Image generation is billed per image, not per token. Published list prices
+# for the current GPT Image models are not part of the registry's per-token
+# table, so they live here and are marked unpriced when unknown.
+IMAGE_COSTS = {}
 
 def get_sessions_db_path():
     return Path(__file__).parent.parent.parent / 'sessions.json'
@@ -96,19 +86,37 @@ def load_sessions_db():
             return json.load(f)
     return {"sessions": []}
 
+def price_for_model(model):
+    """Per-1K rates for ``model``, or ``None`` when the model is unpriced.
+
+    Rates come from the central registry, which resolves retired identifiers
+    to the model that replaced them — so a session logged against gpt-4o is
+    costed rather than silently counted as free.
+    """
+    if not model:
+        return None
+    if model in IMAGE_COSTS:
+        return IMAGE_COSTS[model]
+    provider = registry.provider_for_model(model)
+    return registry.price_per_1k(provider, model)
+
+
 def calculate_cost(model, input_tokens=0, output_tokens=0, is_image=False):
-    """Calculate cost based on model and token usage"""
-    if model not in TOKEN_COSTS:
+    """Estimated cost in USD, or 0.0 when the model has no published rate.
+
+    Use :func:`price_for_model` to tell "free" from "not priced"; this
+    function cannot express the difference and callers that care should not
+    rely on the zero.
+    """
+    costs = price_for_model(model)
+    if costs is None:
         return 0.0
-    
-    costs = TOKEN_COSTS[model]
-    
+
     if is_image:
         return costs.get('per_image', 0.0)
-    
+
     input_cost = (input_tokens / 1000) * costs.get('input', 0.0)
     output_cost = (output_tokens / 1000) * costs.get('output', 0.0)
-    
     return input_cost + output_cost
 
 @analytics_bp.route('/cost/calculate', methods=['POST'])

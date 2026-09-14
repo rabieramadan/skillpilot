@@ -64,6 +64,9 @@ class AIService:
             'deepseek': self._chat_deepseek,
             'perplexity': self._chat_perplexity,
             'dalle': self._generate_dalle,
+            # The registry calls this provider 'images'; 'dalle' is the name
+            # stored in existing sessions. Both must reach the same handler.
+            'images': self._generate_dalle,
             'heygen': self._generate_heygen_video,
             'dify': self._chat_dify,
             'bedrock': self._chat_bedrock,

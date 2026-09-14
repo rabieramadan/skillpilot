@@ -2,8 +2,8 @@
 AI Tools Service - Comprehensive AI-powered tools for all user roles
 Provides text generation, summarization, translation, content creation, and analysis tools
 """
-import json
 from typing import Dict, Any, List, Optional
+from app.services import model_registry as registry
 from app.services.ai_service import AIService
 
 AI_TOOLS_CONFIG = {
@@ -567,39 +567,11 @@ Create a clear, engaging announcement that:
 class AIToolsService:
     def __init__(self):
         self.ai_service = AIService()
-        self.model_to_provider = {
-            'gpt-4.1': 'openai',
-            'gpt-4.1-mini': 'openai',
-            'gpt-4.1-nano': 'openai',
-            'gpt-4o': 'openai',
-            'gpt-4o-mini': 'openai',
-            'o3-mini': 'openai',
-            'gpt-4': 'openai',
-            'gpt-4-turbo': 'openai',
-            'claude-sonnet-4-5-20250929': 'claude',
-            'claude-opus-4-20250514': 'claude',
-            'claude-sonnet-4-20250514': 'claude',
-            'claude-haiku-3-5-20241022': 'claude',
-            'claude-3-opus': 'claude',
-            'claude-3-sonnet': 'claude',
-            'claude-3-haiku': 'claude',
-            'gemini-2.5-flash': 'gemini',
-            'gemini-2.5-pro': 'gemini',
-            'gemini-2.0-flash': 'gemini',
-            'gemini-1.5-pro': 'gemini',
-            'gemini-pro': 'gemini',
-            'deepseek-chat': 'deepseek',
-            'deepseek-reasoner': 'deepseek',
-            'deepseek-coder': 'deepseek',
-            'grok-3': 'grok',
-            'grok-3-mini': 'grok',
-            'sonar-pro': 'perplexity',
-            'sonar': 'perplexity',
-            'sonar-reasoning-pro': 'perplexity',
-            'sonar-reasoning': 'perplexity',
-            'perplexity': 'perplexity',
-            'llama': 'llama'
-        }
+        # Which provider serves a given model identifier. Derived from the
+        # central registry rather than a hand-written table, so a retired
+        # identifier still routes to the right provider and a newly released
+        # one does not need an edit here.
+        self.model_to_provider = registry.provider_for_model
     
     def _get_api_key(self, provider: str) -> Optional[str]:
         """Get API key for a provider from config"""
@@ -611,7 +583,11 @@ class AIToolsService:
             'gemini': 'GEMINI_API_KEY',
             'deepseek': 'DEEPSEEK_API_KEY',
             'grok': 'GROK_API_KEY',
-            'perplexity': 'PERPLEXITY_API_KEY'
+            'perplexity': 'PERPLEXITY_API_KEY',
+            # Image generation is billed against the OpenAI key.
+            'images': 'OPENAI_API_KEY',
+            'dalle': 'OPENAI_API_KEY',
+            'bedrock': 'BEDROCK_API_KEY',
         }
         key_name = key_mapping.get(provider)
         if key_name:
@@ -638,7 +614,8 @@ class AIToolsService:
         """Get all tools organized by category"""
         return AI_TOOLS_CONFIG
     
-    def execute_tool(self, tool_id: str, params: Dict[str, Any], model: str = "gpt-4.1") -> Dict[str, Any]:
+    def execute_tool(self, tool_id: str, params: Dict[str, Any],
+                     model: str = None) -> Dict[str, Any]:
         """Execute an AI tool with given parameters"""
         if tool_id not in TOOL_PROMPTS:
             return {"error": f"Unknown tool: {tool_id}", "success": False}
@@ -691,8 +668,11 @@ class AIToolsService:
         # realistic, copy-pasteable code whenever code is part of the answer.
         prompt = prompt + CODE_OUTPUT_RULES
         
-        # Determine provider from model name
-        provider = self.model_to_provider.get(model, 'openai')
+        # Which provider serves this model. `model` may be None (use the
+        # platform default), a current identifier, or one saved before a
+        # provider retired it — the registry handles all three.
+        provider = self.model_to_provider(model, 'openai')
+        model = registry.resolve(provider, model)
         
         # Get API key for provider
         api_key = self._get_api_key(provider)

@@ -10,33 +10,18 @@ import os
 import uuid
 from datetime import datetime
 from app.services.ai_service import AIService
-import asyncio
+
+from app.services import model_registry as registry
 
 agents_bp = Blueprint('agents', __name__, url_prefix='/api/agents')
 
 AGENTS_FILE = 'agents.json'
 AGENT_EXECUTIONS_FILE = 'agent_executions.json'
 
-# Model to provider mapping
-MODEL_TO_PROVIDER = {
-    'gpt-4': 'openai',
-    'gpt-4o': 'openai',
-    'gpt-4-turbo': 'openai',
-    'gpt-3.5-turbo': 'openai',
-    'claude-3.5-sonnet': 'claude',
-    'claude-3-opus': 'claude',
-    'claude-3-sonnet': 'claude',
-    'claude-3-haiku': 'claude',
-    'gemini-pro': 'gemini',
-    'gemini-2.0-flash': 'gemini',
-    'gemini-1.5-flash': 'gemini',
-    'grok-3': 'grok',
-    'grok-3-mini': 'grok',
-    'deepseek-chat': 'deepseek',
-    'llama-3-70b': 'llama',
-    'perplexity-large': 'perplexity',
-    'perplexity-small': 'perplexity'
-}
+# Which provider serves a given model identifier. Resolved through the central
+# registry, so retired identifiers saved in agents.json still route correctly
+# and a newly released model needs no edit here.
+MODEL_TO_PROVIDER = registry.provider_for_model
 
 def get_api_key_for_provider(provider):
     """Get API key for a given provider"""
@@ -238,11 +223,12 @@ class AgentExecutor:
             
         elif block_type == 'ai_model':
             # Call AI model
-            model = params.get('model', 'gpt-4o')
+            model = params.get('model') or None
             prompt = input_value or params.get('prompt', '')
             
             # Get provider from model name
-            provider = MODEL_TO_PROVIDER.get(model, 'openai')
+            provider = MODEL_TO_PROVIDER(model, 'openai')
+            model = registry.resolve(provider, model)
             api_key = get_api_key_for_provider(provider)
             
             if not api_key:
@@ -588,7 +574,7 @@ def orchestrate_workflow():
         'coordinator': 'Coordinates between agents and synthesizes results'
     }
     
-    # Orchestrator prompt for GPT-4
+    default_agent_model = registry.default_model('openai')
     orchestrator_prompt = f"""You are an AI Orchestrator that creates multi-agent workflows. Analyze the user's request and design a workflow with specialized AI agents.
 
 User Request: "{user_prompt}"
@@ -611,7 +597,7 @@ Respond with a JSON object in this exact format:
       "name": "Agent name with role",
       "role_type": "researcher|analyst|writer|coder|designer|planner|critic|coordinator",
       "task": "Specific task for this agent",
-      "model": "gpt-4o",
+      "model": "{default_agent_model}",
       "prompt": "Detailed prompt for this agent"
     }}
   ],
@@ -677,7 +663,9 @@ Make it practical and focused on delivering results. Use creative but profession
                 'name': agent['name'],
                 'label': agent['name'],
                 'params': {
-                    'model': agent.get('model', 'gpt-4o'),
+                    'model': registry.resolve(
+                        registry.provider_for_model(agent.get('model'), 'openai'),
+                        agent.get('model')),
                     'prompt': agent.get('prompt', agent.get('task', '')),
                     'temperature': 0.7,
                     'max_tokens': 2000

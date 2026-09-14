@@ -3,6 +3,8 @@ from functools import wraps
 import json
 from pathlib import Path
 
+from app.services import model_registry as registry
+
 admin_bp = Blueprint('admin', __name__)
 
 # Session-based admin authentication
@@ -19,109 +21,131 @@ def get_models_config_path():
     return Path(__file__).parent.parent.parent / 'models_config.json'
 
 
-def load_models_config():
-    config_path = get_models_config_path()
-    if config_path.exists():
-        with open(config_path, 'r') as f:
-            return json.load(f)
-    
-    # Default configuration
-    return {
-        "prompt_suggestion_model": "openai",
-        "models": {
-            "openai": {
-                "enabled": True,
-                "versions": [
-                    {"id": "gpt-5", "name": "GPT-5 (Latest)", "enabled": True, "max_tokens": 16000},
-                    {"id": "gpt-5-mini", "name": "GPT-5 Mini", "enabled": True, "max_tokens": 8000},
-                    {"id": "gpt-5-nano", "name": "GPT-5 Nano (Fast)", "enabled": True, "max_tokens": 8000},
-                    {"id": "gpt-4.1", "name": "GPT-4.1", "enabled": True, "max_tokens": 16000},
-                    {"id": "gpt-4.1-mini", "name": "GPT-4.1 Mini", "enabled": True, "max_tokens": 8000},
-                    {"id": "gpt-4.1-nano", "name": "GPT-4.1 Nano", "enabled": True, "max_tokens": 8000},
-                    {"id": "gpt-4o", "name": "GPT-4o", "enabled": True, "max_tokens": 16000},
-                    {"id": "gpt-4o-mini", "name": "GPT-4o Mini", "enabled": True, "max_tokens": 8000},
-                    {"id": "o3", "name": "o3 (Reasoning)", "enabled": True, "max_tokens": 16000},
-                    {"id": "o3-mini", "name": "o3-mini (Reasoning)", "enabled": True, "max_tokens": 16000}
-                ],
-                "default_version": "gpt-5"
-            },
-            "claude": {
-                "enabled": True,
-                "versions": [
-                    {"id": "claude-sonnet-4-5-20250929", "name": "Claude Sonnet 4.5 (Latest)", "enabled": True, "max_tokens": 8000},
-                    {"id": "claude-opus-4-20250514", "name": "Claude Opus 4", "enabled": True, "max_tokens": 8000},
-                    {"id": "claude-sonnet-4-20250514", "name": "Claude Sonnet 4", "enabled": True, "max_tokens": 4000},
-                    {"id": "claude-haiku-3-5-20241022", "name": "Claude Haiku 3.5 (Fast)", "enabled": True, "max_tokens": 4000}
-                ],
-                "default_version": "claude-sonnet-4-5-20250929"
-            },
-            "gemini": {
-                "enabled": True,
-                "versions": [
-                    {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash (Latest)", "enabled": True, "max_tokens": 8000},
-                    {"id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro", "enabled": True, "max_tokens": 8000},
-                    {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash", "enabled": True, "max_tokens": 8000},
-                    {"id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro", "enabled": True, "max_tokens": 8000}
-                ],
-                "default_version": "gemini-2.5-flash"
-            },
-            "dalle": {
-                "enabled": True,
-                "versions": [
-                    {"id": "dall-e-3", "name": "DALL-E 3", "enabled": True},
-                    {"id": "dall-e-2", "name": "DALL-E 2", "enabled": False}
-                ],
-                "default_version": "dall-e-3"
-            },
-            "perplexity": {
-                "enabled": True,
-                "versions": [
-                    {"id": "sonar-pro", "name": "Sonar Pro (Advanced Search)", "enabled": True, "max_tokens": 4000},
-                    {"id": "sonar", "name": "Sonar (Fast)", "enabled": True, "max_tokens": 4000},
-                    {"id": "sonar-reasoning-pro", "name": "Sonar Reasoning Pro", "enabled": True, "max_tokens": 4000},
-                    {"id": "sonar-reasoning", "name": "Sonar Reasoning", "enabled": True, "max_tokens": 4000}
-                ],
-                "default_version": "sonar-pro"
-            },
-            "grok": {
-                "enabled": True,
-                "versions": [
-                    {"id": "grok-4", "name": "Grok 4 (Latest)", "enabled": True, "max_tokens": 8000},
-                    {"id": "grok-3", "name": "Grok 3", "enabled": True, "max_tokens": 8000},
-                    {"id": "grok-3-mini", "name": "Grok 3 Mini (Fast)", "enabled": True, "max_tokens": 4000}
-                ],
-                "default_version": "grok-4"
-            },
-            "heygen": {
-                "enabled": True,
-                "versions": [
-                    {"id": "heygen-avatar-v2", "name": "HeyGen Avatar Video", "enabled": True, "max_tokens": 1500}
-                ],
-                "default_version": "heygen-avatar-v2"
-            },
-            "deepseek": {
-                "enabled": True,
-                "versions": [
-                    {"id": "deepseek-chat", "name": "DeepSeek V3 (Latest)", "enabled": True, "max_tokens": 8000},
-                    {"id": "deepseek-reasoner", "name": "DeepSeek R1 (Reasoning)", "enabled": True, "max_tokens": 64000}
-                ],
-                "default_version": "deepseek-chat"
-            },
-            "llama": {
-                "enabled": False,
-                "versions": [
-                    {"id": "llama-2-70b", "name": "Llama 2 70B", "enabled": False, "max_tokens": 4000}
-                ],
-                "default_version": "llama-2-70b"
-            }
+def default_models_config():
+    """Model picker contents, derived from the central registry.
+
+    This used to be a hand-written literal listing gpt-4o, dall-e-3,
+    deepseek-chat and other identifiers that no longer resolve. Deriving it
+    means the admin screen can only ever offer models the platform can
+    actually call.
+    """
+    providers = {}
+    for key in registry.list_providers():
+        # 'images' is presented under its historical name so that saved
+        # selections and the frontend keep matching.
+        display_key = 'dalle' if key == 'images' else key
+        versions = []
+        for model in registry.available_models(key):
+            versions.append({
+                'id': model['id'],
+                'name': model['label'],
+                'summary': model['summary'],
+                'enabled': True,
+                'max_tokens': model['max_output_tokens'],
+            })
+        providers[display_key] = {
+            'enabled': True,
+            'versions': versions,
+            'default_version': registry.default_model(key),
         }
+
+    # Providers that are not model catalogues but still appear in the picker.
+    providers['heygen'] = {
+        'enabled': True,
+        'versions': [{'id': 'heygen-avatar-v2', 'name': 'HeyGen Avatar Video',
+                      'summary': 'Generates an AI presenter video from a script.',
+                      'enabled': True, 'max_tokens': 1500}],
+        'default_version': 'heygen-avatar-v2',
     }
+    providers['dify'] = {
+        'enabled': False,
+        'versions': [{'id': 'dify-app', 'name': 'Dify Application',
+                      'summary': 'Routes to a Dify app you have configured.',
+                      'enabled': True, 'max_tokens': 4000}],
+        'default_version': 'dify-app',
+    }
+
+    return {'prompt_suggestion_model': 'openai', 'models': providers}
+
+
+def _migrate_saved_config(config):
+    """Map identifiers saved by an earlier release onto current ones.
+
+    An administrator who pinned ``gpt-4o`` a year ago should not have the
+    picker stuck on a model the API no longer serves. Retired identifiers are
+    translated through the registry aliases and duplicates are dropped.
+    """
+    changed = False
+    for display_key, provider in (config.get('models') or {}).items():
+        registry_key = 'images' if display_key == 'dalle' else display_key
+        if registry.get_provider(registry_key) is None:
+            continue
+
+        seen = set()
+        migrated = []
+        for version in provider.get('versions') or []:
+            current = registry.resolve(registry_key, version.get('id'))
+            if not current or current in seen:
+                changed = True
+                continue
+            seen.add(current)
+            if current != version.get('id'):
+                changed = True
+                entry = registry.get_model(registry_key, current)
+                version['id'] = current
+                if entry is not None:
+                    version['name'] = entry.label
+                    version['summary'] = entry.summary
+                    version['max_tokens'] = entry.max_output_tokens
+            migrated.append(version)
+
+        # Offer anything new in the catalogue that the saved file predates.
+        for model in registry.available_models(registry_key):
+            if model['id'] not in seen:
+                migrated.append({
+                    'id': model['id'],
+                    'name': model['label'],
+                    'summary': model['summary'],
+                    'enabled': True,
+                    'max_tokens': model['max_output_tokens'],
+                })
+                changed = True
+
+        provider['versions'] = migrated
+        default = registry.resolve(registry_key, provider.get('default_version'))
+        if default != provider.get('default_version'):
+            provider['default_version'] = default
+            changed = True
+
+    return config, changed
+
+
+def load_models_config():
+    """Saved model configuration, migrated to current identifiers."""
+    config_path = get_models_config_path()
+    if not config_path.exists():
+        return default_models_config()
+
+    try:
+        with open(config_path, 'r', encoding='utf-8') as handle:
+            config = json.load(handle)
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f'[admin] {config_path} is unreadable ({exc}); using defaults.')
+        return default_models_config()
+
+    config, changed = _migrate_saved_config(config)
+    if changed:
+        try:
+            save_models_config(config)
+        except OSError as exc:
+            print(f'[admin] could not write migrated {config_path}: {exc}')
+    return config
 
 
 def save_models_config(config):
     config_path = get_models_config_path()
-    with open(config_path, 'w') as f:
-        json.dump(config, f, indent=2)
+    with open(config_path, 'w', encoding='utf-8') as handle:
+        json.dump(config, handle, indent=2, ensure_ascii=False)
 
 
 @admin_bp.route('/models', methods=['GET'])

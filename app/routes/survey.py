@@ -7,9 +7,11 @@ from datetime import datetime
 from typing import Optional
 import json
 import os
+import re
 from pathlib import Path
-import requests
 from functools import wraps
+
+from app.services.ai_transport import AIError, chat_openai_compatible
 
 survey_bp = Blueprint('survey', __name__, url_prefix='/api/survey')
 
@@ -107,89 +109,91 @@ def load_exit_exam_questions():
 
 
 def generate_true_false_questions_with_openai(api_key: str, count: int = 5) -> list:
-    """
-    Generate true/false questions using OpenAI API
-    
-    Args:
-        api_key: OpenAI API key
-        count: Number of questions to generate (default 5)
-    
-    Returns:
-        List of question dictionaries or empty list if failed
+    """Generate true/false questions for the exit exam.
+
+    Returns an empty list on any failure; the caller falls back to the static
+    question bank, so a model outage never blocks a student from sitting the
+    exam.
     """
     if not api_key:
-        # Avoid leaking auth state into stdout/log aggregators.
-        pass
         return []
-    
-    try:
-        headers = {
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json'
-        }
-        
-        prompt = f"""Generate exactly {count} true/false questions about AI and prompt engineering fundamentals.
-        
-Format your response as a JSON array with this exact structure:
+
+    prompt = f"""Write exactly {count} true/false questions on the fundamentals of
+prompt engineering and working with AI models, at the level of an
+introductory university course.
+
+Cover a spread of these topics, without repeating one twice:
+- what prompt engineering is and what it is for
+- how to write a clear, specific prompt
+- common prompt patterns (role, few-shot, chain of thought, structured output)
+- what current AI models can and cannot do, and where they fail
+- techniques that measurably improve an answer
+
+Rules for the questions themselves:
+- Each must be unambiguously true or false to someone who knows the material.
+  No opinions, no "usually", no trick wording.
+- Make roughly half of them false, and make the false ones plausible — a
+  false statement that is obviously absurd tests nothing.
+- Do not mention specific model names, version numbers, prices or dates:
+  those go out of date and the exam does not.
+- One sentence each, under 30 words.
+
+Return a JSON array and nothing else — no prose before or after, no code
+fence — in exactly this shape:
 [
-    {{
-        "id": 1,
-        "question": "Question text here",
-        "type": "true_false",
-        "options": ["True", "False"],
-        "correct_answer": "True"
-    }}
-]
+  {{"id": 1, "question": "...", "type": "true_false",
+    "options": ["True", "False"], "correct_answer": "True"}}
+]"""
 
-Topics to cover:
-- What is prompt engineering
-- Best practices for writing prompts
-- Common prompt patterns
-- AI model capabilities and limitations
-- Effective techniques for improving AI responses
-
-Make the questions educational and appropriate for a prompt engineering training course.
-Return ONLY the JSON array, no other text."""
-
-        data = {
-            'model': 'gpt-3.5-turbo',
-            'messages': [
-                {'role': 'system', 'content': 'You are an expert AI trainer creating educational assessment questions about prompt engineering. Respond only with valid JSON.'},
-                {'role': 'user', 'content': prompt}
-            ],
-            'temperature': 0.7,
-            'max_tokens': 2000
-        }
-        
-        print(f"DEBUG: Requesting {count} questions from OpenAI...")
-        response = requests.post(
-            'https://api.openai.com/v1/chat/completions',
-            headers=headers,
-            json=data,
-            timeout=30
+    try:
+        result = chat_openai_compatible(
+            'openai',
+            api_key=api_key,
+            user_text=prompt,
+            system=('You write assessment items for a university course. You '
+                    'return valid JSON and nothing else.'),
+            max_tokens=4000,
         )
-        
-        if response.status_code == 200:
-            result = response.json()
-            content = result['choices'][0]['message']['content'].strip()
-            
-            # Remove markdown code blocks if present
-            if content.startswith('```'):
-                content = content.split('```')[1]
-                if content.startswith('json'):
-                    content = content[4:]
-                content = content.strip()
-            
-            questions = json.loads(content)
-            print(f"DEBUG: Successfully generated {len(questions)} questions from OpenAI")
-            return questions
-        else:
-            print(f"DEBUG: OpenAI API error: {response.status_code} - {response.text}")
-            return []
-            
-    except Exception as e:
-        print(f"DEBUG: Exception generating questions with OpenAI: {str(e)}")
+    except AIError as exc:
+        print(f'[survey] could not generate exam questions: {exc.message}')
         return []
+
+    questions = _parse_question_json(result.text)
+    if questions is None:
+        print('[survey] the model did not return a usable JSON array.')
+        return []
+
+    # Keep only well-formed items; a malformed one would render as a blank
+    # question in the exam.
+    valid = []
+    for index, question in enumerate(questions, 1):
+        if not isinstance(question, dict):
+            continue
+        text = str(question.get('question') or '').strip()
+        answer = str(question.get('correct_answer') or '').strip().title()
+        if not text or answer not in ('True', 'False'):
+            continue
+        valid.append({
+            'id': index,
+            'question': text,
+            'type': 'true_false',
+            'options': ['True', 'False'],
+            'correct_answer': answer,
+        })
+    return valid[:count]
+
+
+def _parse_question_json(raw: str):
+    """Read a JSON array from a model reply, tolerating a code fence."""
+    text = (raw or '').strip()
+    fenced = re.match(r'^```(?:json)?\s*(.*?)\s*```$', text, re.DOTALL)
+    if fenced:
+        text = fenced.group(1).strip()
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    return value if isinstance(value, list) else None
 
 
 def get_hybrid_exit_exam_questions(api_key: Optional[str] = None) -> dict:

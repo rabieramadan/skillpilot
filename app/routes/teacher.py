@@ -1454,7 +1454,7 @@ def translate_exam_questions(exam_id):
         ai_service = AIService()
         providers = []
         if getattr(config, 'OPENAI_API_KEY', None):
-            providers.append(('openai', config.OPENAI_API_KEY, 'gpt-4-turbo'))
+            providers.append(('openai', config.OPENAI_API_KEY, None))
         if getattr(config, 'GROK_API_KEY', None):
             providers.append(('grok', config.GROK_API_KEY, None))
         if getattr(config, 'DEEPSEEK_API_KEY', None):
@@ -2122,14 +2122,21 @@ Be encouraging but honest. Focus on specific, actionable recommendations."""
             openai_key = os.environ.get('OPENAI_API_KEY')
             
             if openai_key:
-                response = ai_service._chat_openai(
+                response = ai_service.chat(
+                    provider='openai',
                     message=ai_prompt,
                     api_key=openai_key,
-                    version='gpt-4o-mini'
+                    system_prompt=('You write student progress reports for '
+                                   'teachers. You return valid JSON and '
+                                   'nothing else.'),
                 )
-                
-                if response.get('success'):
-                    ai_response = response.get('message', '')
+
+                # AIService returns {'text': ...} on success and {'error': ...}
+                # on failure. This branch used to test for a 'success' key that
+                # the service has never returned, so the report was always the
+                # fallback text.
+                if 'error' not in response:
+                    ai_response = response.get('text', '')
                     
                     # Parse JSON from response
                     import json
@@ -3281,7 +3288,7 @@ def class_ai_analysis(course_id):
             return jsonify({'error': 'Access denied'}), 403
 
         body = request.get_json(silent=True) or {}
-        model = body.get('model', 'gpt-4o-mini')
+        model = body.get('model') or None
         language = body.get('language', 'English')
 
         ctx = _gather_course_context(course_id)
@@ -3404,7 +3411,7 @@ def course_ai_tools_execute(course_id):
             return jsonify({'error': 'tool_id is required'}), 400
 
         params = dict(data.get('params') or {})
-        model = data.get('model', 'gpt-4.1')
+        model = data.get('model') or None
         lang = (params.get('language') or 'English')
 
         # Role gate (mirror /api/ai-tools/execute behaviour).

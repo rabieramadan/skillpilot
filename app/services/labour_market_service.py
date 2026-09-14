@@ -20,8 +20,6 @@ Flask process; it is opt-in via `LABOUR_MARKET_SYNC_INTERVAL_HOURS`.
 """
 from __future__ import annotations
 
-import csv
-import io
 import json
 import logging
 import os
@@ -30,6 +28,8 @@ import threading
 import time
 from datetime import datetime, timedelta
 from typing import Iterable, Optional
+
+from app.services import model_registry as registry
 
 JOB_NAME = 'labour_market_sync'
 
@@ -213,7 +213,7 @@ def fetch_claude() -> list:
         ]
     region = os.environ.get('CLAUDE_LABOUR_REGION', 'OM')
     period = _norm_period()
-    model = os.environ.get('CLAUDE_LABOUR_MODEL', 'claude-sonnet-4-5-20250929')
+    model = os.environ.get('CLAUDE_LABOUR_MODEL') or registry.default_model('claude')
     timeout = float(os.environ.get('CLAUDE_LABOUR_TIMEOUT', '30'))
 
     prompt = (

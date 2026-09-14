@@ -120,7 +120,7 @@ def execute_tool():
             return jsonify({'error': 'tool_id is required'}), 400
         
         params = data.get('params', {})
-        model = data.get('model', 'gpt-4.1')
+        model = data.get('model') or None
         
         role = session.get('role', 'student')
         available_tools = ai_tools_service.get_tools_for_role(role)
@@ -154,7 +154,7 @@ def text_generator():
             'length': data.get('length', 'medium'),
             'language': data.get('language', 'English')
         }
-        model = data.get('model', 'gpt-4.1')
+        model = data.get('model') or None
         
         result = ai_tools_service.execute_tool('text_generator', params, model)
         return jsonify(result)
@@ -177,7 +177,7 @@ def summarizer():
             'length': data.get('length', 'medium'),
             'language': data.get('language', 'English')
         }
-        model = data.get('model', 'gpt-4.1')
+        model = data.get('model') or None
         
         result = ai_tools_service.execute_tool('summarizer', params, model)
         return jsonify(result)
@@ -199,7 +199,7 @@ def translator():
             'source_lang': data.get('source_language', 'auto-detect'),
             'target_lang': data.get('target_language', 'English')
         }
-        model = data.get('model', 'gpt-4.1')
+        model = data.get('model') or None
         
         result = ai_tools_service.execute_tool('translator', params, model)
         return jsonify(result)
@@ -221,7 +221,7 @@ def grammar_checker():
             'language': data.get('language', 'English'),
             'style': data.get('style', 'formal')
         }
-        model = data.get('model', 'gpt-4.1')
+        model = data.get('model') or None
         
         result = ai_tools_service.execute_tool('grammar_checker', params, model)
         return jsonify(result)
@@ -244,7 +244,7 @@ def paraphraser():
             'style': data.get('style', 'formal'),
             'language': data.get('language', 'English')
         }
-        model = data.get('model', 'gpt-4.1')
+        model = data.get('model') or None
         
         result = ai_tools_service.execute_tool('paraphraser', params, model)
         return jsonify(result)
@@ -272,7 +272,7 @@ def lesson_planner():
             'duration': data.get('duration', '60 minutes'),
             'language': data.get('language', 'English')
         }
-        model = data.get('model', 'gpt-4.1')
+        model = data.get('model') or None
         
         result = ai_tools_service.execute_tool('lesson_planner', params, model)
         return jsonify(result)
@@ -301,7 +301,7 @@ def question_generator():
             'num_questions': str(data.get('num_questions', 5)),
             'language': data.get('language', 'English')
         }
-        model = data.get('model', 'gpt-4.1')
+        model = data.get('model') or None
         
         result = ai_tools_service.execute_tool('question_generator', params, model)
         return jsonify(result)
@@ -324,7 +324,7 @@ def study_assistant():
             'level': data.get('level', 'intermediate'),
             'language': data.get('language', 'English')
         }
-        model = data.get('model', 'gpt-4.1')
+        model = data.get('model') or None
         
         result = ai_tools_service.execute_tool('study_assistant', params, model)
         return jsonify(result)
@@ -347,7 +347,7 @@ def flashcard_generator():
             'num_cards': str(data.get('num_cards', 10)),
             'language': data.get('language', 'English')
         }
-        model = data.get('model', 'gpt-4.1')
+        model = data.get('model') or None
         
         result = ai_tools_service.execute_tool('flashcard_generator', params, model)
         return jsonify(result)
@@ -435,7 +435,7 @@ def content_chat():
         file_id = data.get('file_id')
         question = data.get('question', data.get('input', ''))
         language = data.get('language', 'English')
-        model = data.get('model', 'gpt-4.1')
+        model = data.get('model') or None
         
         if not file_id:
             return jsonify({'error': 'Please select a document'}), 400

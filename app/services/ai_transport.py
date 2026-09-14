@@ -833,7 +833,9 @@ def _parse_gemini_response(response: Any, *, model: str,
     candidates = getattr(response, 'candidates', None) or []
     finish = ''
     if candidates:
-        finish = str(getattr(candidates[0], 'finish_reason', '') or '')
+        reason = getattr(candidates[0], 'finish_reason', None)
+        # The SDK returns an enum; str() on it yields 'FinishReason.STOP'.
+        finish = getattr(reason, 'name', None) or str(reason or '')
 
     if not text:
         feedback = getattr(response, 'prompt_feedback', None)

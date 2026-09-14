@@ -110,13 +110,13 @@ class QuestionGenerator:
         claude_key = getattr(self.config, 'ANTHROPIC_API_KEY', None)
         
         if openai_key:
-            providers_to_try.append(('openai', openai_key, 'gpt-4-turbo'))
+            providers_to_try.append(('openai', openai_key, None))
         if grok_key:
             providers_to_try.append(('grok', grok_key, None))
         if deepseek_key:
             providers_to_try.append(('deepseek', deepseek_key, None))
         if claude_key:
-            providers_to_try.append(('claude', claude_key, 'claude-3-sonnet-20240229'))
+            providers_to_try.append(('claude', claude_key, None))
         
         if not providers_to_try:
             return {'success': False, 'error': 'No AI API key configured'}
