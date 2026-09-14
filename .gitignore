@@ -29,6 +29,7 @@ attendance.json
 ethics_assessments.json
 exports/
 uploads/
+backups/
 course_files/
 exam_data/
 certificates/

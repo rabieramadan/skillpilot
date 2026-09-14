@@ -184,6 +184,34 @@ Callers get `{'text', 'provider', 'model', 'timestamp', ...}` on success and
 `{'error', ...}` on failure, and never have to handle an HTTP response or an
 SDK object.
 
+## Data safety
+
+Nothing in the normal deployment path deletes data:
+
+- `create_app()` calls `db.create_all()`, which only adds missing tables, and
+  syncs new columns with `ADD COLUMN IF NOT EXISTS`. It never drops anything.
+- `run_seed_users.py` only creates accounts that do not exist. An existing
+  account keeps its password, role and name. Pass `--reset-passwords` to opt
+  into the old behaviour.
+- The installer is safe to re-run and reports what it found: how many accounts
+  are already in the database, and which data directories it can see.
+
+The data the code cannot recreate lives in three places: the PostgreSQL
+database, the `uploads/` `certificates/` `course_files/` `exam_data/`
+directories, and about two dozen `*.json` files in the project root that some
+features use instead of the database. `backup.sh` / `backup.bat` captures all
+three plus `config.yaml` and `.env`, and writes a `RESTORE.txt` beside them.
+
+```bash
+./backup.sh                 # -> backups/skillpilot-<timestamp>/
+./backup.sh /mnt/backups    # or somewhere else
+```
+
+Upgrading: unzip into a *new* folder, copy the data directories, the root
+`*.json` files, `config.yaml` and `.env` across, then run the installer. Keep
+the old `.env`: a new `SESSION_SECRET` logs everyone out and makes any key
+stored through Admin → AI Settings undecryptable.
+
 ## Tests
 
 ```bash
