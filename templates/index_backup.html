@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIACMate - Python Edition</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+               <div class="logo-section">
+    <img src="{{ url_for('static', filename='images/ai-logo.png') }}" class="logo logo-1" alt="AI">
+    <img src="{{ url_for('static', filename='images/ac-logo.png') }}" class="logo logo-2" alt="AC">
+    <div class="app-info">
+        <div class="app-title">AIACMate</div>
+        <div class="app-subtitle">Python Edition</div>
+    </div>
+</div>
+                <button class="collapse-btn" onclick="toggleSidebar()">
+                    <i class="fas fa-chevron-left" id="collapseIcon"></i>
+                </button>
+            </div>
+
+            <div class="ai-tools">
+                <div class="ai-section">
+                    <div class="section-title">Language Models</div>
+
+                    <div class="ai-tool openai active" data-ai="openai" data-name="OpenAI GPT" data-desc="Advanced language model">
+                        <div class="ai-tool-icon">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <div class="ai-tool-content">
+                            <div class="ai-tool-name">OpenAI GPT</div>
+                            <div class="ai-tool-desc">Advanced language model</div>
+                        </div>
+                        <div class="memory-indicator"></div>
+                    </div>
+
+                    <div class="ai-tool claude" data-ai="claude" data-name="Claude" data-desc="Helpful AI assistant">
+                        <div class="ai-tool-icon">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <div class="ai-tool-content">
+                            <div class="ai-tool-name">Claude</div>
+                            <div class="ai-tool-desc">Helpful AI assistant</div>
+                        </div>
+                        <div class="memory-indicator"></div>
+                    </div>
+
+                    <div class="ai-tool gemini" data-ai="gemini" data-name="Gemini" data-desc="Google's multimodal AI">
+                        <div class="ai-tool-icon">
+                            <i class="fas fa-gem"></i>
+                        </div>
+                        <div class="ai-tool-content">
+                            <div class="ai-tool-name">Gemini</div>
+                            <div class="ai-tool-desc">Google's multimodal AI</div>
+                        </div>
+                        <div class="memory-indicator"></div>
+                    </div>
+
+                    <div class="ai-tool grok" data-ai="grok" data-name="Grok" data-desc="X.AI's reasoning model">
+                        <div class="ai-tool-icon">
+                            <i class="fab fa-twitter"></i>
+                        </div>
+                        <div class="ai-tool-content">
+                            <div class="ai-tool-name">Grok</div>
+                            <div class="ai-tool-desc">X.AI's reasoning model</div>
+                        </div>
+                        <div class="memory-indicator"></div>
+                    </div>
+
+                    <div class="ai-tool deepseek" data-ai="deepseek" data-name="DeepSeek" data-desc="Advanced reasoning AI">
+                        <div class="ai-tool-icon">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <div class="ai-tool-content">
+                            <div class="ai-tool-name">DeepSeek</div>
+                            <div class="ai-tool-desc">Advanced reasoning AI</div>
+                        </div>
+                        <div class="memory-indicator"></div>
+                    </div>
+
+                    <div class="ai-tool llama" data-ai="llama" data-name="Llama" data-desc="Meta's open model">
+                        <div class="ai-tool-icon">
+                            <i class="fas fa-fire"></i>
+                        </div>
+                        <div class="ai-tool-content">
+                            <div class="ai-tool-name">Llama</div>
+                            <div class="ai-tool-desc">Meta's open model</div>
+                        </div>
+                        <div class="memory-indicator"></div>
+                    </div>
+
+                    <div class="ai-tool perplexity" data-ai="perplexity" data-name="Perplexity" data-desc="Search-powered AI">
+                        <div class="ai-tool-icon">
+                            <i class="fas fa-search-plus"></i>
+                        </div>
+                        <div class="ai-tool-content">
+                            <div class="ai-tool-name">Perplexity</div>
+                            <div class="ai-tool-desc">Search-powered AI</div>
+                        </div>
+                        <div class="memory-indicator"></div>
+                    </div>
+                </div>
+
+                <div class="ai-section">
+                    <div class="section-title">Specialized Tools</div>
+
+                    <div class="ai-tool dalle" data-ai="dalle" data-name="DALL-E" data-desc="Image generation">
+                        <div class="ai-tool-icon">
+                            <i class="fas fa-palette"></i>
+                        </div>
+                        <div class="ai-tool-content">
+                            <div class="ai-tool-name">DALL-E</div>
+                            <div class="ai-tool-desc">Image generation</div>
+                        </div>
+                        <div class="memory-indicator"></div>
+                    </div>
+
+                    <div class="ai-tool clarifai" data-ai="clarifai" data-name="Clarifai" data-desc="Computer vision">
+                        <div class="ai-tool-icon">
+                            <i class="fas fa-eye"></i>
+                        </div>
+                        <div class="ai-tool-content">
+                            <div class="ai-tool-name">Clarifai</div>
+                            <div class="ai-tool-desc">Computer vision</div>
+                        </div>
+                        <div class="memory-indicator"></div>
+                    </div>
+
+                    <div class="ai-tool census" data-ai="census" data-name="Census" data-desc="Data insights">
+                        <div class="ai-tool-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="ai-tool-content">
+                            <div class="ai-tool-name">Census</div>
+                            <div class="ai-tool-desc">Data insights</div>
+                        </div>
+                        <div class="memory-indicator"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="current-ai">
+                    <div class="current-ai-icon">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="current-ai-info">
+                        <h3 id="currentAiName">OpenAI GPT</h3>
+                        <p id="currentAiDesc">Advanced language model</p>
+                    </div>
+                </div>
+                <div class="top-bar-actions">
+                    <button class="top-bar-btn" onclick="clearMemory()">
+                        <i class="fas fa-eraser"></i>
+                        Clear chat
+                    </button>
+                    <button class="top-bar-btn" onclick="openSettings()">
+                        <i class="fas fa-cog"></i>
+                        Settings
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat Area -->
+            <div class="chat-area">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message system">
+                        <div class="message-content">
+                            Welcome to AIACMate Python! Select an AI model from the sidebar to start chatting. Each AI maintains its own conversation memory.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-area">
+                    <div class="input-container">
+                        <!-- File Upload Area -->
+                        <div class="file-upload-area" id="fileUploadArea">
+                            <div class="file-upload-text">
+                                Drop files here or click to upload
+                                <br>
+                                <small>Supports: Images, PDF, Word, Excel, PowerPoint, Text files</small>
+                            </div>
+                            <button class="file-upload-btn" onclick="selectFiles()">
+                                <i class="fas fa-plus"></i> Choose Files
+                            </button>
+                        </div>
+
+                        <!-- Attached Files -->
+                        <div class="attached-files" id="attachedFiles"></div>
+
+                        <div class="input-wrapper">
+                            <textarea
+                                class="chat-input"
+                                id="chatInput"
+                                placeholder="Message AIACMate..."
+                                rows="1"
+                                onkeydown="handleKeyDown(event)"
+                                oninput="autoResize(this)"
+                            ></textarea>
+                            <div class="input-actions">
+                                <button class="input-btn" onclick="toggleImageMode()" title="Generate image" id="imageBtn">
+                                    <i class="fas fa-image"></i>
+                                </button>
+                                <button class="input-btn" onclick="toggleFileUpload()" title="Upload files" id="fileBtn">
+                                    <i class="fas fa-paperclip"></i>
+                                </button>
+                            </div>
+                            <button class="send-btn" id="sendBtn" onclick="handleSendClick()">
+                                <i class="fas fa-arrow-up"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>API Configuration</h2>
+                <p>Configure your API keys to connect with AI services</p>
+            </div>
+
+            <div class="form-group">
+                <label>OpenAI API Key</label>
+                <input type="password" id="openaiKey" placeholder="sk-...">
+            </div>
+
+            <div class="form-group">
+                <label>Anthropic Claude API Key</label>
+                <input type="password" id="claudeKey" placeholder="sk-ant-...">
+            </div>
+
+            <div class="form-group">
+                <label>Google Gemini API Key</label>
+                <input type="password" id="geminiKey" placeholder="AI...">
+            </div>
+
+            <div class="form-group">
+                <label>X.AI Grok API Key</label>
+                <input type="password" id="grokKey" placeholder="xai-...">
+            </div>
+
+            <div class="form-group">
+                <label>DeepSeek API Key</label>
+                <input type="password" id="deepseekKey" placeholder="sk-...">
+            </div>
+
+            <div class="form-group">
+                <label>Llama API Key</label>
+                <input type="password" id="llamaKey" placeholder="...">
+            </div>
+
+            <div class="form-group">
+                <label>Perplexity API Key</label>
+                <input type="password" id="perplexityKey" placeholder="pplx-...">
+            </div>
+
+            <div class="form-group">
+                <label>Clarifai API Key</label>
+                <input type="password" id="clarifaiKey" placeholder="...">
+            </div>
+
+            <div class="form-group">
+                <label>Census API Key</label>
+                <input type="password" id="censusKey" placeholder="...">
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-btn secondary" onclick="closeSettings()">Cancel</button>
+                <button class="modal-btn primary" onclick="saveSettings()">Save settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file input -->
+    <input type="file" id="fileInput" multiple accept=".jpg,.jpeg,.png,.gif,.bmp,.webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf" style="display: none;" onchange="handleFileUpload(event)">
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

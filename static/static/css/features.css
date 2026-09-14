@@ -1,0 +1,541 @@
+/* Student Management and Course Materials Styles */
+
+/* Students Table */
+.students-table-wrapper {
+    overflow-x: auto;
+    margin-top: 20px;
+}
+
+.students-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.students-table thead {
+    background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%);
+    color: white;
+}
+
+.students-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.students-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.students-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.students-table .actions-cell {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+    color: #6b7280;
+}
+
+.btn-icon:hover {
+    background: #f3f4f6;
+    color: #1B5E20;
+    transform: translateY(-2px);
+}
+
+/* Materials Grid */
+.materials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.material-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s;
+    border: 1px solid #e5e7eb;
+}
+
+.material-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.material-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+
+.material-icon i {
+    font-size: 24px;
+    color: white;
+}
+
+.material-info h4 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    color: #111827;
+    word-break: break-word;
+}
+
+.material-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 8px;
+}
+
+.material-meta span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.material-meta i {
+    width: 14px;
+}
+
+.material-description {
+    font-size: 14px;
+    color: #6b7280;
+    margin-top: 8px;
+    line-height: 1.5;
+}
+
+.material-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* Flash Messages */
+.flash-message {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    padding: 16px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 10000;
+    opacity: 0;
+    transform: translateX(400px);
+    transition: all 0.3s ease;
+    max-width: 400px;
+}
+
+.flash-message.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.flash-message i {
+    font-size: 20px;
+}
+
+.flash-success {
+    background: #d4edda;
+    color: #155724;
+    border-left: 4px solid #28a745;
+}
+
+.flash-error {
+    background: #f8d7da;
+    color: #721c24;
+    border-left: 4px solid #dc3545;
+}
+
+.flash-info {
+    background: #d1ecf1;
+    color: #0c5460;
+    border-left: 4px solid #17a2b8;
+}
+
+/* Form Controls */
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #1B5E20;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* Buttons */
+.btn-primary {
+    background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+}
+
+.btn-secondary {
+    background: #6b7280;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-secondary:hover {
+    background: #4b5563;
+    transform: translateY(-2px);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .materials-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .students-table-wrapper {
+        overflow-x: auto;
+    }
+    
+    .flash-message {
+        right: 10px;
+        left: 10px;
+        max-width: none;
+    }
+}
+
+/* Dark Mode Support */
+body.dark-mode .students-table {
+    background: #1f2937;
+}
+
+body.dark-mode .students-table td {
+    border-bottom-color: #374151;
+    color: #e5e7eb;
+}
+
+body.dark-mode .students-table tbody tr:hover {
+    background: #374151;
+}
+
+body.dark-mode .material-card {
+    background: #1f2937;
+    border-color: #374151;
+}
+
+body.dark-mode .material-info h4 {
+    color: #f3f4f6;
+}
+
+body.dark-mode .material-meta,
+body.dark-mode .material-description {
+    color: #9ca3af;
+}
+
+body.dark-mode .material-actions {
+    border-top-color: #374151;
+}
+
+/* Toggle Switch for Course Visibility */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.3s;
+    border-radius: 24px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background-color: #4CAF50;
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+}
+
+/* Small Buttons for Actions */
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 13px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-sm.btn-secondary {
+    background: #6b7280;
+    color: white;
+}
+
+.btn-sm.btn-secondary:hover {
+    background: #4b5563;
+}
+
+.btn-sm.btn-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-sm.btn-danger:hover {
+    background: #dc2626;
+}
+
+/* Course Area Styles */
+.course-area-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.course-area-header {
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.course-area-header h2 {
+    color: #2c3e50;
+    font-size: 28px;
+    margin: 0;
+}
+
+.course-sections-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 24px;
+    margin-top: 20px;
+}
+
+.course-section-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: 2px solid #e5e7eb;
+    transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+}
+
+.course-section-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+    border-color: #1B5E20;
+}
+
+.course-section-card .section-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #1B5E20 0%, #764ba2 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.course-section-card .section-icon i {
+    font-size: 28px;
+    color: white;
+}
+
+.course-section-card h3 {
+    color: #2c3e50;
+    margin: 0 0 12px 0;
+    font-size: 20px;
+}
+
+.course-section-card p {
+    color: #6b7280;
+    margin: 0 0 16px 0;
+    flex-grow: 1;
+}
+
+.course-section-card button {
+    margin-top: auto;
+}
+
+/* Ethics Certificate Styles */
+.ethics-tracks-container {
+    margin-top: 20px;
+}
+
+.ethics-track-section {
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+}
+
+.ethics-track-section h3 {
+    color: #2c3e50;
+    margin: 0 0 12px 0;
+    font-size: 22px;
+}
+
+.ethics-track-section > p {
+    color: #6b7280;
+    margin: 0 0 20px 0;
+}
+
+.ethics-levels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.ethics-level-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    border: 2px solid #e5e7eb;
+    transition: all 0.3s;
+}
+
+.ethics-level-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+    border-color: #1B5E20;
+}
+
+.level-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+}
+
+.level-badge.introductory {
+    background: #10b981;
+    color: white;
+}
+
+.level-badge.intermediate {
+    background: #f59e0b;
+    color: white;
+}
+
+.level-badge.advanced {
+    background: #ef4444;
+    color: white;
+}
+
+.ethics-level-card h4 {
+    color: #2c3e50;
+    margin: 0 0 12px 0;
+    font-size: 18px;
+}
+
+.ethics-level-card > p {
+    color: #6b7280;
+    margin: 0 0 16px 0;
+}
+
+.ethics-level-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px 0;
+}
+
+.ethics-level-card ul li {
+    padding: 8px 0;
+    color: #4b5563;
+    position: relative;
+    padding-left: 24px;
+}
+
+.ethics-level-card ul li:before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: #10b981;
+    font-weight: bold;
+}
+
+.ethics-level-card button {
+    width: 100%;
+}

@@ -1,0 +1,47 @@
+# --- Secrets ---------------------------------------------------------------
+# Real API keys live in .env / .env.server. They stay on the machine and are
+# never committed. Use .env.example as the template for a new deployment.
+.env
+.env.*
+!.env.example
+
+# --- Python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+
+# --- Runtime data ----------------------------------------------------------
+# Never commit data dumps, user records or uploaded course material.
+users.json
+attendance.json
+ethics_assessments.json
+exports/
+uploads/
+instance/
+*.db
+*.sqlite3
+logs/
+*.log
+
+# --- Node / tooling --------------------------------------------------------
+node_modules/
+dist/
+
+# --- Editors & OS ----------------------------------------------------------
+.DS_Store
+.idea/
+.vscode/
+
+# --- Archives & backups ----------------------------------------------------
+*.tar.gz
+*.rar
+*.bak
+skillpilot_deployment/
+config.local.yaml

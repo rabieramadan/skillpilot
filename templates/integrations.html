@@ -1,0 +1,460 @@
+{% extends "_skp_base.html" %}
+{% block title %}SCORM & xAPI Integration · SkillPilot{% endblock %}
+
+{% block content %}
+<script>
+  window.SKP_I18N = {
+    en: {
+      nav_app:'Workspace', nav_guardian:'Parent Portal', nav_links:'Approvals',
+      nav_authoring:'Course Builder', nav_insights:'Analytics',
+      nav_integrations:'SCORM & xAPI', nav_community:'Discussions',
+      title:'SCORM & xAPI Integration',
+      subtitle:'Import SCORM packages, export courses, and monitor xAPI delivery to your LRS.',
+      upload_h:'Import SCORM Package',
+      upload_help:'Upload a SCORM 1.2 or 2004 ZIP. We will read the manifest and add its lessons to the selected course.',
+      target_course:'Target Course',
+      no_course:'— Create a new course on import —',
+      file_label:'SCORM ZIP File',
+      upload_btn:'Import Package',
+      uploading:'Importing…',
+      upload_ok:'Import complete. Resources added: ',
+      export_h:'Export Course as SCORM',
+      export_help:'Bundle a course\'s modules and resources into a downloadable SCORM package.',
+      version_label:'SCORM Version',
+      export_btn:'Generate & Download',
+      exporting:'Generating…',
+      export_ok:'Package ready. Downloading…',
+      pkg_h:'Recent Packages',
+      pkg_none:'No packages yet.',
+      col_name:'Package', col_course:'Course', col_version:'Version',
+      col_dir:'Direction', col_status:'Status', col_created:'Created', col_action:'',
+      download:'Download',
+      view_manifest:'View Manifest',
+      xapi_h:'Recent xAPI Activity',
+      xapi_help:'Statements you have emitted and their delivery status to the configured Learning Record Store.',
+      xapi_none:'No xAPI activity yet.',
+      retry_btn:'Retry Failed Statements',
+      retrying:'Retrying…',
+      retry_ok:'Retry complete. Statements sent: ',
+      col_verb:'Verb', col_object:'Object', col_delivery:'Delivery',
+      refresh:'Refresh',
+      close:'Close',
+      manifest_title:'Package Manifest',
+      no_courses:'No courses available',
+      err_pick_course:'Please select a course to export.',
+      err_pick_file:'Please select a SCORM ZIP file.',
+    },
+    ar: {
+      nav_app:'مساحة العمل', nav_guardian:'بوابة ولي الأمر', nav_links:'الموافقات',
+      nav_authoring:'منشئ الدورات', nav_insights:'التحليلات',
+      nav_integrations:'SCORM و xAPI', nav_community:'النقاشات',
+      title:'تكامل SCORM و xAPI',
+      subtitle:'استيراد حزم SCORM، وتصدير الدورات، ومراقبة تسليم xAPI إلى نظام LRS.',
+      upload_h:'استيراد حزمة SCORM',
+      upload_help:'ارفع ملف ZIP بصيغة SCORM 1.2 أو 2004. سنقرأ البيان ونضيف الدروس إلى الدورة المختارة.',
+      target_course:'الدورة المستهدفة',
+      no_course:'— إنشاء دورة جديدة عند الاستيراد —',
+      file_label:'ملف SCORM بصيغة ZIP',
+      upload_btn:'استيراد الحزمة',
+      uploading:'جارٍ الاستيراد…',
+      upload_ok:'اكتمل الاستيراد. عدد الموارد المضافة: ',
+      export_h:'تصدير الدورة بصيغة SCORM',
+      export_help:'تجميع وحدات وموارد الدورة في حزمة SCORM قابلة للتنزيل.',
+      version_label:'إصدار SCORM',
+      export_btn:'إنشاء وتنزيل',
+      exporting:'جارٍ الإنشاء…',
+      export_ok:'الحزمة جاهزة. جارٍ التنزيل…',
+      pkg_h:'الحزم الأخيرة',
+      pkg_none:'لا توجد حزم بعد.',
+      col_name:'الحزمة', col_course:'الدورة', col_version:'الإصدار',
+      col_dir:'الاتجاه', col_status:'الحالة', col_created:'تاريخ الإنشاء', col_action:'',
+      download:'تنزيل',
+      view_manifest:'عرض البيان',
+      xapi_h:'نشاط xAPI الأخير',
+      xapi_help:'البيانات التي أرسلتها وحالة تسليمها إلى نظام LRS المهيأ.',
+      xapi_none:'لا يوجد نشاط xAPI بعد.',
+      retry_btn:'إعادة محاولة العبارات الفاشلة',
+      retrying:'جارٍ إعادة المحاولة…',
+      retry_ok:'اكتملت إعادة المحاولة. عدد العبارات المُرسلة: ',
+      col_verb:'الفعل', col_object:'الكائن', col_delivery:'التسليم',
+      refresh:'تحديث',
+      close:'إغلاق',
+      manifest_title:'بيان الحزمة',
+      no_courses:'لا توجد دورات متاحة',
+      err_pick_course:'فضلاً اختر دورة للتصدير.',
+      err_pick_file:'فضلاً اختر ملف SCORM بصيغة ZIP.',
+    }
+  };
+  function t(k){ return (window.SKP_I18N[window.SKP_LANG]||window.SKP_I18N.en)[k] || k; }
+</script>
+
+<div class="skp-page-header">
+  <div>
+    <div class="skp-page-header__title" data-i18n="title">SCORM &amp; xAPI integrations</div>
+    <div class="skp-page-header__subtitle" data-i18n="subtitle">Import SCORM packages, export courses, and monitor xAPI delivery to your LRS.</div>
+  </div>
+</div>
+
+<div class="skp-grid skp-grid--2" style="margin-bottom: var(--skp-s-6);">
+  <!-- Import card -->
+  <section class="skp-card" data-testid="card-scorm-import">
+    <h2 style="margin-top:0;" data-i18n="upload_h">Import a SCORM package</h2>
+    <p class="skp-card__meta" data-i18n="upload_help">Upload a SCORM 1.2 or 2004 ZIP.</p>
+    <div class="skp-form-row">
+      <label class="skp-label" data-i18n="target_course">Target course</label>
+      <select class="skp-select" id="impCourse" data-testid="select-import-course">
+        <option value="" data-i18n="no_course">— Create a new course on import —</option>
+      </select>
+    </div>
+    <div class="skp-form-row">
+      <label class="skp-label" data-i18n="file_label">SCORM ZIP file</label>
+      <input class="skp-input" type="file" id="impFile" accept=".zip,application/zip" data-testid="input-scorm-file" />
+    </div>
+    <div class="skp-row">
+      <div class="skp-spacer"></div>
+      <button class="skp-btn skp-btn--primary" id="btnUpload" data-testid="button-scorm-upload">
+        <i class="fas fa-upload"></i> <span data-i18n="upload_btn">Upload package</span>
+      </button>
+    </div>
+    <div id="impStatus" class="skp-card__meta" style="margin-top: var(--skp-s-3);" data-testid="text-import-status"></div>
+  </section>
+
+  <!-- Export card -->
+  <section class="skp-card" data-testid="card-scorm-export">
+    <h2 style="margin-top:0;" data-i18n="export_h">Export a course as SCORM</h2>
+    <p class="skp-card__meta" data-i18n="export_help">Bundle a course's weeks and materials into a downloadable SCORM ZIP.</p>
+    <div class="skp-form-row">
+      <label class="skp-label" data-i18n="target_course">Target course</label>
+      <select class="skp-select" id="expCourse" data-testid="select-export-course">
+        <option value="" data-i18n="no_courses">No courses available</option>
+      </select>
+    </div>
+    <div class="skp-form-row">
+      <label class="skp-label" data-i18n="version_label">SCORM version</label>
+      <select class="skp-select" id="expVersion" data-testid="select-export-version">
+        <option value="2004">SCORM 2004</option>
+        <option value="1.2">SCORM 1.2</option>
+      </select>
+    </div>
+    <div class="skp-row">
+      <div class="skp-spacer"></div>
+      <button class="skp-btn skp-btn--primary" id="btnExport" data-testid="button-scorm-export">
+        <i class="fas fa-file-export"></i> <span data-i18n="export_btn">Export &amp; download</span>
+      </button>
+    </div>
+    <div id="expStatus" class="skp-card__meta" style="margin-top: var(--skp-s-3);" data-testid="text-export-status"></div>
+  </section>
+</div>
+
+<!-- Packages list -->
+<section class="skp-card" style="margin-bottom: var(--skp-s-6);">
+  <div class="skp-row">
+    <h2 style="margin:0;" data-i18n="pkg_h">Recent packages</h2>
+    <div class="skp-spacer"></div>
+    <button class="skp-btn skp-btn--ghost skp-btn--sm" id="btnRefreshPkgs" data-testid="button-refresh-packages">
+      <i class="fas fa-arrows-rotate"></i> <span data-i18n="refresh">Refresh</span>
+    </button>
+  </div>
+  <div style="overflow-x:auto; margin-top: var(--skp-s-3);">
+    <table class="skp-table" id="tblPackages" data-testid="table-packages">
+      <thead>
+        <tr>
+          <th data-i18n="col_name">Package</th>
+          <th data-i18n="col_course">Course</th>
+          <th data-i18n="col_version">Version</th>
+          <th data-i18n="col_dir">Direction</th>
+          <th data-i18n="col_status">Status</th>
+          <th data-i18n="col_created">Created</th>
+          <th data-i18n="col_action"></th>
+        </tr>
+      </thead>
+      <tbody id="pkgBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- xAPI list -->
+<section class="skp-card">
+  <div class="skp-row">
+    <h2 style="margin:0;" data-i18n="xapi_h">Recent xAPI statements</h2>
+    <div class="skp-spacer"></div>
+    <button class="skp-btn skp-btn--ghost skp-btn--sm" id="btnRefreshXapi" data-testid="button-refresh-xapi">
+      <i class="fas fa-arrows-rotate"></i> <span data-i18n="refresh">Refresh</span>
+    </button>
+    <button class="skp-btn skp-btn--secondary skp-btn--sm" id="btnRetry" data-testid="button-retry-failed">
+      <i class="fas fa-rotate-right"></i> <span data-i18n="retry_btn">Retry failed</span>
+    </button>
+  </div>
+  <p class="skp-card__meta" style="margin-top: var(--skp-s-2);" data-i18n="xapi_help">Statements you have emitted and their delivery status.</p>
+  <div style="overflow-x:auto; margin-top: var(--skp-s-3);">
+    <table class="skp-table" id="tblXapi" data-testid="table-xapi">
+      <thead>
+        <tr>
+          <th data-i18n="col_verb">Verb</th>
+          <th data-i18n="col_object">Object</th>
+          <th data-i18n="col_delivery">Delivery</th>
+          <th data-i18n="col_created">Created</th>
+        </tr>
+      </thead>
+      <tbody id="xapiBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Manifest modal -->
+<div id="manifestModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1000; align-items:center; justify-content:center;" data-testid="modal-manifest">
+  <div class="skp-card" style="max-width: 720px; width: 90%; max-height: 80vh; overflow:auto;">
+    <div class="skp-row">
+      <h3 style="margin:0;" data-i18n="manifest_title">Manifest</h3>
+      <div class="skp-spacer"></div>
+      <button class="skp-btn skp-btn--ghost skp-btn--sm" id="btnCloseManifest" data-testid="button-close-manifest">
+        <i class="fas fa-xmark"></i> <span data-i18n="close">Close</span>
+      </button>
+    </div>
+    <pre id="manifestBody" style="background: var(--skp-surface-2); padding: var(--skp-s-3); border-radius: var(--skp-r-md); font-size: var(--skp-fs-xs); margin-top: var(--skp-s-3); white-space: pre-wrap;"></pre>
+  </div>
+</div>
+
+<script>
+(function () {
+  const BADGE = {
+    sent: 'skp-badge--success',
+    pending: 'skp-badge--warning',
+    failed: 'skp-badge--danger',
+    ready: 'skp-badge--success',
+    error: 'skp-badge--danger',
+    processing: 'skp-badge--warning',
+  };
+
+  function fmtDate(s) {
+    if (!s) return '—';
+    try { return new Date(s).toLocaleString(); } catch (e) { return s; }
+  }
+  function statusBadge(s) {
+    const cls = BADGE[(s||'').toLowerCase()] || '';
+    return `<span class="skp-badge ${cls}">${escHtml(s||'—')}</span>`;
+  }
+
+  let courses = [];
+
+  async function loadCourses() {
+    try {
+      const r = await fetch('/api/courses/list', { credentials: 'same-origin' });
+      if (!r.ok) return;
+      const data = await r.json();
+      courses = data.courses || [];
+      const imp = document.getElementById('impCourse');
+      const exp = document.getElementById('expCourse');
+      // Preserve placeholder option on import select
+      imp.innerHTML = `<option value="">${escHtml(t('no_course'))}</option>` +
+        courses.map(c => `<option value="${escHtml(c.id)}">${escHtml(c.title || c.code || c.id)}</option>`).join('');
+      if (!courses.length) {
+        exp.innerHTML = `<option value="">${escHtml(t('no_courses'))}</option>`;
+      } else {
+        exp.innerHTML = courses.map(c => `<option value="${escHtml(c.id)}">${escHtml(c.title || c.code || c.id)}</option>`).join('');
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function courseTitle(id) {
+    if (!id) return '—';
+    const c = courses.find(x => x.id === id);
+    return c ? (c.title || c.code || id) : id;
+  }
+
+  async function loadPackages() {
+    const body = document.getElementById('pkgBody');
+    try {
+      const r = await fetch('/api/v1/scorm/packages', { credentials: 'same-origin' });
+      if (!r.ok) {
+        body.innerHTML = `<tr><td colspan="7" class="skp-card__meta">${escHtml(t('pkg_none'))}</td></tr>`;
+        return;
+      }
+      const data = await r.json();
+      const arr = data.packages || [];
+      if (!arr.length) {
+        body.innerHTML = `<tr><td colspan="7" class="skp-card__meta">${escHtml(t('pkg_none'))}</td></tr>`;
+        return;
+      }
+      body.innerHTML = arr.map(p => {
+        const id = escHtml(p.id);
+        const isExport = (p.direction === 'export');
+        const dl = isExport
+          ? `<a class="skp-btn skp-btn--ghost skp-btn--sm" href="${safeUrl((window.APP_BASE_URL||'') + '/api/v1/scorm/packages/' + p.id + '/download')}" data-testid="link-download-${id}"><i class="fas fa-download"></i> ${escHtml(t('download'))}</a>`
+          : '';
+        const mf = `<button class="skp-btn skp-btn--ghost skp-btn--sm" data-manifest="${id}" data-testid="button-manifest-${id}"><i class="fas fa-file-lines"></i> ${escHtml(t('view_manifest'))}</button>`;
+        return `
+          <tr data-testid="row-package-${id}">
+            <td data-testid="text-package-name-${id}">${escHtml(p.package_name || '—')}</td>
+            <td>${escHtml(courseTitle(p.course_id))}</td>
+            <td>${escHtml(p.scorm_version || '—')}</td>
+            <td>${escHtml(p.direction || '—')}</td>
+            <td data-testid="status-package-${id}">${statusBadge(p.status)}</td>
+            <td>${escHtml(fmtDate(p.created_at))}</td>
+            <td><div class="skp-row" style="gap:6px;">${mf}${dl}</div></td>
+          </tr>`;
+      }).join('');
+      body.querySelectorAll('[data-manifest]').forEach(btn => {
+        btn.addEventListener('click', () => showManifest(btn.dataset.manifest));
+      });
+    } catch (e) {
+      body.innerHTML = `<tr><td colspan="7" class="skp-card__meta">${escHtml(t('pkg_none'))}</td></tr>`;
+    }
+  }
+
+  async function showManifest(pkgId) {
+    const r = await fetch(`/api/v1/scorm/packages/${encodeURIComponent(pkgId)}/manifest`, { credentials: 'same-origin' });
+    const data = await r.json().catch(() => ({}));
+    document.getElementById('manifestBody').textContent = JSON.stringify(data.manifest || data, null, 2);
+    const m = document.getElementById('manifestModal');
+    m.style.display = 'flex';
+  }
+  document.getElementById('btnCloseManifest').addEventListener('click', () => {
+    document.getElementById('manifestModal').style.display = 'none';
+  });
+
+  async function loadXapi() {
+    const body = document.getElementById('xapiBody');
+    try {
+      const r = await fetch('/api/v1/xapi/statements', { credentials: 'same-origin' });
+      if (!r.ok) {
+        body.innerHTML = `<tr><td colspan="4" class="skp-card__meta">${escHtml(t('xapi_none'))}</td></tr>`;
+        return;
+      }
+      const data = await r.json();
+      const arr = data.statements || [];
+      if (!arr.length) {
+        body.innerHTML = `<tr><td colspan="4" class="skp-card__meta">${escHtml(t('xapi_none'))}</td></tr>`;
+        return;
+      }
+      body.innerHTML = arr.map(s => {
+        const id = escHtml(s.id);
+        const obj = s.object_name || s.object_id || s.object_type || '—';
+        return `
+          <tr data-testid="row-xapi-${id}">
+            <td data-testid="text-xapi-verb-${id}">${escHtml(s.verb || '—')}</td>
+            <td>${escHtml(obj)}</td>
+            <td data-testid="status-xapi-${id}">${statusBadge(s.delivery_status)}</td>
+            <td>${escHtml(fmtDate(s.created_at))}</td>
+          </tr>`;
+      }).join('');
+    } catch (e) {
+      body.innerHTML = `<tr><td colspan="4" class="skp-card__meta">${escHtml(t('xapi_none'))}</td></tr>`;
+    }
+  }
+
+  // Upload
+  document.getElementById('btnUpload').addEventListener('click', async () => {
+    const f = document.getElementById('impFile').files[0];
+    if (!f) return window.skpToast(t('err_pick_file'), 'error');
+    const status = document.getElementById('impStatus');
+    const btn = document.getElementById('btnUpload');
+    btn.disabled = true;
+    status.textContent = t('uploading');
+    const fd = new FormData();
+    fd.append('file', f);
+    const cid = document.getElementById('impCourse').value;
+    if (cid) fd.append('course_id', cid);
+    try {
+      const r = await fetch('/api/v1/scorm/upload', {
+        method: 'POST', credentials: 'same-origin', body: fd,
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        status.textContent = data.error || 'Upload failed';
+        window.skpToast(data.error || 'Upload failed', 'error');
+      } else {
+        status.textContent = t('upload_ok') + (data.materials_added ?? 0);
+        window.skpToast(status.textContent, 'success');
+        document.getElementById('impFile').value = '';
+        loadPackages();
+      }
+    } catch (e) {
+      status.textContent = String(e);
+      window.skpToast('Upload failed', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // Export & download
+  document.getElementById('btnExport').addEventListener('click', async () => {
+    const cid = document.getElementById('expCourse').value;
+    if (!cid) return window.skpToast(t('err_pick_course'), 'error');
+    const ver = document.getElementById('expVersion').value;
+    const status = document.getElementById('expStatus');
+    const btn = document.getElementById('btnExport');
+    btn.disabled = true;
+    status.textContent = t('exporting');
+    try {
+      const r = await fetch('/api/v1/scorm/export', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        credentials: 'same-origin',
+        body: JSON.stringify({course_id: cid, scorm_version: ver}),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        status.textContent = data.error || 'Export failed';
+        window.skpToast(data.error || 'Export failed', 'error');
+      } else {
+        status.textContent = t('export_ok');
+        window.skpToast(status.textContent, 'success');
+        // Trigger download in a new tab/frame
+        const url = (window.APP_BASE_URL || '') + '/api/v1/scorm/packages/' + encodeURIComponent(data.id) + '/download';
+        const a = document.createElement('a');
+        a.href = url;
+        a.rel = 'noopener';
+        a.setAttribute('data-testid', 'link-export-download');
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        loadPackages();
+      }
+    } catch (e) {
+      status.textContent = String(e);
+      window.skpToast('Export failed', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // Retry failed xAPI
+  document.getElementById('btnRetry').addEventListener('click', async () => {
+    const btn = document.getElementById('btnRetry');
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${escHtml(t('retrying'))}`;
+    try {
+      const r = await fetch('/api/v1/xapi/retry', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        credentials: 'same-origin',
+        body: JSON.stringify({limit: 50}),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        window.skpToast(data.error || 'Retry failed', 'error');
+      } else {
+        window.skpToast(t('retry_ok') + (data.sent ?? data.succeeded ?? 0), 'success');
+        loadXapi();
+      }
+    } catch (e) {
+      window.skpToast('Retry failed', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
+  });
+
+  document.getElementById('btnRefreshPkgs').addEventListener('click', loadPackages);
+  document.getElementById('btnRefreshXapi').addEventListener('click', loadXapi);
+
+  // Re-render i18n-sensitive bits when language flips
+  document.addEventListener('skp:lang', () => { loadPackages(); loadXapi(); loadCourses(); });
+
+  loadCourses().then(loadPackages);
+  loadXapi();
+})();
+</script>
+{% endblock %}

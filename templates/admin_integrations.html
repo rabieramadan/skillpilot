@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Keys & Integrations — SkillPilot</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/advanced.css') }}">
+    <style>
+      .skp-global-menubar { background:#fff; border-bottom:1px solid #e5e7eb; padding:8px 16px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+      .skp-global-menubar .skp-top-menu { box-shadow:none; padding:0; background:transparent; }
+      .skp-global-menubar .skp-top-menu a.menu-item { color:#374151; text-decoration:none; }
+      .skp-global-menubar .skp-top-menu a.menu-item:hover { background:#f3f4f6; color:#111827; }
+    </style>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: #f3f4f6;
+            color: #111827;
+        }
+        [dir="rtl"] body { font-family: 'Tajawal', system-ui, sans-serif; }
+        .page-wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+        .page-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+        }
+        .page-header h1 { margin: 0; font-size: 24px; font-weight: 700; }
+        .page-header .subtitle { color: #6b7280; font-size: 14px; margin-top: 4px; }
+        .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn {
+            border: none; border-radius: 8px; padding: 8px 14px;
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn:active { transform: translateY(1px); }
+        .btn-primary { background: #2563eb; color: #fff; }
+        .btn-secondary { background: #e5e7eb; color: #111827; }
+        .btn-success { background: #10b981; color: #fff; }
+        .btn-danger { background: #ef4444; color: #fff; }
+        .btn-ghost { background: transparent; color: #2563eb; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .filter-bar {
+            display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;
+        }
+        .chip {
+            background: #fff; border: 1px solid #e5e7eb; padding: 6px 12px;
+            border-radius: 999px; font-size: 12px; cursor: pointer; font-weight: 500;
+        }
+        .chip.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+
+        .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+        @media (min-width: 768px) { .grid { grid-template-columns: 1fr 1fr; } }
+
+        .card {
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+            padding: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .card-head {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            gap: 10px; margin-bottom: 10px;
+        }
+        .card-title { font-size: 16px; font-weight: 700; margin: 0; }
+        .card-desc { color: #6b7280; font-size: 12px; margin: 4px 0 0 0; }
+        .badge {
+            display: inline-block; padding: 3px 10px; border-radius: 999px;
+            font-size: 11px; font-weight: 600; white-space: nowrap;
+        }
+        .badge-ok { background: #d1fae5; color: #065f46; }
+        .badge-warn { background: #fef3c7; color: #92400e; }
+        .badge-none { background: #fee2e2; color: #991b1b; }
+        .badge-cat { background: #e0e7ff; color: #3730a3; margin-left: 6px; }
+        .badge-src { background: #f3f4f6; color: #374151; margin-left: 6px; font-weight: 500; }
+
+        .field { margin-top: 10px; }
+        .field label { display: block; font-size: 12px; color: #374151; font-weight: 600; margin-bottom: 4px; }
+        .field input {
+            width: 100%; box-sizing: border-box; padding: 9px 12px;
+            border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .field input:focus { outline: 2px solid #2563eb; border-color: #2563eb; }
+        .preview-line { font-size: 12px; color: #6b7280; margin-top: 4px; font-family: ui-monospace, monospace; }
+
+        .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+        .test-result {
+            margin-top: 10px; padding: 10px 12px; border-radius: 8px;
+            font-size: 12px; display: none;
+        }
+        .test-result.show { display: block; }
+        .test-result.ok { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+        .test-result.err { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+        .test-result.info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+        .test-result .resp-time { float: right; opacity: 0.7; }
+        [dir="rtl"] .test-result .resp-time { float: left; }
+
+        .sticky-summary {
+            position: sticky; top: 0; background: #f3f4f6; padding: 12px 0;
+            margin-bottom: 8px; z-index: 5; border-bottom: 1px solid #e5e7eb;
+        }
+        .summary-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+        .pill {
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
+            padding: 6px 12px; font-size: 12px; font-weight: 600;
+        }
+        .pill-ok { color: #065f46; }
+        .pill-warn { color: #92400e; }
+        .pill-err { color: #991b1b; }
+
+        .skp-skip-link {
+            position: absolute; top: -40px; left: 8px; background: #1f2937;
+            color: #fff; padding: 8px 14px; border-radius: 6px; z-index: 9999;
+            text-decoration: none; font-weight: 600;
+        }
+        .skp-skip-link:focus { top: 8px; }
+
+        .nav-back {
+            color: #2563eb; text-decoration: none; font-size: 13px;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .nav-back:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="skp-global-menubar">{% include '_top_menu.html' %}</div>
+    <a href="#mainContent" class="skp-skip-link">Skip to main content</a>
+    <div class="page-wrap" id="mainContent">
+        <a href="{{ request.script_root }}/admin/system" class="nav-back" data-i18n="back_to_system">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Back to System Administration
+        </a>
+        <div class="page-header" style="margin-top:10px;">
+            <div>
+                <h1 data-i18n="integrations_title">API Keys &amp; Integrations</h1>
+                <div class="subtitle" data-i18n="integrations_subtitle">
+                    Manage credentials for AI providers, video, and payments. Environment variables override database keys.
+                </div>
+            </div>
+            <div class="toolbar">
+                <button class="btn btn-secondary" id="btnRefresh" data-testid="button-refresh">
+                    <i class="fas fa-sync" aria-hidden="true"></i> <span data-i18n="refresh">Refresh</span>
+                </button>
+                <button class="btn btn-primary" id="btnTestAll" data-testid="button-test-all">
+                    <i class="fas fa-play" aria-hidden="true"></i> <span data-i18n="test_all">Test all</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="sticky-summary">
+            <div class="summary-pills" id="summaryPills">
+                <span class="pill" id="pillTotal">…</span>
+            </div>
+        </div>
+
+        <div class="filter-bar" id="filterBar">
+            <button class="chip active" data-filter="all" data-testid="filter-all">All</button>
+            <button class="chip" data-filter="ai" data-testid="filter-ai">AI</button>
+            <button class="chip" data-filter="video" data-testid="filter-video">Video</button>
+            <button class="chip" data-filter="payment" data-testid="filter-payment">Payment</button>
+        </div>
+
+        <div class="grid" id="providerGrid" aria-live="polite">
+            <div class="card"><em>Loading…</em></div>
+        </div>
+    </div>
+
+    <script>
+        const APP_BASE = "{{ request.script_root }}";
+        const api = (p) => APP_BASE + p;
+        let allProviders = [];
+        let activeFilter = 'all';
+
+        function el(tag, attrs = {}, children = []) {
+            const e = document.createElement(tag);
+            for (const [k, v] of Object.entries(attrs)) {
+                if (k === 'class') e.className = v;
+                else if (k === 'dataset') Object.assign(e.dataset, v);
+                else if (k.startsWith('on') && typeof v === 'function') e.addEventListener(k.slice(2), v);
+                else e.setAttribute(k, v);
+            }
+            (Array.isArray(children) ? children : [children]).forEach(c => {
+                if (c == null) return;
+                e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+            });
+            return e;
+        }
+
+        function escapeHtml(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        async function loadProviders() {
+            const grid = document.getElementById('providerGrid');
+            grid.innerHTML = '<div class="card"><em>Loading…</em></div>';
+            try {
+                const r = await fetch(api('/admin/api/ai-config'), { credentials: 'same-origin' });
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const data = await r.json();
+                allProviders = data.providers || [];
+                renderSummary();
+                renderGrid();
+            } catch (e) {
+                grid.innerHTML = `<div class="card" style="color:#991b1b;">Failed to load: ${escapeHtml(e.message)}</div>`;
+            }
+        }
+
+        function renderSummary() {
+            const total = allProviders.length;
+            const configured = allProviders.filter(p => p.configured).length;
+            const env = allProviders.filter(p => p.source === 'env').length;
+            const dbk = allProviders.filter(p => p.source === 'database').length;
+            const missing = total - configured;
+            document.getElementById('summaryPills').innerHTML = `
+                <span class="pill" data-testid="pill-total">${total} total</span>
+                <span class="pill pill-ok" data-testid="pill-configured">${configured} configured</span>
+                <span class="pill" data-testid="pill-env">${env} from env</span>
+                <span class="pill" data-testid="pill-db">${dbk} from DB</span>
+                <span class="pill pill-${missing ? 'err' : 'ok'}" data-testid="pill-missing">${missing} missing</span>
+            `;
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById('providerGrid');
+            grid.innerHTML = '';
+            const list = activeFilter === 'all'
+                ? allProviders
+                : allProviders.filter(p => (p.category || 'ai') === activeFilter);
+            if (!list.length) {
+                grid.innerHTML = '<div class="card"><em>No providers in this category.</em></div>';
+                return;
+            }
+            list.forEach(p => grid.appendChild(renderCard(p)));
+        }
+
+        function statusBadge(p) {
+            if (!p.configured) return '<span class="badge badge-none">Not set</span>';
+            if (p.source === 'env') return '<span class="badge badge-ok">Configured</span><span class="badge badge-src">env</span>';
+            return '<span class="badge badge-ok">Configured</span><span class="badge badge-src">DB</span>';
+        }
+
+        function renderCard(p) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.dataset.provider = p.id;
+            const placeholder = (p.id === 'bedrock') ? 'access_key|secret_key|region'
+                : (p.id === 'paypal') ? 'client_id|client_secret|sandbox'
+                : 'Enter API key';
+            card.innerHTML = `
+                <div class="card-head">
+                    <div>
+                        <h3 class="card-title">${escapeHtml(p.name)} <span class="badge badge-cat">${escapeHtml(p.category || 'ai')}</span></h3>
+                        <p class="card-desc">${escapeHtml(p.description || '')}</p>
+                        <p class="card-desc" style="margin-top:2px;"><code>${escapeHtml(p.env_key)}</code></p>
+                    </div>
+                    <div>${statusBadge(p)}</div>
+                </div>
+                <div class="field">
+                    <label for="key-${p.id}">API Key${p.source === 'env' ? ' (env var is in use; DB key is ignored when env is set)' : ''}</label>
+                    <input id="key-${p.id}" type="password" autocomplete="off" placeholder="${escapeHtml(placeholder)}" data-testid="input-key-${p.id}" />
+                    <div class="preview-line">${p.configured ? 'Current: ' + escapeHtml(p.key_preview) : 'No key configured.'}</div>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-primary" data-act="save" data-testid="button-save-${p.id}">
+                        <i class="fas fa-save" aria-hidden="true"></i> Save
+                    </button>
+                    <button class="btn btn-success" data-act="test" data-testid="button-test-${p.id}">
+                        <i class="fas fa-flask" aria-hidden="true"></i> Test
+                    </button>
+                    <button class="btn btn-ghost" data-act="reveal" data-testid="button-reveal-${p.id}">
+                        <i class="fas fa-eye" aria-hidden="true"></i> Show
+                    </button>
+                    <button class="btn btn-danger" data-act="delete" data-testid="button-delete-${p.id}">
+                        <i class="fas fa-trash" aria-hidden="true"></i> Remove
+                    </button>
+                </div>
+                <div class="test-result" id="result-${p.id}" role="status"></div>
+            `;
+            const input = card.querySelector(`#key-${CSS.escape(p.id)}`);
+            card.querySelector('[data-act="save"]').addEventListener('click', () => saveKey(p, input.value));
+            card.querySelector('[data-act="test"]').addEventListener('click', () => testKey(p, input.value));
+            card.querySelector('[data-act="delete"]').addEventListener('click', () => deleteKey(p));
+            card.querySelector('[data-act="reveal"]').addEventListener('click', (ev) => {
+                if (input.type === 'password') { input.type = 'text'; ev.currentTarget.querySelector('span, i').className = 'fas fa-eye-slash'; }
+                else { input.type = 'password'; ev.currentTarget.querySelector('span, i').className = 'fas fa-eye'; }
+            });
+            return card;
+        }
+
+        function showResult(pid, kind, text, time) {
+            const r = document.getElementById('result-' + pid);
+            if (!r) return;
+            r.className = 'test-result show ' + kind;
+            const t = (time != null) ? `<span class="resp-time">${time}s</span>` : '';
+            r.innerHTML = `${escapeHtml(text)} ${t}`;
+        }
+
+        async function saveKey(p, value) {
+            const key = (value || '').trim();
+            if (!key) {
+                showResult(p.id, 'err', 'Key is empty.');
+                return;
+            }
+            showResult(p.id, 'info', 'Saving…');
+            try {
+                const r = await fetch(api('/admin/api/ai-credentials'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ provider: p.id, api_key: key, is_active: true }),
+                });
+                const d = await r.json();
+                if (!r.ok) { showResult(p.id, 'err', d.error || 'Save failed'); return; }
+                showResult(p.id, 'ok', d.message || 'Saved.');
+                document.getElementById('key-' + p.id).value = '';
+                loadProviders();
+            } catch (e) {
+                showResult(p.id, 'err', e.message);
+            }
+        }
+
+        async function testKey(p, value) {
+            showResult(p.id, 'info', 'Testing…');
+            try {
+                const body = { provider: p.id };
+                const v = (value || '').trim();
+                if (v) body.api_key = v;
+                const r = await fetch(api('/admin/api/test-api-key'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(body),
+                });
+                const d = await r.json();
+                showResult(
+                    p.id,
+                    d.success ? 'ok' : 'err',
+                    (d.success ? '✓ ' : '✗ ') + (d.message || (d.success ? 'OK' : 'Failed')),
+                    d.response_time
+                );
+            } catch (e) {
+                showResult(p.id, 'err', e.message);
+            }
+        }
+
+        async function deleteKey(p) {
+            if (!confirm(`Remove the saved ${p.name} key from the database? (Env var, if set, will still be used.)`)) return;
+            try {
+                const r = await fetch(api('/admin/api/ai-credentials/' + encodeURIComponent(p.id)), {
+                    method: 'DELETE', credentials: 'same-origin'
+                });
+                const d = await r.json();
+                if (!r.ok) { showResult(p.id, 'err', d.error || 'Delete failed'); return; }
+                showResult(p.id, 'ok', d.message || 'Removed.');
+                loadProviders();
+            } catch (e) {
+                showResult(p.id, 'err', e.message);
+            }
+        }
+
+        async function testAll() {
+            const btn = document.getElementById('btnTestAll');
+            btn.disabled = true;
+            const original = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing…';
+            try {
+                for (const p of allProviders) {
+                    if (!p.configured) {
+                        showResult(p.id, 'info', 'Skipped: no key configured.');
+                        continue;
+                    }
+                    await testKey(p, '');
+                }
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = original;
+            }
+        }
+
+        document.getElementById('btnRefresh').addEventListener('click', loadProviders);
+        document.getElementById('btnTestAll').addEventListener('click', testAll);
+        document.getElementById('filterBar').addEventListener('click', (ev) => {
+            const chip = ev.target.closest('.chip');
+            if (!chip) return;
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            activeFilter = chip.dataset.filter;
+            renderGrid();
+        });
+
+        loadProviders();
+    </script>
+</body>
+</html>

@@ -1,0 +1,2841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if is_superadmin %}Super Admin{% else %}Admin{% endif %} Dashboard - SkillPilot</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f6fa;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header-left i {
+            font-size: 2rem;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .back-btn, .logout-btn {
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            font-size: 0.95rem;
+            text-decoration: none;
+        }
+
+        .back-btn:hover, .logout-btn:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
+        .main-content {
+            padding: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            color: white;
+        }
+
+        .stat-icon.blue { background: linear-gradient(135deg, #1a237e, #283593); }
+        .stat-icon.green { background: linear-gradient(135deg, #1B5E20, #2E7D32); }
+        .stat-icon.orange { background: linear-gradient(135deg, #e65100, #f57c00); }
+        .stat-icon.purple { background: linear-gradient(135deg, #4a148c, #7b1fa2); }
+
+        .stat-info h3 {
+            font-size: 1.6rem;
+            color: #333;
+            font-weight: 700;
+        }
+
+        .stat-info p {
+            color: #666;
+            font-size: 0.85rem;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            color: #1a237e;
+            margin-bottom: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.active { background: #c8e6c9; color: #2e7d32; }
+        .status-badge.trial { background: #fff3e0; color: #e65100; }
+        .status-badge.waived { background: #e8eaf6; color: #3949ab; }
+        .status-badge.suspended { background: #ffebee; color: #c62828; }
+
+        .action-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.3s;
+        }
+
+        .action-btn.primary {
+            background: #1a237e;
+            color: white;
+        }
+
+        .action-btn.primary:hover {
+            background: #283593;
+        }
+
+        .action-btn-sm {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            background: #e3f2fd;
+            color: #1565C0;
+            transition: all 0.2s;
+            margin-right: 4px;
+        }
+
+        .action-btn-sm:hover {
+            background: #bbdefb;
+        }
+
+        .action-btn-sm.red {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .action-btn-sm.red:hover {
+            background: #ffcdd2;
+        }
+
+        .action-btn-sm.orange {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .action-btn-sm.orange:hover {
+            background: #ffe0b2;
+        }
+
+        .action-btn-sm.green {
+            background: #e8f5e9;
+            color: #2E7D32;
+        }
+
+        .action-btn-sm.green:hover {
+            background: #c8e6c9;
+        }
+
+        .action-btn-sm.blue {
+            background: #e3f2fd;
+            color: #1565C0;
+        }
+
+        .action-btn-sm.blue:hover {
+            background: #bbdefb;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #666;
+        }
+
+        .loading i {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 10000;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 900px;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+            margin-top: 20px;
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+            color: white;
+            padding: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+
+        .modal-close:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .modal-body {
+            padding: 25px;
+            overflow-y: auto;
+            max-height: calc(90vh - 80px);
+        }
+
+        .detail-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .detail-tab {
+            padding: 10px 20px;
+            background: #f5f5f5;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .detail-tab:hover {
+            background: #e0e0e0;
+        }
+
+        .detail-tab.active {
+            background: #1a237e;
+            color: white;
+        }
+
+        .detail-tab .count {
+            background: rgba(0,0,0,0.1);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+        }
+
+        .detail-tab.active .count {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .detail-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .detail-table th,
+        .detail-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .detail-table th {
+            background: #f8f9fa;
+            color: #666;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+
+        .detail-table td {
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .detail-table tr:hover td {
+            background: #f8f9fa;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .empty-state i {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .info-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .info-item {
+            flex: 1;
+        }
+
+        .info-label {
+            font-size: 0.75rem;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 1rem;
+            color: #333;
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <i class="fas fa-shield-alt"></i>
+            <div>
+                <h1>{% if is_superadmin %}Super Admin{% else %}Admin{% endif %} Dashboard</h1>
+            </div>
+        </div>
+        <div class="header-right">
+            <a href="/app/" class="back-btn" data-testid="button-back-to-dashboard">
+                <i class="fas fa-arrow-left"></i>
+                <span>Back to Dashboard</span>
+            </a>
+            <button class="logout-btn" id="logoutBtn" data-testid="button-logout">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="stats-grid" id="statsSection">
+            <div class="stat-card">
+                <div class="stat-icon green"><i class="fas fa-book"></i></div>
+                <div class="stat-info">
+                    <h3 id="statCourses">-</h3>
+                    <p>Courses</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon orange"><i class="fas fa-chalkboard-teacher"></i></div>
+                <div class="stat-info">
+                    <h3 id="statTeachers">-</h3>
+                    <p>Teachers</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon purple"><i class="fas fa-user-graduate"></i></div>
+                <div class="stat-info">
+                    <h3 id="statStudents">-</h3>
+                    <p>Students</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon blue"><i class="fas fa-users"></i></div>
+                <div class="stat-info">
+                    <h3 id="statTotalUsers">-</h3>
+                    <p>Total Users</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toolbar with Search and Actions -->
+        <div class="toolbar" style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
+            <div style="flex: 1; min-width: 250px;">
+                <div style="position: relative;">
+                    <input type="text" id="searchInput" placeholder="Search users, courses..."
+                           style="width: 100%; padding: 12px 15px 12px 45px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 0.95rem;"
+                           data-testid="input-search">
+                    <i class="fas fa-search" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #999;"></i>
+                </div>
+            </div>
+            <button onclick="showCreateUserModal()" class="action-btn primary" style="padding: 12px 20px; background: #2E7D32;" data-testid="button-create-user">
+                <i class="fas fa-user-plus"></i> New User
+            </button>
+        </div>
+
+        <!-- Search Results -->
+        <div id="searchResults" style="display: none; margin-bottom: 20px;"></div>
+
+        <!-- Quick Actions Grid -->
+        <h2 class="section-title"><i class="fas fa-th-large"></i> Management</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 30px;">
+            <div class="management-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                    <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #1a237e, #283593); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-users" style="color: white; font-size: 1.3rem;"></i>
+                    </div>
+                    <h3 style="color: #333; font-size: 1.1rem;">Users</h3>
+                </div>
+                <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">Manage team members and learners</p>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button onclick="showAllUsers()" class="action-btn-sm blue" data-testid="button-view-users"><i class="fas fa-list"></i> View All</button>
+                    <button onclick="showCreateUserModal()" class="action-btn-sm green" data-testid="button-add-user"><i class="fas fa-plus"></i> Add User</button>
+                </div>
+            </div>
+
+            <div class="management-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                    <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #1B5E20, #2E7D32); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-book" style="color: white; font-size: 1.3rem;"></i>
+                    </div>
+                    <h3 style="color: #333; font-size: 1.1rem;">Courses</h3>
+                </div>
+                <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">Create and manage learning content</p>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button onclick="showAllCourses()" class="action-btn-sm blue" data-testid="button-view-courses"><i class="fas fa-list"></i> View All</button>
+                    <button onclick="showCreateCourseModal()" class="action-btn-sm green" data-testid="button-add-course"><i class="fas fa-plus"></i> Add Course</button>
+                </div>
+            </div>
+
+            <div class="management-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                    <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #e65100, #f57c00); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-user-check" style="color: white; font-size: 1.3rem;"></i>
+                    </div>
+                    <h3 style="color: #333; font-size: 1.1rem;">Enrollments</h3>
+                </div>
+                <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">Manage student course enrollments</p>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button onclick="showAllEnrollments()" class="action-btn-sm blue" data-testid="button-view-enrollments"><i class="fas fa-list"></i> View All</button>
+                    <button onclick="showEnrollStudentModal()" class="action-btn-sm green" data-testid="button-enroll-student"><i class="fas fa-plus"></i> Enroll Student</button>
+                </div>
+            </div>
+
+            {% if is_superadmin %}
+            <div class="management-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                    <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #4a148c, #7b1fa2); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-robot" style="color: white; font-size: 1.3rem;"></i>
+                    </div>
+                    <h3 style="color: #333; font-size: 1.1rem;">AI Settings</h3>
+                </div>
+                <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">Configure AI models and API keys</p>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button onclick="showAIModels()" class="action-btn-sm blue" data-testid="button-ai-models"><i class="fas fa-cog"></i> Manage Models</button>
+                </div>
+            </div>
+            
+            <div class="management-card" id="systemStatusCard" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                    <div id="systemStatusIcon" style="width: 50px; height: 50px; background: linear-gradient(135deg, #2e7d32, #4caf50); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-server" style="color: white; font-size: 1.3rem;"></i>
+                    </div>
+                    <h3 style="color: #333; font-size: 1.1rem;">System Status</h3>
+                </div>
+                <p id="systemStatusText" style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">Platform is running normally</p>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button id="freezeBtn" onclick="showFreezeModal()" class="action-btn-sm orange" data-testid="button-freeze-app"><i class="fas fa-snowflake"></i> Freeze Platform</button>
+                    <button id="restoreBtn" onclick="restoreApp()" class="action-btn-sm green" style="display: none;" data-testid="button-restore-app"><i class="fas fa-play"></i> Restore Platform</button>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="management-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                    <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #00695C, #00897B); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-cogs" style="color: white; font-size: 1.3rem;"></i>
+                    </div>
+                    <h3 style="color: #333; font-size: 1.1rem;">Settings</h3>
+                </div>
+                <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">Platform branding and configuration</p>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button onclick="showSiteSettings()" class="action-btn-sm blue" data-testid="button-site-settings"><i class="fas fa-sliders-h"></i> Settings</button>
+                </div>
+            </div>
+
+            <div class="management-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                    <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #c62828, #e53935); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-clipboard-list" style="color: white; font-size: 1.3rem;"></i>
+                    </div>
+                    <h3 style="color: #333; font-size: 1.1rem;">Assessments</h3>
+                </div>
+                <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">Manage exams and feedback surveys</p>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button onclick="showExamsManagement()" class="action-btn-sm blue" data-testid="button-exams"><i class="fas fa-file-alt"></i> Exams</button>
+                    <button onclick="showSurveys()" class="action-btn-sm green" data-testid="button-surveys"><i class="fas fa-poll"></i> Surveys</button>
+                </div>
+            </div>
+
+            <div class="management-card" style="background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                    <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #5d4037, #8d6e63); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-certificate" style="color: white; font-size: 1.3rem;"></i>
+                    </div>
+                    <h3 style="color: #333; font-size: 1.1rem;">Certificates</h3>
+                </div>
+                <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">Issue and manage completion certificates</p>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button onclick="showCertificates()" class="action-btn-sm blue" data-testid="button-view-certificates"><i class="fas fa-list"></i> View All</button>
+                    {% if is_superadmin %}
+                    <button onclick="showBulkCertificates()" class="action-btn-sm green" data-testid="button-bulk-certificates"><i class="fas fa-magic"></i> Bulk Generate</button>
+                    <button onclick="showCSVCertificates()" class="action-btn-sm orange" data-testid="button-csv-certificates"><i class="fas fa-file-csv"></i> CSV Upload</button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Users Section -->
+        <h2 class="section-title"><i class="fas fa-users"></i> Recent Users</h2>
+        <div id="usersSection" style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 30px;">
+            <div class="loading" id="usersLoading">
+                <i class="fas fa-spinner"></i>
+                <p>Loading users...</p>
+            </div>
+            <div id="usersTable" style="display: none; overflow-x: auto;"></div>
+        </div>
+
+        <!-- Courses Section -->
+        <h2 class="section-title"><i class="fas fa-book"></i> Courses</h2>
+        <div id="coursesSection" style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 30px;">
+            <div class="loading" id="coursesLoading">
+                <i class="fas fa-spinner"></i>
+                <p>Loading courses...</p>
+            </div>
+            <div id="coursesTable" style="display: none; overflow-x: auto;"></div>
+        </div>
+
+    </main>
+
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Details</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <div class="loading">
+                    <i class="fas fa-spinner"></i>
+                    <p>Loading details...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Base URL configuration for reverse proxy support
+        window.BASE_URL = '{{ request.script_root }}';
+        
+        // API fetch wrapper that automatically prepends base URL and handles auth errors
+        async function apiFetch(url, options = {}) {
+            const baseUrl = window.BASE_URL || '';
+            const fullUrl = url.startsWith('http') ? url : baseUrl + url;
+            
+            const response = await fetch(fullUrl, options);
+            
+            // Check if we got an HTML response (login page redirect) instead of JSON
+            const contentType = response.headers.get('content-type') || '';
+            if (!response.ok && (response.status === 401 || response.status === 403)) {
+                // Auth error - redirect to login
+                window.location.href = baseUrl + '/admin/login';
+                throw new Error('Session expired. Please login again.');
+            }
+            
+            // Check for HTML response when expecting JSON (typically a redirect to login)
+            if (contentType.includes('text/html') && url.includes('/api/')) {
+                window.location.href = baseUrl + '/admin/login';
+                throw new Error('Session expired. Please login again.');
+            }
+            
+            return response;
+        }
+        
+        async function loadStats() {
+            try {
+                const response = await apiFetch('/admin/api/stats');
+                if (!response.ok) throw new Error('Failed to load stats');
+                const data = await response.json();
+
+                document.getElementById('statCourses').textContent = data.total_courses || 0;
+                document.getElementById('statTeachers').textContent = data.total_teachers || 0;
+                document.getElementById('statStudents').textContent = data.total_students || 0;
+                document.getElementById('statTotalUsers').textContent = (data.total_teachers || 0) + (data.total_students || 0);
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+
+        function showTab(tabId, button) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+            
+            document.getElementById('tab-' + tabId).classList.add('active');
+            button.classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('show');
+        }
+
+        document.getElementById('detailModal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        // ============================================
+        // SYSTEM FREEZE/RESTORE FUNCTIONALITY
+        // ============================================
+        async function loadAppStatus() {
+            try {
+                const response = await apiFetch('/admin/api/app-status');
+                if (!response.ok) return;
+                const data = await response.json();
+                updateSystemStatusUI(data.app_frozen, data.freeze_message);
+            } catch (error) {
+                console.error('Failed to load app status:', error);
+            }
+        }
+
+        function updateSystemStatusUI(isFrozen, message) {
+            const statusIcon = document.getElementById('systemStatusIcon');
+            const statusText = document.getElementById('systemStatusText');
+            const freezeBtn = document.getElementById('freezeBtn');
+            const restoreBtn = document.getElementById('restoreBtn');
+            const statusCard = document.getElementById('systemStatusCard');
+            
+            if (!statusIcon || !statusText) return;
+            
+            if (isFrozen) {
+                statusIcon.style.background = 'linear-gradient(135deg, #c62828, #e53935)';
+                statusText.innerHTML = '<span style="color: #c62828; font-weight: bold;"><i class="fas fa-exclamation-triangle"></i> Platform is FROZEN</span><br><small>' + (message || 'Maintenance mode active') + '</small>';
+                statusCard.style.borderLeft = '4px solid #c62828';
+                if (freezeBtn) freezeBtn.style.display = 'none';
+                if (restoreBtn) restoreBtn.style.display = 'inline-flex';
+            } else {
+                statusIcon.style.background = 'linear-gradient(135deg, #2e7d32, #4caf50)';
+                statusText.textContent = 'Platform is running normally';
+                statusCard.style.borderLeft = 'none';
+                if (freezeBtn) freezeBtn.style.display = 'inline-flex';
+                if (restoreBtn) restoreBtn.style.display = 'none';
+            }
+        }
+
+        function showFreezeModal() {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'Freeze Platform';
+            modal.classList.add('show');
+            
+            modalBody.innerHTML = `
+                <div style="padding: 20px;">
+                    <div style="background: #fff3e0; border: 1px solid #ff9800; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                        <h4 style="color: #e65100; margin: 0 0 10px 0;"><i class="fas fa-exclamation-triangle"></i> Warning</h4>
+                        <p style="margin: 0; color: #666;">Freezing the platform will:</p>
+                        <ul style="margin: 10px 0; color: #666;">
+                            <li>Block all user logins (except superadmin)</li>
+                            <li>Disable new registrations</li>
+                            <li>Block AI chat functionality</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Maintenance Message (English)</label>
+                        <textarea id="freezeMessage" rows="2" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">The platform is currently under maintenance. Please try again later.</textarea>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Maintenance Message (Arabic) رسالة الصيانة</label>
+                        <textarea id="freezeMessageAr" rows="2" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; direction: rtl; text-align: right;">المنصة حالياً تحت الصيانة. يرجى المحاولة لاحقاً.</textarea>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button onclick="closeModal()" class="action-btn-sm" style="background: #666;">Cancel</button>
+                        <button onclick="freezeApp()" class="action-btn-sm" style="background: #c62828;" data-testid="button-confirm-freeze"><i class="fas fa-snowflake"></i> Freeze Now</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function freezeApp() {
+            const message = document.getElementById('freezeMessage')?.value || '';
+            const messageAr = document.getElementById('freezeMessageAr')?.value || '';
+            
+            try {
+                const response = await apiFetch('/admin/api/app-freeze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, message_ar: messageAr })
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    closeModal();
+                    updateSystemStatusUI(true, message);
+                    alert('Platform has been frozen. Only superadmins can access now.');
+                } else {
+                    alert(result.error || 'Failed to freeze platform');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function restoreApp() {
+            if (!confirm('Are you sure you want to restore the platform? Users will be able to access again.')) {
+                return;
+            }
+            
+            try {
+                const response = await apiFetch('/admin/api/app-restore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    updateSystemStatusUI(false);
+                    alert('Platform has been restored. Users can now access the platform.');
+                } else {
+                    alert(result.error || 'Failed to restore platform');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            try {
+                const baseUrl = window.BASE_URL || '';
+                await apiFetch('/admin/logout', { method: 'POST' });
+                window.location.href = baseUrl + '/admin/login';
+            } catch (error) {
+                console.error('Logout error:', error);
+                // Still redirect on error
+                const baseUrl = window.BASE_URL || '';
+                window.location.href = baseUrl + '/admin/login';
+            }
+        });
+
+        // ============================================
+        // SEARCH FUNCTIONALITY
+        // ============================================
+        let searchTimeout;
+        document.getElementById('searchInput').addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.trim();
+            if (query.length < 2) {
+                document.getElementById('searchResults').style.display = 'none';
+                return;
+            }
+            searchTimeout = setTimeout(() => performSearch(query), 300);
+        });
+
+        async function performSearch(query) {
+            const resultsDiv = document.getElementById('searchResults');
+            try {
+                const response = await apiFetch(`/admin/api/search?q=${encodeURIComponent(query)}`);
+                if (!response.ok) throw new Error('Search failed');
+                const data = await response.json();
+                
+                let html = '<div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">';
+                html += '<h3 style="margin-bottom: 15px; color: #1a237e;"><i class="fas fa-search"></i> Search Results</h3>';
+                
+                if (data.users.length > 0) {
+                    html += '<h4 style="margin: 10px 0; color: #666;">Users</h4><div style="display: flex; flex-wrap: wrap; gap: 10px;">';
+                    data.users.forEach(u => {
+                        html += `<div style="padding: 10px 15px; background: #f5f5f5; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-user" style="color: #1a237e;"></i>
+                            <div>
+                                <div style="font-weight: 500;">${u.full_name || u.username}</div>
+                                <div style="font-size: 0.8rem; color: #666;">${u.role} - ${u.email || 'No email'}</div>
+                            </div>
+                            <button onclick="showEditUserModal('${u.id}')" style="padding: 5px 10px; background: #1565C0; color: white; border: none; border-radius: 5px; cursor: pointer;"><i class="fas fa-edit"></i></button>
+                        </div>`;
+                    });
+                    html += '</div>';
+                }
+                
+                if (data.courses.length > 0) {
+                    html += '<h4 style="margin: 15px 0 10px; color: #666;">Courses</h4><div style="display: flex; flex-wrap: wrap; gap: 10px;">';
+                    data.courses.forEach(c => {
+                        html += `<div style="padding: 10px 15px; background: #e8f5e9; border-radius: 8px;">
+                            <i class="fas fa-book" style="color: #2E7D32;"></i> ${c.title} (${c.code || 'No code'})
+                        </div>`;
+                    });
+                    html += '</div>';
+                }
+
+                if (data.users.length === 0 && data.courses.length === 0) {
+                    html += '<p style="color: #999; text-align: center;">No results found</p>';
+                }
+                
+                html += '</div>';
+                resultsDiv.innerHTML = html;
+                resultsDiv.style.display = 'block';
+            } catch (error) {
+                console.error('Search error:', error);
+            }
+        }
+
+        // ============================================
+        // CREATE USER
+        // ============================================
+        async function showCreateUserModal() {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'Create New User';
+            modal.classList.add('show');
+
+            modalBody.innerHTML = `
+                <form id="createUserForm" style="display: flex; flex-direction: column; gap: 15px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Username*</label>
+                            <input type="text" name="username" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;" data-testid="input-username">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Password*</label>
+                            <input type="password" name="password" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;" data-testid="input-password">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Full Name*</label>
+                            <input type="text" name="full_name" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;" data-testid="input-fullname">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Email</label>
+                            <input type="email" name="email" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;" data-testid="input-email">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500;">Role*</label>
+                        <select name="role" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;" data-testid="select-role">
+                            <option value="student">Student</option>
+                            <option value="instructor">Teacher/Instructor</option>
+                            <option value="super_admin">Super Admin</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="action-btn primary" style="padding: 15px; margin-top: 10px; background: #2E7D32;" data-testid="button-submit-user">
+                        <i class="fas fa-user-plus"></i> Create User
+                    </button>
+                </form>
+            `;
+
+            document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const data = Object.fromEntries(formData.entries());
+
+                try {
+                    const response = await apiFetch('/admin/api/users', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        alert('User created successfully!');
+                        closeModal();
+                        loadStats();
+                    } else {
+                        alert(result.error || 'Failed to create user');
+                    }
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+            });
+        }
+
+        // ============================================
+        // EDIT USER (from search results)
+        // ============================================
+        async function showEditUserModal(userId) {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'Edit User';
+            modal.classList.add('show');
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Loading...</p></div>';
+            
+            // For now, show a simple edit form
+            modalBody.innerHTML = `
+                <form id="editUserForm" style="display: flex; flex-direction: column; gap: 15px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500;">New Password (leave blank to keep current)</label>
+                        <input type="password" name="password" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="submit" class="action-btn primary" style="flex: 1; padding: 15px;">
+                            <i class="fas fa-save"></i> Update Password
+                        </button>
+                        <button type="button" onclick="blockUser('${userId}', true)" class="action-btn" style="padding: 15px; background: #e65100; color: white;">
+                            <i class="fas fa-ban"></i> Block
+                        </button>
+                        <button type="button" onclick="deleteUser('${userId}')" class="action-btn" style="padding: 15px; background: #c62828; color: white;">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </form>
+            `;
+            
+            document.getElementById('editUserForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const password = e.target.password.value;
+                if (!password) {
+                    alert('Please enter a new password');
+                    return;
+                }
+                
+                try {
+                    const response = await apiFetch(`/admin/api/users/${userId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        alert('Password updated!');
+                        closeModal();
+                    } else {
+                        alert(result.error || 'Failed to update');
+                    }
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+            });
+        }
+
+        async function blockUser(userId, block) {
+            const action = block ? 'block' : 'unblock';
+            if (!confirm(`Are you sure you want to ${action} this user?`)) return;
+            
+            try {
+                const response = await apiFetch(`/admin/api/users/${userId}/block`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ block })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert(`User ${action}ed successfully!`);
+                    closeModal();
+                } else {
+                    alert(result.error || `Failed to ${action}`);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function deleteUser(userId) {
+            if (!confirm('Are you sure you want to permanently delete this user? This cannot be undone.')) return;
+            
+            try {
+                const response = await apiFetch(`/admin/api/users/${userId}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert('User deleted successfully!');
+                    closeModal();
+                    loadStats();
+                } else {
+                    alert(result.error || 'Failed to delete');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // ============================================
+        // INLINE USER MANAGEMENT
+        // ============================================
+        async function editUserInline(userId, username) {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = `Edit User: ${username}`;
+            modal.classList.add('show');
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i><p>Loading user details...</p></div>';
+            
+            try {
+                // Fetch user details from API
+                const response = await apiFetch(`/admin/api/users/${userId}`);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load user');
+                }
+                
+                const user = data.user;
+                
+                modalBody.innerHTML = `
+                    <form id="editUserInlineForm" style="display: flex; flex-direction: column; gap: 15px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Full Name</label>
+                                <input type="text" name="full_name" value="${user.full_name || ''}" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Email</label>
+                                <input type="email" name="email" value="${user.email || ''}" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Username</label>
+                                <input type="text" name="username" value="${user.username || ''}" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; background: #f5f5f5;" readonly>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Role</label>
+                                <input type="text" value="${user.role || ''}" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; background: #f5f5f5;" readonly>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">New Password (leave blank to keep current)</label>
+                            <input type="password" name="password" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <button type="submit" class="action-btn primary" style="padding: 15px;">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                    </form>
+                `;
+            } catch (error) {
+                modalBody.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load user: ${error.message}</p></div>`;
+                return;
+            }
+            
+            document.getElementById('editUserInlineForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const data = {};
+                for (const [key, value] of formData.entries()) {
+                    if (value) data[key] = value;
+                }
+                
+                if (Object.keys(data).length === 0) {
+                    alert('No changes to save');
+                    return;
+                }
+                
+                try {
+                    const response = await apiFetch(`/admin/api/users/${userId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        alert('User updated successfully!');
+                        closeModal();
+                    } else {
+                        alert(result.error || 'Failed to update');
+                    }
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+            });
+        }
+
+        async function toggleBlockUser(userId, block) {
+            const action = block ? 'block' : 'unblock';
+            if (!confirm(`Are you sure you want to ${action} this user?`)) return;
+            
+            try {
+                const response = await apiFetch(`/admin/api/users/${userId}/block`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ block })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert(`User ${action}ed successfully!`);
+                } else {
+                    alert(result.error || `Failed to ${action}`);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function deleteUserConfirm(userId, username) {
+            if (!confirm(`Are you sure you want to permanently delete user "${username}"? This cannot be undone.`)) return;
+            
+            try {
+                const response = await apiFetch(`/admin/api/users/${userId}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert('User deleted successfully!');
+                    loadStats();
+                } else {
+                    alert(result.error || 'Failed to delete');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function editCourseModal(courseId) {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'Edit Course';
+            modal.classList.add('show');
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Loading...</p></div>';
+            
+            try {
+                const response = await apiFetch(`/admin/api/courses/${courseId}`);
+                const data = await response.json();
+                const c = data.course;
+                
+                modalBody.innerHTML = `
+                    <form id="editCourseForm" style="display: flex; flex-direction: column; gap: 15px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Course Code*</label>
+                                <input type="text" name="code" value="${c.code || ''}" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Title (English)*</label>
+                                <input type="text" name="title" value="${c.title || ''}" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Title (Arabic)</label>
+                                <input type="text" name="title_ar" value="${c.title_ar || ''}" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;" dir="rtl">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Published</label>
+                                <select name="is_published" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                                    <option value="true" ${c.is_published ? 'selected' : ''}>Published</option>
+                                    <option value="false" ${!c.is_published ? 'selected' : ''}>Draft</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Description</label>
+                            <textarea name="description" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">${c.description || ''}</textarea>
+                        </div>
+                        <button type="submit" class="action-btn primary" style="padding: 15px;">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                    </form>
+                `;
+                
+                document.getElementById('editCourseForm').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.target);
+                    const updateData = Object.fromEntries(formData.entries());
+                    updateData.is_published = updateData.is_published === 'true';
+                    
+                    try {
+                        const response = await apiFetch(`/admin/api/courses/${courseId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(updateData)
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            alert('Course updated successfully!');
+                            closeModal();
+                        } else {
+                            alert(result.error || 'Failed to update');
+                        }
+                    } catch (error) {
+                        alert('Error: ' + error.message);
+                    }
+                });
+            } catch (error) {
+                modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load course</p></div>';
+            }
+        }
+
+        // Alias for editCourseModal (used by onclick handlers)
+        function showEditCourseModal(courseId) {
+            editCourseModal(courseId);
+        }
+
+        async function toggleCoursePublish(courseId, publish) {
+            const action = publish ? 'publish' : 'unpublish';
+            try {
+                const response = await apiFetch(`/admin/api/courses/${courseId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_published: publish })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert(`Course ${action}ed successfully!`);
+                } else {
+                    alert(result.error || `Failed to ${action}`);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function manageCourseTeachers(courseId, title) {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = `Manage Teachers: ${title}`;
+            modal.classList.add('show');
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Loading teachers...</p></div>';
+            
+            try {
+                const [courseResp, teachersResp] = await Promise.all([
+                    apiFetch(`/admin/api/courses/${courseId}`),
+                    apiFetch(`/admin/api/courses/${courseId}/available-teachers`)
+                ]);
+                const courseData = await courseResp.json();
+                const teachersData = await teachersResp.json();
+                
+                const assignedTeachers = courseData.course.instructors || [];
+                const availableTeachers = teachersData.teachers || [];
+                
+                modalBody.innerHTML = `
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin-bottom: 10px; color: #1a237e;">Assigned Teachers</h4>
+                        ${assignedTeachers.length > 0 ? `
+                            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                                ${assignedTeachers.map(t => `
+                                    <div style="padding: 8px 12px; background: #e8f5e9; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+                                        <span>${t.full_name || t.username}</span>
+                                        <button onclick="unassignTeacher('${courseId}', '${t.id}')" style="background: #c62828; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;"><i class="fas fa-times"></i></button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : '<p style="color: #666;">No teachers assigned</p>'}
+                    </div>
+                    <div>
+                        <h4 style="margin-bottom: 10px; color: #1a237e;">Available Teachers</h4>
+                        ${availableTeachers.length > 0 ? `
+                            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                                ${availableTeachers.map(t => `
+                                    <div style="padding: 8px 12px; background: #f5f5f5; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+                                        <span>${t.full_name || t.username}</span>
+                                        <button onclick="assignTeacher('${courseId}', '${t.id}')" style="background: #2E7D32; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;"><i class="fas fa-plus"></i></button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : '<p style="color: #666;">No available teachers</p>'}
+                    </div>
+                `;
+            } catch (error) {
+                modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load teachers</p></div>';
+            }
+        }
+
+        async function assignTeacher(courseId, teacherId) {
+            try {
+                const response = await apiFetch(`/admin/api/courses/${courseId}/teachers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ teacher_id: teacherId })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    // Refresh the teacher management modal
+                    const courseResp = await apiFetch(`/admin/api/courses/${courseId}`);
+                    const courseData = await courseResp.json();
+                    manageCourseTeachers(courseId, courseData.course.title);
+                } else {
+                    alert(result.error || 'Failed to assign teacher');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function unassignTeacher(courseId, teacherId) {
+            if (!confirm('Are you sure you want to remove this teacher from the course?')) return;
+            
+            try {
+                const response = await apiFetch(`/admin/api/courses/${courseId}/teachers/${teacherId}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    // Refresh the teacher management modal
+                    const courseResp = await apiFetch(`/admin/api/courses/${courseId}`);
+                    const courseData = await courseResp.json();
+                    manageCourseTeachers(courseId, courseData.course.title);
+                } else {
+                    alert(result.error || 'Failed to remove teacher');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function deleteCourseConfirm(courseId, title) {
+            if (!confirm(`Are you sure you want to delete course "${title}"? This cannot be undone.`)) return;
+            
+            try {
+                const response = await apiFetch(`/admin/api/courses/${courseId}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert('Course deleted successfully!');
+                    loadCourses();
+                } else {
+                    alert(result.error || 'Failed to delete');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // ============================================
+        // LOAD USERS TABLE
+        // ============================================
+        async function loadUsers() {
+            try {
+                const response = await apiFetch('/admin/api/users');
+                if (!response.ok) throw new Error('Failed to load users');
+                const data = await response.json();
+                const users = data.users || [];
+                
+                document.getElementById('usersLoading').style.display = 'none';
+                const tableDiv = document.getElementById('usersTable');
+                tableDiv.style.display = 'block';
+                
+                if (users.length === 0) {
+                    tableDiv.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i><p>No users found</p></div>';
+                    return;
+                }
+                
+                // Show only first 10 users
+                const displayUsers = users.slice(0, 10);
+                let html = `<table class="detail-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                
+                displayUsers.forEach(u => {
+                    const roleColor = u.role === 'student' ? 'purple' : (u.role === 'instructor' || u.role === 'teacher') ? 'orange' : 'blue';
+                    html += `<tr>
+                        <td>${u.full_name || '-'}</td>
+                        <td>${u.username}</td>
+                        <td>${u.email || '-'}</td>
+                        <td><span class="status-badge" style="background: ${roleColor === 'purple' ? '#f3e5f5' : roleColor === 'orange' ? '#fff3e0' : '#e3f2fd'}; color: ${roleColor === 'purple' ? '#7b1fa2' : roleColor === 'orange' ? '#e65100' : '#1565c0'}">${u.role}</span></td>
+                        <td><span class="status-badge ${u.is_active ? 'active' : 'suspended'}">${u.is_active ? 'Active' : 'Inactive'}</span></td>
+                        <td>
+                            <button onclick="showEditUserModal('${u.id}')" class="action-btn-sm blue"><i class="fas fa-edit"></i></button>
+                            <button onclick="toggleUserStatus('${u.id}', ${!u.is_active})" class="action-btn-sm ${u.is_active ? 'orange' : 'green'}"><i class="fas fa-${u.is_active ? 'ban' : 'check'}"></i></button>
+                        </td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table>';
+                if (users.length > 10) {
+                    html += `<p style="text-align: center; margin-top: 15px; color: #666;">Showing 10 of ${users.length} users. <button onclick="showAllUsers()" class="action-btn-sm blue">View All</button></p>`;
+                }
+                tableDiv.innerHTML = html;
+            } catch (error) {
+                console.error('Failed to load users:', error);
+                document.getElementById('usersLoading').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load users</p></div>';
+            }
+        }
+
+        // ============================================
+        // LOAD COURSES TABLE
+        // ============================================
+        async function loadCourses() {
+            try {
+                const response = await apiFetch('/admin/api/courses');
+                if (!response.ok) throw new Error('Failed to load courses');
+                const data = await response.json();
+                const courses = data.courses || [];
+                
+                document.getElementById('coursesLoading').style.display = 'none';
+                const tableDiv = document.getElementById('coursesTable');
+                tableDiv.style.display = 'block';
+                
+                if (courses.length === 0) {
+                    tableDiv.innerHTML = '<div class="empty-state"><i class="fas fa-book"></i><p>No courses found</p></div>';
+                    return;
+                }
+                
+                let html = `<table class="detail-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Code</th>
+                            <th>Category</th>
+                            <th>Duration</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                
+                courses.forEach(c => {
+                    html += `<tr>
+                        <td>${c.title}</td>
+                        <td>${c.code || '-'}</td>
+                        <td>${c.category || '-'}</td>
+                        <td>${c.duration_weeks || '-'} weeks</td>
+                        <td><span class="status-badge ${c.is_published ? 'active' : 'trial'}">${c.is_published ? 'Published' : 'Draft'}</span></td>
+                        <td>
+                            <button onclick="showEditCourseModal('${c.id}')" class="action-btn-sm blue"><i class="fas fa-edit"></i></button>
+                            <button onclick="manageCourseTeachers('${c.id}', '${c.title}')" class="action-btn-sm green"><i class="fas fa-chalkboard-teacher"></i></button>
+                            <button onclick="toggleCoursePublish('${c.id}', ${!c.is_published})" class="action-btn-sm ${c.is_published ? 'orange' : 'green'}"><i class="fas fa-${c.is_published ? 'eye-slash' : 'eye'}"></i></button>
+                            <button onclick="deleteCourseConfirm('${c.id}', '${c.title}')" class="action-btn-sm red"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table>';
+                tableDiv.innerHTML = html;
+            } catch (error) {
+                console.error('Failed to load courses:', error);
+                document.getElementById('coursesLoading').innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load courses</p></div>';
+            }
+        }
+
+        // ============================================
+        // SHOW ALL USERS IN MODAL
+        // ============================================
+        async function showAllUsers() {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'All Users';
+            modal.classList.add('show');
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Loading users...</p></div>';
+            
+            try {
+                const response = await apiFetch('/admin/api/users');
+                const data = await response.json();
+                const users = data.users || [];
+                
+                let html = `<table class="detail-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                
+                users.forEach(u => {
+                    const roleColor = u.role === 'student' ? 'purple' : (u.role === 'instructor' || u.role === 'teacher') ? 'orange' : 'blue';
+                    html += `<tr>
+                        <td>${u.full_name || '-'}</td>
+                        <td>${u.username}</td>
+                        <td>${u.email || '-'}</td>
+                        <td><span class="status-badge" style="background: ${roleColor === 'purple' ? '#f3e5f5' : roleColor === 'orange' ? '#fff3e0' : '#e3f2fd'}; color: ${roleColor === 'purple' ? '#7b1fa2' : roleColor === 'orange' ? '#e65100' : '#1565c0'}">${u.role}</span></td>
+                        <td><span class="status-badge ${u.is_active ? 'active' : 'suspended'}">${u.is_active ? 'Active' : 'Inactive'}</span></td>
+                        <td>
+                            <button onclick="showEditUserModal('${u.id}')" class="action-btn-sm blue"><i class="fas fa-edit"></i></button>
+                            <button onclick="toggleUserStatus('${u.id}', ${!u.is_active})" class="action-btn-sm ${u.is_active ? 'orange' : 'green'}"><i class="fas fa-${u.is_active ? 'ban' : 'check'}"></i></button>
+                        </td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table>';
+                modalBody.innerHTML = html;
+            } catch (error) {
+                modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load users</p></div>';
+            }
+        }
+
+        // ============================================
+        // SHOW ALL COURSES IN MODAL
+        // ============================================
+        async function showAllCourses() {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'All Courses';
+            modal.classList.add('show');
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Loading courses...</p></div>';
+            
+            try {
+                const response = await apiFetch('/admin/api/courses');
+                const data = await response.json();
+                const courses = data.courses || [];
+                
+                let html = `<table class="detail-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Code</th>
+                            <th>Category</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                
+                courses.forEach(c => {
+                    html += `<tr>
+                        <td>${c.title}</td>
+                        <td>${c.code || '-'}</td>
+                        <td>${c.category || '-'}</td>
+                        <td><span class="status-badge ${c.is_published ? 'active' : 'trial'}">${c.is_published ? 'Published' : 'Draft'}</span></td>
+                        <td>
+                            <button onclick="showEditCourseModal('${c.id}')" class="action-btn-sm blue"><i class="fas fa-edit"></i></button>
+                            <button onclick="manageCourseTeachers('${c.id}', '${c.title}')" class="action-btn-sm green"><i class="fas fa-chalkboard-teacher"></i></button>
+                        </td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table>';
+                modalBody.innerHTML = html;
+            } catch (error) {
+                modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load courses</p></div>';
+            }
+        }
+
+        // ============================================
+        // SHOW ALL ENROLLMENTS
+        // ============================================
+        async function showAllEnrollments() {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'All Enrollments';
+            modal.classList.add('show');
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Loading enrollments...</p></div>';
+            
+            try {
+                const response = await apiFetch('/admin/api/enrollments');
+                const data = await response.json();
+                const enrollments = data.enrollments || [];
+                
+                if (enrollments.length === 0) {
+                    modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-user-check"></i><p>No enrollments found</p></div>';
+                    return;
+                }
+                
+                let html = `<table class="detail-table">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Course</th>
+                            <th>Enrolled Date</th>
+                            <th>Progress</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                
+                enrollments.forEach(e => {
+                    html += `<tr>
+                        <td>${e.student_name || e.student_id}</td>
+                        <td>${e.course_title || e.course_id}</td>
+                        <td>${e.enrollment_date ? new Date(e.enrollment_date).toLocaleDateString() : '-'}</td>
+                        <td>${e.progress || 0}%</td>
+                        <td><span class="status-badge ${e.is_active !== false ? 'active' : 'suspended'}">${e.is_active !== false ? 'Active' : 'Inactive'}</span></td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table>';
+                modalBody.innerHTML = html;
+            } catch (error) {
+                modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load enrollments</p></div>';
+            }
+        }
+
+        // ============================================
+        // ENROLL STUDENT MODAL
+        // ============================================
+        async function showEnrollStudentModal() {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'Enroll Student';
+            modal.classList.add('show');
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Loading...</p></div>';
+            
+            try {
+                const [usersResp, coursesResp] = await Promise.all([
+                    apiFetch('/admin/api/users'),
+                    apiFetch('/admin/api/courses')
+                ]);
+                const usersData = await usersResp.json();
+                const coursesData = await coursesResp.json();
+                
+                const students = (usersData.users || []).filter(u => u.role === 'student');
+                const courses = coursesData.courses || [];
+                
+                modalBody.innerHTML = `
+                    <form id="enrollForm" style="display: flex; flex-direction: column; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Student*</label>
+                            <select name="student_id" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                                <option value="">Select a student</option>
+                                ${students.map(s => `<option value="${s.id}">${s.full_name || s.username}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Course*</label>
+                            <select name="course_id" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                                <option value="">Select a course</option>
+                                ${courses.map(c => `<option value="${c.id}">${c.title}</option>`).join('')}
+                            </select>
+                        </div>
+                        <button type="submit" class="action-btn primary" style="padding: 15px; margin-top: 10px; background: #2E7D32;">
+                            <i class="fas fa-user-plus"></i> Enroll Student
+                        </button>
+                    </form>
+                `;
+                
+                document.getElementById('enrollForm').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.target);
+                    const data = Object.fromEntries(formData.entries());
+                    
+                    try {
+                        const response = await apiFetch('/admin/api/enrollments', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data)
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            alert('Student enrolled successfully!');
+                            closeModal();
+                        } else {
+                            alert(result.error || 'Failed to enroll');
+                        }
+                    } catch (error) {
+                        alert('Error: ' + error.message);
+                    }
+                });
+            } catch (error) {
+                modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load data</p></div>';
+            }
+        }
+
+        // ============================================
+        // CREATE COURSE MODAL
+        // ============================================
+        async function showCreateCourseModal() {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'Create New Course';
+            modal.classList.add('show');
+            
+            modalBody.innerHTML = `
+                <form id="createCourseForm" style="display: flex; flex-direction: column; gap: 15px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Course Title*</label>
+                            <input type="text" name="title" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Course Code*</label>
+                            <input type="text" name="code" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Category</label>
+                            <input type="text" name="category" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Duration (weeks)</label>
+                            <input type="number" name="duration_weeks" min="1" value="4" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500;">Description</label>
+                        <textarea name="description" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;"></textarea>
+                    </div>
+                    <button type="submit" class="action-btn primary" style="padding: 15px; margin-top: 10px; background: #2E7D32;">
+                        <i class="fas fa-plus"></i> Create Course
+                    </button>
+                </form>
+            `;
+            
+            document.getElementById('createCourseForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const data = Object.fromEntries(formData.entries());
+                data.duration_weeks = parseInt(data.duration_weeks) || 4;
+                
+                try {
+                    const response = await apiFetch('/admin/api/courses', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        alert('Course created successfully!');
+                        closeModal();
+                        loadCourses();
+                        loadStats();
+                    } else {
+                        alert(result.error || 'Failed to create course');
+                    }
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+            });
+        }
+
+        // ============================================
+        // AI MODELS CONFIGURATION
+        // ============================================
+        async function showAIModels() {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'AI Settings - API Key Configuration';
+            modal.classList.add('show');
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Loading AI configuration...</p></div>';
+            
+            try {
+                const response = await apiFetch('/admin/api/ai-config');
+                const data = await response.json();
+                
+                let html = '<div style="display: grid; gap: 15px;">';
+                
+                for (const provider of (data.providers || [])) {
+                    const sourceLabel = provider.source === 'env' ? '(from environment)' : provider.source === 'database' ? '(saved in app)' : '';
+                    html += `
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 10px;" id="provider-${provider.id}">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; flex-wrap: wrap;">
+                                <div>
+                                    <h4 style="margin: 0;">${provider.name}</h4>
+                                    <small style="color: #888;">${provider.description}</small>
+                                </div>
+                                <span class="status-badge ${provider.configured ? 'active' : 'suspended'}">${provider.configured ? 'Configured' : 'Not Configured'}</span>
+                            </div>
+                            ${provider.configured ? `
+                                <p style="color: #666; font-size: 0.85rem; margin-bottom: 10px;">
+                                    <strong>Key:</strong> ${provider.key_preview} <small style="color: #888;">${sourceLabel}</small><br>
+                                    <strong>Models:</strong> ${provider.models.join(', ')}
+                                </p>
+                                ${provider.source === 'database' ? `
+                                    <button onclick="deleteApiKey('${provider.id}', '${provider.name}')" class="btn btn-danger" style="padding: 5px 10px; font-size: 0.85rem;">
+                                        <i class="fas fa-trash"></i> Remove Key
+                                    </button>
+                                ` : `
+                                    <small style="color: #888;"><i class="fas fa-lock"></i> Set via environment variable - cannot be modified here</small>
+                                `}
+                            ` : `
+                                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                    <input type="password" id="apikey-${provider.id}" placeholder="Enter ${provider.name} API Key" 
+                                           style="flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; font-family: monospace;">
+                                    <button onclick="saveApiKey('${provider.id}', '${provider.name}')" class="btn btn-primary" style="padding: 8px 15px;">
+                                        <i class="fas fa-save"></i> Save
+                                    </button>
+                                </div>
+                            `}
+                        </div>
+                    `;
+                }
+                
+                html += '</div>';
+                html += `<div style="background: #e3f2fd; padding: 15px; border-radius: 10px; margin-top: 20px;">
+                    <p style="color: #1565c0; margin: 0; font-size: 0.9rem;">
+                        <i class="fas fa-info-circle"></i> <strong>About API Keys:</strong><br>
+                        API keys entered here are encrypted and stored securely in the database.<br>
+                        Environment variables (if set in Replit Secrets) take priority over database-stored keys.
+                    </p>
+                </div>`;
+                modalBody.innerHTML = html;
+            } catch (error) {
+                modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load AI configuration</p></div>';
+            }
+        }
+
+        async function saveApiKey(providerId, providerName) {
+            const input = document.getElementById(`apikey-${providerId}`);
+            const apiKey = input.value.trim();
+            
+            if (!apiKey) {
+                alert('Please enter an API key');
+                return;
+            }
+            
+            try {
+                const response = await apiFetch('/admin/api/ai-credentials', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider: providerId, api_key: apiKey })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`${providerName} API key saved successfully!`);
+                    showAIModels();
+                } else {
+                    alert(result.error || 'Failed to save API key');
+                }
+            } catch (error) {
+                alert('Error saving API key: ' + error.message);
+            }
+        }
+
+        async function deleteApiKey(providerId, providerName) {
+            if (!confirm(`Are you sure you want to remove the ${providerName} API key?`)) {
+                return;
+            }
+            
+            try {
+                const response = await apiFetch(`/admin/api/ai-credentials/${providerId}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`${providerName} API key removed`);
+                    showAIModels();
+                } else {
+                    alert(result.error || 'Failed to remove API key');
+                }
+            } catch (error) {
+                alert('Error removing API key: ' + error.message);
+            }
+        }
+
+        // ============================================
+        // CERTIFICATE MANAGEMENT
+        // ============================================
+        async function showCertificates() {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'All Issued Certificates';
+            modal.classList.add('show');
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Loading certificates...</p></div>';
+            
+            try {
+                const response = await apiFetch('/admin/api/certificates/all');
+                const data = await response.json();
+                
+                if (!data.certificates || data.certificates.length === 0) {
+                    modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-certificate"></i><p>No certificates issued yet</p></div>';
+                    return;
+                }
+
+                let html = `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <p style="color: #666; margin: 0;">Total: ${data.total} certificates</p>
+                    <div style="display: flex; gap: 8px;">
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                            <input type="checkbox" id="selectAllDownload" onchange="toggleAllDownload(this)"> Select All
+                        </label>
+                        <button onclick="downloadSelectedCertificates()" class="action-btn secondary" style="padding: 6px 12px; font-size: 0.85rem;" data-testid="button-download-zip">
+                            <i class="fas fa-file-archive"></i> Download ZIP
+                        </button>
+                    </div>
+                </div>`;
+                html += '<div style="max-height: 400px; overflow-y: auto;">';
+                html += '<table style="width: 100%; border-collapse: collapse;">';
+                html += '<thead><tr style="background: #f8f9fa;"><th style="padding: 10px; width: 40px;"></th><th style="padding: 10px; text-align: left;">Certificate #</th><th style="padding: 10px; text-align: left;">Student</th><th style="padding: 10px; text-align: left;">Course</th><th style="padding: 10px; text-align: left;">Issued</th><th style="padding: 10px; text-align: center;">Download</th></tr></thead>';
+                html += '<tbody>';
+                
+                for (const cert of data.certificates) {
+                    const issuedDate = cert.issued_at ? new Date(cert.issued_at).toLocaleDateString() : 'N/A';
+                    html += `<tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px;"><input type="checkbox" class="download-checkbox" value="${cert.enrollment_id}"></td>
+                        <td style="padding: 10px;"><code>${cert.certificate_number}</code></td>
+                        <td style="padding: 10px;">${cert.student_name}<br><small style="color: #888;">${cert.student_email}</small></td>
+                        <td style="padding: 10px;">${cert.course_title}<br><small style="color: #888;">${cert.course_code}</small></td>
+                        <td style="padding: 10px;">${issuedDate}</td>
+                        <td style="padding: 10px; text-align: center;">
+                            <button onclick="downloadSingleCertificate('${cert.enrollment_id}')" class="action-btn primary" style="padding: 4px 10px; font-size: 0.8rem;" data-testid="button-download-cert-${cert.enrollment_id}">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </td>
+                    </tr>`;
+                }
+                
+                html += '</tbody></table></div>';
+                modalBody.innerHTML = html;
+            } catch (error) {
+                modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load certificates</p></div>';
+            }
+        }
+        
+        function toggleAllDownload(checkbox) {
+            document.querySelectorAll('.download-checkbox').forEach(cb => cb.checked = checkbox.checked);
+        }
+        
+        async function downloadSingleCertificate(enrollmentId) {
+            try {
+                const response = await fetch(`/admin/api/certificates/${enrollmentId}/download`, {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    alert(errorData.error || 'Failed to download certificate');
+                    return;
+                }
+                
+                const blob = await response.blob();
+                const filename = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || 'certificate.pdf';
+                
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+            } catch (error) {
+                alert('Error downloading certificate: ' + error.message);
+            }
+        }
+        
+        async function downloadSelectedCertificates() {
+            const checkboxes = document.querySelectorAll('.download-checkbox:checked');
+            const enrollmentIds = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (enrollmentIds.length === 0) {
+                alert('Please select at least one certificate to download');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/api/certificates/download-zip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ enrollment_ids: enrollmentIds })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    alert(errorData.error || 'Failed to download certificates');
+                    return;
+                }
+                
+                const blob = await response.blob();
+                const filename = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || 'certificates.zip';
+                
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+            } catch (error) {
+                alert('Error downloading certificates: ' + error.message);
+            }
+        }
+
+        async function showBulkCertificates() {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'Bulk Certificate Generation';
+            modal.classList.add('show');
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Loading eligible enrollments...</p></div>';
+            
+            try {
+                const response = await apiFetch('/admin/api/certificates/eligible');
+                const data = await response.json();
+                
+                if (!data.eligible || data.eligible.length === 0) {
+                    modalBody.innerHTML = `<div class="empty-state">
+                        <i class="fas fa-check-circle" style="color: #4caf50;"></i>
+                        <p>All completed enrollments already have certificates!</p>
+                    </div>`;
+                    return;
+                }
+
+                let html = `<p style="margin-bottom: 15px; color: #666;">
+                    <strong>${data.total}</strong> students are eligible for certificates. Select students to generate certificates for:
+                </p>`;
+                html += '<div style="margin-bottom: 15px;"><label><input type="checkbox" id="selectAllCerts" onchange="toggleAllCerts(this)"> Select All</label></div>';
+                html += '<div style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;">';
+                
+                for (const item of data.eligible) {
+                    html += `<div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: #f8f9fa; border-radius: 8px; margin-bottom: 8px;">
+                        <input type="checkbox" class="cert-checkbox" value="${item.enrollment_id}">
+                        <div style="flex: 1;">
+                            <strong>${item.student_name}</strong><br>
+                            <small style="color: #666;">${item.course_title} | Score: ${item.avg_score}%</small>
+                        </div>
+                    </div>`;
+                }
+                
+                html += '</div>';
+                html += `<button onclick="generateSelectedCertificates()" class="action-btn primary" style="width: 100%; padding: 15px;" data-testid="button-generate-certs">
+                    <i class="fas fa-magic"></i> Generate Selected Certificates
+                </button>`;
+                modalBody.innerHTML = html;
+            } catch (error) {
+                modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load eligible enrollments</p></div>';
+            }
+        }
+
+        function toggleAllCerts(checkbox) {
+            document.querySelectorAll('.cert-checkbox').forEach(cb => cb.checked = checkbox.checked);
+        }
+
+        async function generateSelectedCertificates() {
+            const checkboxes = document.querySelectorAll('.cert-checkbox:checked');
+            const enrollmentIds = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (enrollmentIds.length === 0) {
+                alert('Please select at least one student');
+                return;
+            }
+            
+            if (!confirm(`Generate certificates for ${enrollmentIds.length} student(s)?`)) return;
+            
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Generating certificates...</p></div>';
+            
+            try {
+                const response = await apiFetch('/admin/api/certificates/bulk-generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enrollment_ids: enrollmentIds })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    modalBody.innerHTML = `<div class="empty-state" style="color: #4caf50;">
+                        <i class="fas fa-check-circle"></i>
+                        <p>${result.message}</p>
+                        <p style="font-size: 0.9rem; color: #666;">Success: ${result.success_count} | Failed: ${result.failed_count}</p>
+                        <button onclick="showCertificates()" class="action-btn primary" style="margin-top: 15px;">View All Certificates</button>
+                    </div>`;
+                } else {
+                    alert(result.error || 'Failed to generate certificates');
+                    showBulkCertificates();
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+                showBulkCertificates();
+            }
+        }
+
+        // ============================================
+        // CSV CERTIFICATE UPLOAD (FOR NON-REGISTERED STUDENTS)
+        // ============================================
+        async function showCSVCertificates() {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'CSV Certificate Generation';
+            modal.classList.add('show');
+            
+            // Load courses for selection
+            try {
+                const response = await apiFetch('/admin/api/courses');
+                const data = await response.json();
+                const courses = data.courses || [];
+                
+                let courseOptions = '<option value="">-- Select Course --</option>';
+                courses.forEach(c => {
+                    courseOptions += `<option value="${c.id}">${c.title} (${c.code || 'No code'})</option>`;
+                });
+                
+                modalBody.innerHTML = `
+                    <div style="margin-bottom: 20px;">
+                        <p style="color: #666; margin-bottom: 15px;">
+                            Upload a CSV file with student names to generate certificates. The CSV should have a column named 
+                            <code>name</code>, <code>student_name</code>, or <code>full_name</code>.
+                        </p>
+                        <div style="background: #fff3e0; border-left: 4px solid #f57c00; padding: 12px; margin-bottom: 15px; border-radius: 4px;">
+                            <strong>Note:</strong> This will generate certificates for names in the CSV. If a matching registered student is found, 
+                            the certificate will be linked to their account. Otherwise, a standalone certificate will be created.
+                        </div>
+                    </div>
+                    
+                    <form id="csvCertForm" style="display: flex; flex-direction: column; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Select Course *</label>
+                            <select name="course_id" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;" data-testid="select-course-csv">
+                                ${courseOptions}
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Upload CSV File *</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="file" name="csv_file" accept=".csv" required 
+                                       style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; background: #f8f9fa;"
+                                       data-testid="input-csv-file">
+                                <a href="/admin/api/certificates/csv-template" class="action-btn secondary" style="white-space: nowrap; padding: 10px 15px;" data-testid="link-download-template">
+                                    <i class="fas fa-download"></i> Template
+                                </a>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Certificate Date (optional)</label>
+                            <input type="date" name="issue_date" 
+                                   style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;"
+                                   data-testid="input-cert-date">
+                        </div>
+                        <button type="submit" class="action-btn primary" style="padding: 15px; margin-top: 10px;" data-testid="button-upload-csv">
+                            <i class="fas fa-upload"></i> Upload & Generate Certificates
+                        </button>
+                    </form>
+                    
+                    <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
+                        <p style="font-size: 0.85rem; color: #888;"><strong>CSV Format Example:</strong></p>
+                        <pre style="background: #f5f5f5; padding: 10px; border-radius: 6px; font-size: 0.8rem; overflow-x: auto;">name,email
+John Smith,john@example.com
+Jane Doe,jane@example.com
+Ahmed Hassan,</pre>
+                    </div>
+                `;
+                
+                document.getElementById('csvCertForm').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    await processCSVCertificates(e.target);
+                });
+            } catch (error) {
+                modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load courses</p></div>';
+            }
+        }
+        
+        async function processCSVCertificates(form) {
+            const formData = new FormData(form);
+            const courseId = formData.get('course_id');
+            const csvFile = formData.get('csv_file');
+            const issueDate = formData.get('issue_date');
+            
+            if (!courseId || !csvFile) {
+                alert('Please select a course and upload a CSV file');
+                return;
+            }
+            
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Processing CSV and generating certificates...</p></div>';
+            
+            try {
+                const uploadData = new FormData();
+                uploadData.append('csv_file', csvFile);
+                uploadData.append('course_id', courseId);
+                if (issueDate) uploadData.append('issue_date', issueDate);
+                
+                const response = await fetch('/admin/api/certificates/csv-generate', {
+                    method: 'POST',
+                    body: uploadData,
+                    credentials: 'same-origin'
+                });
+                
+                const contentType = response.headers.get('content-type') || '';
+                
+                // Check if response is a ZIP file (binary download)
+                if (contentType.includes('application/zip') || contentType.includes('application/octet-stream')) {
+                    const blob = await response.blob();
+                    
+                    // Extract filename from content-disposition header
+                    let filename = 'Certificates.zip';
+                    const disposition = response.headers.get('content-disposition');
+                    if (disposition) {
+                        const filenameMatch = disposition.match(/filename\*?=['"]?(?:UTF-8'')?([^;\r\n"']*)['"]?/i);
+                        if (filenameMatch && filenameMatch[1]) {
+                            filename = decodeURIComponent(filenameMatch[1]);
+                        }
+                    }
+                    
+                    // Trigger download
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    // Cleanup after a short delay
+                    setTimeout(() => {
+                        window.URL.revokeObjectURL(url);
+                        a.remove();
+                    }, 100);
+                    
+                    modalBody.innerHTML = `
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <i class="fas fa-check-circle" style="font-size: 3rem; color: #4caf50;"></i>
+                            <h3 style="margin-top: 10px; color: #333;">Certificates Generated Successfully!</h3>
+                            <p style="color: #666; margin-top: 10px;">Your ZIP file is downloading now. It contains all certificates (including previously issued ones).</p>
+                        </div>
+                        <div style="margin-top: 20px; display: flex; gap: 10px;">
+                            <button onclick="showCertificates()" class="action-btn primary" style="flex: 1;"><i class="fas fa-list"></i> View All Certificates</button>
+                            <button onclick="showCSVCertificates()" class="action-btn-sm blue" style="padding: 12px 20px;"><i class="fas fa-redo"></i> Upload Another</button>
+                        </div>`;
+                } else {
+                    // JSON response (error or empty case)
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        modalBody.innerHTML = `
+                            <div style="text-align: center; margin-bottom: 20px;">
+                                <i class="fas fa-info-circle" style="font-size: 3rem; color: #2196f3;"></i>
+                                <h3 style="margin-top: 10px; color: #333;">${result.message}</h3>
+                            </div>
+                            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                                <button onclick="showCertificates()" class="action-btn primary" style="flex: 1;"><i class="fas fa-list"></i> View All Certificates</button>
+                                <button onclick="showCSVCertificates()" class="action-btn-sm blue" style="padding: 12px 20px;"><i class="fas fa-redo"></i> Upload Another</button>
+                            </div>`;
+                    } else {
+                        alert(result.error || 'Failed to process CSV');
+                        showCSVCertificates();
+                    }
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+                showCSVCertificates();
+            }
+        }
+
+        // ============================================
+        // EXAMS MANAGEMENT
+        // ============================================
+        async function showExamsManagement() {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'Exams Management';
+            modal.classList.add('show');
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Loading courses and exams...</p></div>';
+            
+            try {
+                const response = await apiFetch('/admin/api/courses');
+                const data = await response.json();
+                const courses = data.courses || [];
+                
+                let html = `<p style="margin-bottom: 15px; color: #666;">Select a course to view and manage its exams.</p>`;
+                
+                if (courses.length === 0) {
+                    html += '<div class="empty-state"><i class="fas fa-book"></i><p>No courses found</p></div>';
+                } else {
+                    html += '<div style="max-height: 500px; overflow-y: auto;">';
+                    
+                    for (const course of courses) {
+                        html += `
+                            <div class="exam-course-card" style="background: #f8f9fa; border-radius: 10px; padding: 15px; margin-bottom: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <div>
+                                        <strong style="font-size: 1.1rem; color: #333;">${course.title}</strong>
+                                        <span style="margin-left: 10px; color: #888; font-size: 0.85rem;">${course.code || ''}</span>
+                                    </div>
+                                    <button onclick="loadCourseExams('${course.id}', '${course.title.replace(/'/g, "\\'")}')" class="action-btn-sm blue" data-testid="button-view-exams-${course.id}">
+                                        <i class="fas fa-eye"></i> View Exams
+                                    </button>
+                                </div>
+                            </div>`;
+                    }
+                    
+                    html += '</div>';
+                }
+                
+                modalBody.innerHTML = html;
+            } catch (error) {
+                modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load courses</p></div>';
+            }
+        }
+        
+        async function loadCourseExams(courseId, courseTitle) {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = `Exams - ${courseTitle}`;
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Loading exams...</p></div>';
+            
+            try {
+                const response = await apiFetch(`/admin/api/courses/${courseId}/exams`);
+                const data = await response.json();
+                const exams = data.exams || [];
+                
+                let html = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <button onclick="showExamsManagement()" class="action-btn-sm" style="background: #f5f5f5;">
+                            <i class="fas fa-arrow-left"></i> Back to Courses
+                        </button>
+                        <button onclick="showCreateExamModal('${courseId}', '${courseTitle.replace(/'/g, "\\'")}')" class="action-btn-sm green">
+                            <i class="fas fa-plus"></i> Create Exam
+                        </button>
+                    </div>`;
+                
+                if (exams.length === 0) {
+                    html += '<div class="empty-state"><i class="fas fa-file-alt"></i><p>No exams found for this course</p></div>';
+                } else {
+                    html += '<div style="max-height: 400px; overflow-y: auto;">';
+                    
+                    for (const exam of exams) {
+                        const statusBadge = exam.is_published 
+                            ? '<span class="status-badge active">Published</span>' 
+                            : '<span class="status-badge suspended">Draft</span>';
+                        
+                        html += `
+                            <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; margin-bottom: 10px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                    <div style="flex: 1;">
+                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                                            <strong>${exam.title}</strong>
+                                            ${statusBadge}
+                                            <span class="status-badge" style="background: #e3f2fd; color: #1976d2;">${exam.exam_type || 'quiz'}</span>
+                                        </div>
+                                        <p style="color: #666; font-size: 0.85rem; margin-bottom: 8px;">${exam.description || 'No description'}</p>
+                                        <div style="font-size: 0.8rem; color: #888;">
+                                            <span style="margin-right: 15px;"><i class="fas fa-check-circle"></i> Pass: ${exam.passing_threshold}%</span>
+                                            <span style="margin-right: 15px;"><i class="fas fa-redo"></i> Attempts: ${exam.max_attempts}</span>
+                                            <span><i class="fas fa-clock"></i> ${exam.time_limit_minutes || 'No'} min limit</span>
+                                        </div>
+                                    </div>
+                                    <div style="display: flex; gap: 5px;">
+                                        <button onclick="showEditExamModal('${courseId}', '${exam.id}')" class="action-btn-sm blue" data-testid="button-edit-exam-${exam.id}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button onclick="showExamQuestions('${courseId}', '${exam.id}', '${exam.title.replace(/'/g, "\\'")}')" class="action-btn-sm green" data-testid="button-questions-${exam.id}">
+                                            <i class="fas fa-list"></i> Questions
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>`;
+                    }
+                    
+                    html += '</div>';
+                }
+                
+                modalBody.innerHTML = html;
+            } catch (error) {
+                modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load exams</p></div>';
+            }
+        }
+        
+        async function showEditExamModal(courseId, examId) {
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'Edit Exam';
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Loading exam details...</p></div>';
+            
+            try {
+                const response = await apiFetch(`/admin/api/courses/${courseId}/exams/${examId}`);
+                const data = await response.json();
+                const exam = data.exam;
+                
+                modalBody.innerHTML = `
+                    <form id="editExamForm" style="display: flex; flex-direction: column; gap: 15px;">
+                        <input type="hidden" name="exam_id" value="${examId}">
+                        <input type="hidden" name="course_id" value="${courseId}">
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Title *</label>
+                                <input type="text" name="title" value="${exam.title || ''}" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Exam Type</label>
+                                <select name="exam_type" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                                    <option value="quiz" ${exam.exam_type === 'quiz' ? 'selected' : ''}>Quiz</option>
+                                    <option value="midterm" ${exam.exam_type === 'midterm' ? 'selected' : ''}>Midterm</option>
+                                    <option value="final" ${exam.exam_type === 'final' ? 'selected' : ''}>Final</option>
+                                    <option value="assessment" ${exam.exam_type === 'assessment' ? 'selected' : ''}>Assessment</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Description</label>
+                            <textarea name="description" rows="2" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">${exam.description || ''}</textarea>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Passing Score (%)</label>
+                                <input type="number" name="passing_threshold" value="${exam.passing_threshold || 70}" min="0" max="100" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Max Attempts</label>
+                                <input type="number" name="max_attempts" value="${exam.max_attempts || 3}" min="1" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Time Limit (min)</label>
+                                <input type="number" name="time_limit_minutes" value="${exam.time_limit_minutes || ''}" min="0" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 15px;">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" name="is_published" ${exam.is_published ? 'checked' : ''}> Published
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" name="shuffle_questions" ${exam.shuffle_questions ? 'checked' : ''}> Shuffle Questions
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" name="shuffle_answers" ${exam.shuffle_answers ? 'checked' : ''}> Shuffle Answers
+                            </label>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <button type="submit" class="action-btn primary" style="flex: 1; padding: 12px;">
+                                <i class="fas fa-save"></i> Save Changes
+                            </button>
+                            <button type="button" onclick="loadCourseExams('${courseId}', '')" class="action-btn-sm" style="padding: 12px 20px; background: #f5f5f5;">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                `;
+                
+                document.getElementById('editExamForm').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    await saveExamChanges(e.target);
+                });
+            } catch (error) {
+                modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load exam</p></div>';
+            }
+        }
+        
+        async function saveExamChanges(form) {
+            const formData = new FormData(form);
+            const courseId = formData.get('course_id');
+            const examId = formData.get('exam_id');
+            
+            const data = {
+                title: formData.get('title'),
+                description: formData.get('description'),
+                exam_type: formData.get('exam_type'),
+                passing_threshold: parseInt(formData.get('passing_threshold')) || 70,
+                max_attempts: parseInt(formData.get('max_attempts')) || 3,
+                time_limit_minutes: parseInt(formData.get('time_limit_minutes')) || null,
+                is_published: formData.get('is_published') === 'on',
+                shuffle_questions: formData.get('shuffle_questions') === 'on',
+                shuffle_answers: formData.get('shuffle_answers') === 'on'
+            };
+            
+            try {
+                const response = await apiFetch(`/admin/api/courses/${courseId}/exams/${examId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Exam updated successfully!');
+                    loadCourseExams(courseId, '');
+                } else {
+                    alert(result.error || 'Failed to update exam');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        
+        async function showExamQuestions(courseId, examId, examTitle) {
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = `Questions - ${examTitle}`;
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Loading questions...</p></div>';
+            
+            try {
+                const response = await apiFetch(`/admin/api/courses/${courseId}/exams/${examId}/questions`);
+                const data = await response.json();
+                const questions = data.questions || [];
+                
+                let html = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <button onclick="loadCourseExams('${courseId}', '')" class="action-btn-sm" style="background: #f5f5f5;">
+                            <i class="fas fa-arrow-left"></i> Back to Exams
+                        </button>
+                        <span style="color: #666;">${questions.length} question(s)</span>
+                    </div>`;
+                
+                if (questions.length === 0) {
+                    html += '<div class="empty-state"><i class="fas fa-question-circle"></i><p>No questions yet</p></div>';
+                } else {
+                    html += '<div style="max-height: 400px; overflow-y: auto;">';
+                    
+                    questions.forEach((q, idx) => {
+                        const typeLabel = q.question_type === 'multiple_choice' ? 'Multiple Choice' : 
+                                          q.question_type === 'true_false' ? 'True/False' : 
+                                          q.question_type;
+                        html += `
+                            <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; margin-bottom: 10px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                    <div style="flex: 1;">
+                                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                                            <span style="background: #e3f2fd; color: #1976d2; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">Q${idx + 1}</span>
+                                            <span style="background: #f5f5f5; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">${typeLabel}</span>
+                                            <span style="background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">${q.points || 1} pts</span>
+                                        </div>
+                                        <p style="margin: 0; color: #333;">${q.question_text || 'No question text'}</p>
+                                    </div>
+                                </div>
+                            </div>`;
+                    });
+                    
+                    html += '</div>';
+                }
+                
+                modalBody.innerHTML = html;
+            } catch (error) {
+                modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load questions</p></div>';
+            }
+        }
+        
+        async function showCreateExamModal(courseId, courseTitle) {
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'Create New Exam';
+            
+            modalBody.innerHTML = `
+                <form id="createExamForm" style="display: flex; flex-direction: column; gap: 15px;">
+                    <input type="hidden" name="course_id" value="${courseId}">
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Title *</label>
+                            <input type="text" name="title" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Exam Type</label>
+                            <select name="exam_type" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                                <option value="quiz">Quiz</option>
+                                <option value="midterm">Midterm</option>
+                                <option value="final">Final</option>
+                                <option value="assessment">Assessment</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500;">Description</label>
+                        <textarea name="description" rows="2" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;"></textarea>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Passing Score (%)</label>
+                            <input type="number" name="passing_threshold" value="70" min="0" max="100" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Max Attempts</label>
+                            <input type="number" name="max_attempts" value="3" min="1" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Time Limit (min)</label>
+                            <input type="number" name="time_limit_minutes" min="0" placeholder="No limit" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button type="submit" class="action-btn primary" style="flex: 1; padding: 12px;">
+                            <i class="fas fa-plus"></i> Create Exam
+                        </button>
+                        <button type="button" onclick="loadCourseExams('${courseId}', '${courseTitle.replace(/'/g, "\\'")}')" class="action-btn-sm" style="padding: 12px 20px; background: #f5f5f5;">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            `;
+            
+            document.getElementById('createExamForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const courseId = formData.get('course_id');
+                
+                const data = {
+                    title: formData.get('title'),
+                    description: formData.get('description'),
+                    exam_type: formData.get('exam_type'),
+                    passing_threshold: parseInt(formData.get('passing_threshold')) || 70,
+                    max_attempts: parseInt(formData.get('max_attempts')) || 3,
+                    time_limit_minutes: parseInt(formData.get('time_limit_minutes')) || null
+                };
+                
+                try {
+                    const response = await apiFetch(`/admin/api/courses/${courseId}/exams`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        alert('Exam created successfully!');
+                        loadCourseExams(courseId, courseTitle);
+                    } else {
+                        alert(result.error || 'Failed to create exam');
+                    }
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+            });
+        }
+
+        // ============================================
+        // SITE SETTINGS
+        // ============================================
+        async function showSiteSettings() {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'Site Settings';
+            modal.classList.add('show');
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Loading settings...</p></div>';
+            
+            try {
+                const response = await apiFetch('/admin/api/site-settings');
+                const settings = await response.json();
+                
+                modalBody.innerHTML = `
+                    <form id="siteSettingsForm" style="display: flex; flex-direction: column; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Site Name</label>
+                            <input type="text" name="site_name" value="${settings.site_name || 'SkillPilot'}" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Primary Color</label>
+                            <input type="color" name="primary_color" value="${settings.primary_color || '#1a237e'}" style="width: 100%; height: 40px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: 500;">Contact Email</label>
+                            <input type="email" name="contact_email" value="${settings.contact_email || ''}" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                        </div>
+                        <button type="submit" class="action-btn primary" style="padding: 15px; margin-top: 10px;">
+                            <i class="fas fa-save"></i> Save Settings
+                        </button>
+                    </form>
+                `;
+                
+                document.getElementById('siteSettingsForm').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.target);
+                    const data = Object.fromEntries(formData.entries());
+                    
+                    try {
+                        const response = await apiFetch('/admin/api/site-settings', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data)
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            alert('Settings saved successfully!');
+                            closeModal();
+                        } else {
+                            alert(result.error || 'Failed to save settings');
+                        }
+                    } catch (error) {
+                        alert('Error: ' + error.message);
+                    }
+                });
+            } catch (error) {
+                modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load settings</p></div>';
+            }
+        }
+
+        // ============================================
+        // SURVEYS
+        // ============================================
+        async function showSurveys() {
+            const modal = document.getElementById('detailModal');
+            const modalBody = document.getElementById('modalBody');
+            document.getElementById('modalTitle').textContent = 'Surveys';
+            modal.classList.add('show');
+            modalBody.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i><p>Loading surveys...</p></div>';
+            
+            try {
+                const response = await apiFetch('/admin/api/surveys');
+                const data = await response.json();
+                const surveys = data.surveys || [];
+                
+                if (surveys.length === 0) {
+                    modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-poll"></i><p>No surveys found</p></div>';
+                    return;
+                }
+                
+                let html = `<table class="detail-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Course</th>
+                            <th>Responses</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                
+                surveys.forEach(s => {
+                    html += `<tr>
+                        <td>${s.title}</td>
+                        <td>${s.course_title || '-'}</td>
+                        <td>${s.response_count || 0}</td>
+                        <td><span class="status-badge ${s.is_active ? 'active' : 'suspended'}">${s.is_active ? 'Active' : 'Closed'}</span></td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table>';
+                modalBody.innerHTML = html;
+            } catch (error) {
+                modalBody.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Failed to load surveys</p></div>';
+            }
+        }
+
+        // ============================================
+        // TOGGLE USER STATUS
+        // ============================================
+        async function toggleUserStatus(userId, activate) {
+            const action = activate ? 'activate' : 'deactivate';
+            if (!confirm(`Are you sure you want to ${action} this user?`)) return;
+            
+            try {
+                const response = await apiFetch(`/admin/api/users/${userId}/block`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_active: activate })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert(`User ${action}d successfully!`);
+                    loadUsers();
+                } else {
+                    alert(result.error || `Failed to ${action} user`);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Initialize dashboard
+        loadStats();
+        loadUsers();
+        loadCourses();
+        loadAppStatus();
+    </script>
+</body>
+</html>

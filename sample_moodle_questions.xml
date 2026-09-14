@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<quiz>
+
+  <!-- ===================== TRUE / FALSE ===================== -->
+
+  <question type="truefalse">
+    <name><text>AI replaces employees</text></name>
+    <questiontext format="html">
+      <text>AI tools are designed to completely replace human employees.</text>
+    </questiontext>
+    <!-- Arabic translation: add <questiontext_ar> to include Arabic -->
+    <questiontext_ar>
+      <text>تم تصميم أدوات الذكاء الاصطناعي لتحل محل الموظفين البشريين بالكامل.</text>
+    </questiontext_ar>
+    <defaultgrade>1</defaultgrade>
+    <answer fraction="0">  <text>true</text>  </answer>
+    <answer fraction="100"><text>false</text> </answer>
+  </question>
+
+  <question type="truefalse">
+    <name><text>Machine learning definition</text></name>
+    <questiontext format="html">
+      <text>Machine learning allows computers to learn from data without being explicitly programmed.</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>يتيح تعلم الآلة للحواسيب التعلم من البيانات دون الحاجة إلى برمجة صريحة.</text>
+    </questiontext_ar>
+    <defaultgrade>1</defaultgrade>
+    <answer fraction="100"><text>true</text>  </answer>
+    <answer fraction="0">  <text>false</text> </answer>
+  </question>
+
+  <!-- ===================== MULTIPLE CHOICE ===================== -->
+
+  <question type="multichoice">
+    <name><text>Definition of AI</text></name>
+    <questiontext format="html">
+      <text>What is the best definition of Artificial Intelligence?</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>ما هو التعريف الأفضل للذكاء الاصطناعي؟</text>
+    </questiontext_ar>
+    <defaultgrade>2</defaultgrade>
+    <answer fraction="0">
+      <text>A robot that looks like a human</text>
+      <answer_ar>روبوت يشبه الإنسان</answer_ar>
+    </answer>
+    <answer fraction="0">
+      <text>A calculator that does math fast</text>
+      <answer_ar>آلة حاسبة تجري العمليات الحسابية بسرعة</answer_ar>
+    </answer>
+    <answer fraction="100">
+      <text>The simulation of human intelligence by machines</text>
+      <answer_ar>محاكاة الذكاء البشري بواسطة الآلات</answer_ar>
+    </answer>
+    <answer fraction="0">
+      <text>A computer virus</text>
+      <answer_ar>فيروس حاسوبي</answer_ar>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name><text>Types of machine learning</text></name>
+    <questiontext format="html">
+      <text>Which of the following is NOT a type of machine learning?</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>أيٌّ مما يلي ليس نوعًا من أنواع تعلم الآلة؟</text>
+    </questiontext_ar>
+    <defaultgrade>2</defaultgrade>
+    <answer fraction="0">
+      <text>Supervised learning</text>
+      <answer_ar>التعلم الخاضع للإشراف</answer_ar>
+    </answer>
+    <answer fraction="0">
+      <text>Unsupervised learning</text>
+      <answer_ar>التعلم غير الخاضع للإشراف</answer_ar>
+    </answer>
+    <answer fraction="0">
+      <text>Reinforcement learning</text>
+      <answer_ar>التعلم التعزيزي</answer_ar>
+    </answer>
+    <answer fraction="100">
+      <text>Instructional learning</text>
+      <answer_ar>التعلم التعليمي</answer_ar>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name><text>Neural network inspiration</text></name>
+    <questiontext format="html">
+      <text>Neural networks are inspired by which of the following?</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>من أي مما يلي استُلهمت الشبكات العصبية؟</text>
+    </questiontext_ar>
+    <defaultgrade>1</defaultgrade>
+    <answer fraction="100">
+      <text>The human brain</text>
+      <answer_ar>الدماغ البشري</answer_ar>
+    </answer>
+    <answer fraction="0">
+      <text>The internet</text>
+      <answer_ar>الإنترنت</answer_ar>
+    </answer>
+    <answer fraction="0">
+      <text>A spreadsheet</text>
+      <answer_ar>جدول بيانات</answer_ar>
+    </answer>
+    <answer fraction="0">
+      <text>A database</text>
+      <answer_ar>قاعدة بيانات</answer_ar>
+    </answer>
+  </question>
+
+</quiz>

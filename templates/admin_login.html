@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Admin Login - SkillPilot</title>
+    <!-- Base URL for JavaScript API calls (handles reverse proxy prefix) -->
+    <script>
+        window.APP_BASE_URL = '{{ request.script_root }}' || '';
+        (function() {
+            const originalFetch = window.fetch;
+            window.fetch = function(url, options) {
+                if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('//')) {
+                    url = window.APP_BASE_URL + url;
+                }
+                return originalFetch.call(this, url, options);
+            };
+        })();
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a237e 0%, #0d47a1 50%, #01579b 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .admin-login-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            padding: 50px;
+            max-width: 450px;
+            width: 100%;
+            border-top: 5px solid #1a237e;
+        }
+
+        .admin-header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .admin-icon {
+            width: 90px;
+            height: 90px;
+            background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            box-shadow: 0 8px 20px rgba(26, 35, 126, 0.3);
+        }
+
+        .admin-icon i {
+            font-size: 2.8rem;
+            color: white;
+        }
+
+        .admin-header h1 {
+            font-size: 1.9rem;
+            color: #1a237e;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .admin-header p {
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .warning-box {
+            background: #e8eaf6;
+            border-left: 4px solid #1a237e;
+            padding: 14px 18px;
+            margin-bottom: 30px;
+            border-radius: 6px;
+        }
+
+        .warning-box i {
+            color: #3949ab;
+            margin-right: 8px;
+        }
+
+        .warning-box p {
+            color: #3949ab;
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        .form-group {
+            margin-bottom: 22px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .form-group label i {
+            color: #1a237e;
+            margin-right: 6px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #1a237e;
+            box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.1);
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(26, 35, 126, 0.3);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            font-size: 0.9rem;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .demo-credentials {
+            margin-top: 25px;
+            padding: 18px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            border-left: 4px solid #1a237e;
+        }
+
+        .demo-credentials h4 {
+            margin: 0 0 10px 0;
+            font-size: 0.95rem;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .demo-credentials p {
+            font-family: monospace;
+            font-size: 1rem;
+            color: #1a237e;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 568px) {
+            .admin-login-container {
+                padding: 30px 20px;
+            }
+
+            .admin-header h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-login-container">
+        <div class="admin-header">
+            <div class="admin-icon">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <h1>Super Admin Portal</h1>
+            <p>SkillPilot Platform Administration</p>
+        </div>
+
+        <div class="warning-box">
+            <p>
+                <i class="fas fa-info-circle"></i>
+                This area is restricted to platform super administrators only.
+            </p>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <form id="adminLoginForm" data-testid="form-admin-login">
+            <div class="form-group">
+                <label for="username">
+                    <i class="fas fa-user"></i> Username
+                </label>
+                <input 
+                    type="text" 
+                    id="username" 
+                    placeholder="Enter admin username" 
+                    required 
+                    autofocus
+                    data-testid="input-admin-username">
+            </div>
+            <div class="form-group">
+                <label for="password">
+                    <i class="fas fa-lock"></i> Password
+                </label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    placeholder="Enter password" 
+                    required
+                    data-testid="input-admin-password">
+            </div>
+            <button type="submit" class="submit-btn" data-testid="button-admin-login">
+                <span class="spinner" id="spinner"></span>
+                <i class="fas fa-sign-in-alt" id="loginIcon"></i>
+                <span id="btnText">Login to Dashboard</span>
+            </button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('errorMessage');
+            const spinner = document.getElementById('spinner');
+            const loginIcon = document.getElementById('loginIcon');
+            const btnText = document.getElementById('btnText');
+            const submitBtn = document.querySelector('.submit-btn');
+
+            // Reset error
+            errorDiv.classList.remove('show');
+            errorDiv.textContent = '';
+
+            // Show loading state
+            spinner.style.display = 'block';
+            loginIcon.style.display = 'none';
+            btnText.textContent = 'Logging in...';
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch('/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    btnText.textContent = 'Success! Redirecting...';
+                    window.location.href = data.redirect || '/admin/dashboard';
+                } else {
+                    errorDiv.textContent = data.error || 'Invalid credentials';
+                    errorDiv.classList.add('show');
+                    
+                    // Reset button
+                    spinner.style.display = 'none';
+                    loginIcon.style.display = 'inline';
+                    btnText.textContent = 'Login to Dashboard';
+                    submitBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                errorDiv.textContent = 'Connection error. Please try again.';
+                errorDiv.classList.add('show');
+                
+                // Reset button
+                spinner.style.display = 'none';
+                loginIcon.style.display = 'inline';
+                btnText.textContent = 'Login to Dashboard';
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{# PWA + mobile meta tags. Include in <head> of every main entry template. #}
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1a5c5e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SkillPilot">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="/static/images/aiac-logo.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/static/images/aiac-logo.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/static/images/aiac-logo.png">
+<script>
+  // Register the service worker once the page has loaded so it never blocks
+  // first paint. Fail-soft — we never break the page if the SW can't install.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .catch(function (err) { console.warn('[skp-pwa] sw register failed:', err); });
+    });
+  }
+</script>

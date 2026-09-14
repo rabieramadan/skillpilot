@@ -1,0 +1,84 @@
+{% extends "_skp_base.html" %}
+{% block title %}Developer Portal — SkillPilot{% endblock %}
+{% block content %}
+<div class="skp-container" style="padding:24px;max-width:1100px;margin:0 auto;">
+  <header style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+    <div>
+      <h1 style="margin:0;font-size:26px;">Developer Portal</h1>
+      <p style="margin:4px 0 0;opacity:.75;">Manage API keys and explore the SkillPilot REST API.</p>
+    </div>
+    <a class="skp-btn" href="/api/v1/spec" target="_blank" rel="noopener">
+      <i class="fas fa-file-code"></i> OpenAPI 3.0 Spec
+    </a>
+  </header>
+
+  <section class="skp-card" style="margin-bottom:24px;">
+    <h2 style="margin-top:0;font-size:18px;"><i class="fas fa-key"></i> Your API Keys</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+      <input id="newKeyName" class="skp-input" placeholder="Key name (e.g. Mobile app, BI export)" style="flex:1;min-width:220px;">
+      <input id="newKeyScopes" class="skp-input" placeholder="Scopes (comma-sep, e.g. read:courses,read:enrollments)" style="flex:1;min-width:280px;">
+      <button class="skp-btn skp-btn-primary" id="createKeyBtn"><i class="fas fa-plus"></i> Create Key</button>
+    </div>
+    <div id="newKeyResult" style="display:none;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:10px;border-radius:8px;margin-bottom:12px;font-family:monospace;word-break:break-all;"></div>
+    <table class="skp-table" id="keysTable" style="width:100%;border-collapse:collapse;">
+      <thead><tr style="text-align:left;border-bottom:1px solid #e5e7eb;">
+        <th style="padding:8px 6px;">Name</th><th>Scopes</th><th>Created</th><th>Last used</th><th></th>
+      </tr></thead>
+      <tbody id="keysTbody"><tr><td colspan="5" style="opacity:.6;padding:12px 6px;">Loading…</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="skp-card">
+    <h2 style="margin-top:0;font-size:18px;"><i class="fas fa-book"></i> API Reference</h2>
+    <p>Authenticate every request with <code>Authorization: Bearer &lt;your_api_key&gt;</code>. Scopes are enforced per call.</p>
+    <pre style="background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;overflow:auto;"><code>curl -H "Authorization: Bearer YOUR_KEY" \
+  https://your-skillpilot-host/api/v1/public/courses</code></pre>
+    <iframe src="/api/v1/spec" style="width:100%;height:520px;border:1px solid #e5e7eb;border-radius:8px;margin-top:12px;background:#fff;" title="OpenAPI Spec"></iframe>
+  </section>
+</div>
+
+<script>
+async function loadKeys() {
+  try {
+    const r = await fetch('/api/v1/keys', {credentials: 'same-origin'});
+    const data = await r.json();
+    const items = data.keys || data.items || [];
+    const tb = document.getElementById('keysTbody');
+    if (!items.length) { tb.innerHTML = '<tr><td colspan="5" style="opacity:.6;padding:12px 6px;">No API keys yet.</td></tr>'; return; }
+    tb.innerHTML = items.map(k => `
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:8px 6px;font-weight:600;">${k.name || ''}</td>
+        <td><code>${(k.scopes || []).join(', ')}</code></td>
+        <td>${k.created_at || ''}</td>
+        <td>${k.last_used_at || '<span style="opacity:.5;">never</span>'}</td>
+        <td><button class="skp-btn skp-btn-danger" onclick="revokeKey('${k.id}')"><i class="fas fa-trash"></i></button></td>
+      </tr>`).join('');
+  } catch (e) { console.error(e); }
+}
+async function createKey() {
+  const name = document.getElementById('newKeyName').value.trim();
+  const scopes = document.getElementById('newKeyScopes').value.split(',').map(s => s.trim()).filter(Boolean);
+  if (!name) { alert('Please enter a key name'); return; }
+  const r = await fetch('/api/v1/keys', {
+    method: 'POST', credentials: 'same-origin',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name, scopes}),
+  });
+  const data = await r.json();
+  if (!r.ok) { alert(data.error || 'Failed'); return; }
+  const result = document.getElementById('newKeyResult');
+  result.style.display = 'block';
+  result.innerHTML = `<strong>New key (copy now — only shown once):</strong><br>${data.token || data.api_key || data.key || JSON.stringify(data)}`;
+  document.getElementById('newKeyName').value = '';
+  document.getElementById('newKeyScopes').value = '';
+  loadKeys();
+}
+async function revokeKey(id) {
+  if (!confirm('Revoke this API key? Existing clients using it will stop working.')) return;
+  await fetch('/api/v1/keys/' + encodeURIComponent(id), {method: 'DELETE', credentials: 'same-origin'});
+  loadKeys();
+}
+document.getElementById('createKeyBtn').addEventListener('click', createKey);
+loadKeys();
+</script>
+{% endblock %}

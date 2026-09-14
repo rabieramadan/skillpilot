@@ -1,0 +1,232 @@
+{% extends "_skp_base.html" %}
+{% block title %}EthicalSense — SkillPilot{% endblock %}
+
+{% block content %}
+<div class="skp-stack">
+  <header class="skp-row">
+    <div>
+      <h1 style="margin:0;display:flex;align-items:center;gap:10px;">
+        <i class="fas fa-balance-scale" style="color:var(--skp-brand)"></i>
+        <span data-i18n="es_title">EthicalSense — Professional Ethics Certification</span>
+      </h1>
+      <p style="margin:6px 0 0;color:var(--skp-text-muted);" data-i18n="es_sub">
+        Earn an internationally framed professional ethics certificate at three levels: Basic, Intermediate, and Advanced.
+      </p>
+    </div>
+    <div class="skp-spacer"></div>
+    <a class="skp-btn skp-btn--ghost" href="#mySessions" data-testid="link-jump-sessions">
+      <i class="fas fa-history"></i> <span data-i18n="es_my_sessions">My sessions</span>
+    </a>
+  </header>
+
+  <section class="skp-card" id="profileBanner" hidden>
+    <div class="skp-row">
+      <div>
+        <div style="font-weight:600" data-i18n="es_using_profile">Using your saved profile</div>
+        <div id="profileBannerSummary" style="color:var(--skp-text-muted);font-size:var(--skp-fs-sm);"></div>
+      </div>
+      <div class="skp-spacer"></div>
+      <a class="skp-btn skp-btn--ghost skp-btn--sm" href="/app?tab=profile" data-testid="link-edit-profile">
+        <i class="fas fa-pen"></i> <span data-i18n="es_edit_profile">Edit profile</span>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2 style="margin:0 0 6px" data-i18n="es_principles_title">The five global AI ethics principles</h2>
+    <p style="margin:0 0 12px;color:var(--skp-text-muted);font-size:var(--skp-fs-sm);" data-i18n="es_principles_sub">
+      Every scenario in every level is anchored to one of the five principles that emerged from the global convergence on AI ethics.
+    </p>
+    <div id="principlesGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--skp-s-3);"></div>
+  </section>
+
+  <section>
+    <h2 style="margin:24px 0 10px" data-i18n="es_levels_title">Choose your level</h2>
+    <div id="levelsGrid" class="skp-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--skp-s-4);">
+      <!-- filled by JS -->
+    </div>
+  </section>
+
+  <section id="mySessions">
+    <h2 style="margin:24px 0 10px" data-i18n="es_my_sessions">My sessions</h2>
+    <div id="sessionsList" class="skp-stack"></div>
+  </section>
+</div>
+
+<script>
+const LEVELS = [
+  { id: 'basic',        icon: 'fa-seedling',     color: 'var(--skp-success)' },
+  { id: 'intermediate', icon: 'fa-leaf',         color: 'var(--skp-brand)' },
+  { id: 'advanced',     icon: 'fa-tree',         color: 'var(--skp-warning)' },
+];
+const LBL = {
+  en: {
+    basic: 'Basic', intermediate: 'Intermediate', advanced: 'Advanced',
+    free: 'Free', start: 'Start assessment', cont: 'Continue', certified: 'Certified',
+    pay: 'Pay & start', noSessions: 'You haven\'t taken any assessment yet.',
+    questions: 'questions', passing: 'passing score',
+  },
+  ar: {
+    basic: 'أساسي', intermediate: 'متوسط', advanced: 'متقدم',
+    free: 'مجاني', start: 'ابدأ التقييم', cont: 'متابعة', certified: 'حاصل على شهادة',
+    pay: 'ادفع وابدأ', noSessions: 'لم تقم بأي تقييم بعد.',
+    questions: 'سؤال', passing: 'درجة النجاح',
+  }
+};
+function tr(k){ return (LBL[window.SKP_LANG||'en']||LBL.en)[k] || k; }
+
+let __hubLoading = false;
+async function loadHub() {
+  if (__hubLoading) return;
+  __hubLoading = true;
+  try {
+    const [ctxR, lvlR, sessR, prR] = await Promise.all([
+      fetch('/api/ethics/me-context').then(r=>r.json()).catch(()=>({})),
+      fetch('/api/ethics/level-summary').then(r=>r.json()).catch(()=>({})),
+      fetch('/api/ethics/my-sessions').then(r=>r.json()).catch(()=>({})),
+      fetch('/api/ethics/principles').then(r=>r.json()).catch(()=>({})),
+    ]);
+    renderProfile(ctxR.context || {});
+    renderPrinciples(prR.principles || []);
+    renderLevels(lvlR.levels || [], lvlR.passing_score || 70);
+    renderSessions(sessR.sessions || []);
+  } finally {
+    __hubLoading = false;
+  }
+}
+
+function renderPrinciples(principles) {
+  const grid = document.getElementById('principlesGrid');
+  if (!grid) return;
+  const lang = window.SKP_LANG || 'en';
+  grid.innerHTML = principles.map(p => `
+    <div class="skp-card" data-testid="principle-${escHtml(p.id)}" style="padding:14px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <span style="font-size:20px;color:var(--skp-brand)"><i class="fas ${escHtml(p.icon || 'fa-circle-check')}"></i></span>
+        <strong>${escHtml(lang === 'ar' ? p.name_ar : p.name_en)}</strong>
+      </div>
+      <div style="color:var(--skp-text-muted);font-size:var(--skp-fs-sm);line-height:1.4">
+        ${escHtml(lang === 'ar' ? p.desc_ar : p.desc_en)}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderProfile(ctx) {
+  const banner = document.getElementById('profileBanner');
+  const sum = document.getElementById('profileBannerSummary');
+  const parts = [];
+  if (ctx.name) parts.push(escHtml(ctx.name));
+  if (ctx.profession) parts.push(escHtml(ctx.profession));
+  if (ctx.country) parts.push(escHtml(ctx.country));
+  if (parts.length) {
+    sum.textContent = parts.join(' • ');
+    banner.hidden = false;
+  }
+  window.__esContext = ctx;
+}
+
+function renderLevels(levels, passingScore) {
+  const grid = document.getElementById('levelsGrid');
+  if (!grid) return;
+  const byId = {};
+  (levels || []).forEach(l => { byId[l.id] = l; });
+  const cards = LEVELS.map(meta => {
+    const lvl = byId[meta.id] || { id: meta.id, questions: 20, price: 0, is_free: true };
+    const isFree = !!lvl.is_free;
+    const priceBadge = isFree
+      ? `<span class="skp-badge skp-badge--success">${tr('free')}</span>`
+      : `<span class="skp-badge">$${Number(lvl.price || 0).toFixed(2)}</span>`;
+    return `
+      <div class="skp-card" data-testid="level-card-${meta.id}">
+        <div class="skp-row" style="align-items:flex-start">
+          <div style="font-size:28px;color:${meta.color}"><i class="fas ${meta.icon}"></i></div>
+          <div class="skp-spacer">
+            <div style="font-weight:700;font-size:1.1rem">${escHtml(tr(meta.id))}</div>
+            <div style="color:var(--skp-text-muted);font-size:var(--skp-fs-sm);margin-top:4px">
+              ${escHtml(String(lvl.questions || 20))} ${tr('questions')} • ${escHtml(String(passingScore || 70))}% ${tr('passing')}
+            </div>
+          </div>
+          ${priceBadge}
+        </div>
+        <button class="skp-btn skp-btn--primary" style="width:100%;margin-top:14px"
+                data-testid="button-start-${meta.id}"
+                onclick="startLevel('${meta.id}', ${isFree ? 'false' : 'true'})">
+          <i class="fas fa-play"></i> ${isFree ? tr('start') : tr('pay')}
+        </button>
+      </div>
+    `;
+  });
+  grid.innerHTML = cards.join('');
+}
+
+async function startLevel(levelId, payRequired) {
+  const ctx = window.__esContext || {};
+  if (payRequired) {
+    try {
+      const r = await fetch('/api/ethics/create-payment', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ level_id: levelId })
+      });
+      const j = await r.json();
+      if (j.payment_url) { window.location.href = j.payment_url; return; }
+      skpToast(j.error || 'Payment unavailable', 'error');
+      return;
+    } catch(e) { skpToast('Payment unavailable', 'error'); return; }
+  }
+  const payload = {
+    level: levelId,
+    domain: ctx.domain || 'general',
+    jobTitle: ctx.jobTitle || '',
+    profession: ctx.profession || '',
+    country: ctx.country || '',
+    gender: ctx.gender || '',
+    educationLevel: ctx.educationLevel || '',
+    language: ctx.language || (window.SKP_LANG || 'en'),
+  };
+  const missing = ['jobTitle','profession','country','gender','educationLevel'].filter(k=>!payload[k]);
+  if (missing.length) {
+    skpToast('Please complete your profile first.', 'error');
+    setTimeout(()=>{ window.location.href = '/app#profile'; }, 1200);
+    return;
+  }
+  const res = await fetch('/api/ethics/create-session', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const j = await res.json();
+  if (j.success && j.session_id) {
+    window.location.href = `/app?ethics_session=${encodeURIComponent(j.session_id)}#ethics-certificate`;
+  } else {
+    skpToast(j.error || 'Could not start session', 'error');
+  }
+}
+
+function renderSessions(sessions) {
+  const list = document.getElementById('sessionsList');
+  if (!sessions.length) {
+    list.innerHTML = `<div class="skp-card" style="color:var(--skp-text-muted)">${tr('noSessions')}</div>`;
+    return;
+  }
+  list.innerHTML = sessions.map(s => `
+    <div class="skp-card" data-testid="session-row-${escHtml(s.session_id)}">
+      <div class="skp-row">
+        <div>
+          <div style="font-weight:600">${escHtml(s.level || '—')} • ${escHtml(s.domain || '')}</div>
+          <div style="color:var(--skp-text-muted);font-size:var(--skp-fs-sm)">
+            ${escHtml(s.created_at || '')} ${s.is_completed ? `• ${escHtml(String(s.final_score||0))}% ${s.passed?'✓':'✗'}` : ''}
+          </div>
+        </div>
+        <div class="skp-spacer"></div>
+        ${s.is_completed && s.passed && s.certificate_id
+          ? `<a class="skp-btn skp-btn--primary skp-btn--sm" href="/api/ethics/download-certificate/${escHtml(s.certificate_id)}" data-testid="link-cert-${escHtml(s.certificate_id)}"><i class="fas fa-download"></i> ${tr('certified')}</a>`
+          : (!s.is_completed ? `<a class="skp-btn skp-btn--sm" href="/app?ethics_session=${escHtml(s.session_id)}#ethics-certificate" data-testid="link-resume-${escHtml(s.session_id)}">${tr('cont')}</a>` : '')}
+      </div>
+    </div>
+  `).join('');
+}
+
+document.addEventListener('DOMContentLoaded', loadHub);
+document.addEventListener('skp:lang', loadHub);
+</script>
+{% endblock %}

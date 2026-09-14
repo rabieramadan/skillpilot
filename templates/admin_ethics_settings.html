@@ -1,0 +1,173 @@
+{% extends "_skp_base.html" %}
+{% block title %}EthicalSense Settings — SkillPilot{% endblock %}
+
+{% block content %}
+<div class="skp-stack">
+  <header class="skp-row">
+    <h1 style="margin:0;display:flex;align-items:center;gap:10px;">
+      <i class="fas fa-balance-scale" style="color:var(--skp-brand)"></i>
+      <span data-i18n="aes_title">EthicalSense — Admin Settings</span>
+    </h1>
+    <div class="skp-spacer"></div>
+    <a class="skp-btn skp-btn--ghost skp-btn--sm" href="/admin/system" data-testid="link-back-system">
+      <i class="fas fa-arrow-left"></i> <span data-i18n="back">Back</span>
+    </a>
+  </header>
+
+  <section class="skp-card">
+    <h3 style="margin-top:0" data-i18n="aes_module">Module</h3>
+    <label class="skp-row">
+      <input type="checkbox" id="moduleEnabled" data-testid="toggle-module-enabled">
+      <span data-i18n="aes_enable_module">Enable EthicalSense module</span>
+    </label>
+    <div class="skp-form-row" style="max-width:340px;margin-top:12px">
+      <label data-i18n="aes_passing">Default passing score (%)</label>
+      <input type="number" id="passingScore" min="50" max="100" class="skp-input" data-testid="input-passing-score">
+    </div>
+    <div class="skp-form-row" style="max-width:520px">
+      <label data-i18n="aes_paypal">PayPal payment link</label>
+      <input type="url" id="paypalLink" class="skp-input" placeholder="https://paypal.me/..." data-testid="input-paypal-link">
+    </div>
+  </section>
+
+  <section class="skp-card">
+    <h3 style="margin-top:0" data-i18n="aes_pricing">Pricing & questions per level</h3>
+    <p style="color:var(--skp-text-muted);font-size:var(--skp-fs-sm);margin-top:0" data-i18n="aes_qpl_help">
+      Each level must have at least 20 questions.
+    </p>
+    <table class="skp-table">
+      <thead><tr>
+        <th data-i18n="level">Level</th>
+        <th data-i18n="aes_questions">Questions (min 20)</th>
+        <th data-i18n="aes_free">Free</th>
+        <th data-i18n="aes_amount">Amount (USD)</th>
+      </tr></thead>
+      <tbody id="pricingBody"></tbody>
+    </table>
+  </section>
+
+  <section class="skp-card">
+    <h3 style="margin-top:0" data-i18n="aes_waivers">Per-user waivers</h3>
+    <p style="color:var(--skp-text-muted);font-size:var(--skp-fs-sm)" data-i18n="aes_waivers_help">
+      Waived users access all paid levels for free.
+    </p>
+    <div class="skp-row" style="margin-bottom:12px">
+      <input type="search" id="userSearch" class="skp-input" placeholder="Search by email or name…" style="flex:1;min-width:240px" data-testid="input-user-search">
+    </div>
+    <div id="userResults" class="skp-stack"></div>
+    <h4 style="margin-top:18px" data-i18n="aes_current_waivers">Currently waived</h4>
+    <div id="currentWaivers" class="skp-stack"></div>
+  </section>
+
+  <div class="skp-row">
+    <button class="skp-btn skp-btn--primary" id="saveAll" data-testid="button-save-all">
+      <i class="fas fa-save"></i> <span data-i18n="save">Save</span>
+    </button>
+    <span id="saveStatus" style="color:var(--skp-text-muted)"></span>
+  </div>
+</div>
+
+<script>
+const LEVELS = ['basic', 'intermediate', 'advanced'];
+let SETTINGS = {};
+
+async function loadSettings() {
+  const r = await fetch('/api/ethics/admin/settings');
+  const j = await r.json();
+  SETTINGS = j.settings || {};
+  SETTINGS.pricing = SETTINGS.pricing || {basic:29.99,intermediate:49.99,advanced:79.99};
+  SETTINGS.free_levels = SETTINGS.free_levels || {basic:false,intermediate:false,advanced:false};
+  SETTINGS.questions_per_level = SETTINGS.questions_per_level || {basic:20,intermediate:20,advanced:20};
+  SETTINGS.waived_users = SETTINGS.waived_users || [];
+  document.getElementById('moduleEnabled').checked = SETTINGS.module_enabled !== false;
+  document.getElementById('passingScore').value = SETTINGS.passing_score || 70;
+  document.getElementById('paypalLink').value = SETTINGS.paypal_payment_link || '';
+  renderPricing();
+  renderCurrentWaivers();
+}
+
+function renderPricing() {
+  const body = document.getElementById('pricingBody');
+  body.innerHTML = LEVELS.map(l => `
+    <tr>
+      <td style="text-transform:capitalize">${l}</td>
+      <td><input type="number" min="20" step="1" class="skp-input" style="max-width:120px" data-questions="${l}" value="${Math.max(20, parseInt(SETTINGS.questions_per_level[l]||20,10))}" data-testid="input-questions-${l}"></td>
+      <td><input type="checkbox" data-free="${l}" ${SETTINGS.free_levels[l] ? 'checked':''} data-testid="toggle-free-${l}"></td>
+      <td><input type="number" min="0" step="0.01" class="skp-input" style="max-width:140px" data-price="${l}" value="${Number(SETTINGS.pricing[l]||0).toFixed(2)}" data-testid="input-price-${l}"></td>
+    </tr>
+  `).join('');
+}
+
+async function renderCurrentWaivers() {
+  const box = document.getElementById('currentWaivers');
+  const ids = SETTINGS.waived_users || [];
+  if (!ids.length) { box.innerHTML = `<div style="color:var(--skp-text-muted)">—</div>`; return; }
+  box.innerHTML = ids.map(id => `
+    <div class="skp-row">
+      <code>${escHtml(id)}</code>
+      <div class="skp-spacer"></div>
+      <button class="skp-btn skp-btn--ghost skp-btn--sm" onclick="unwaive('${escHtml(id)}')" data-testid="button-unwaive-${escHtml(id)}">
+        <i class="fas fa-times"></i> Remove
+      </button>
+    </div>
+  `).join('');
+}
+
+let searchTimer = null;
+document.getElementById('userSearch').addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  const q = e.target.value.trim();
+  if (q.length < 2) { document.getElementById('userResults').innerHTML = ''; return; }
+  searchTimer = setTimeout(async () => {
+    const r = await fetch('/api/ethics/admin/users-search?q=' + encodeURIComponent(q));
+    const j = await r.json();
+    const list = j.users || [];
+    document.getElementById('userResults').innerHTML = list.length ? list.map(u => `
+      <div class="skp-row skp-card" style="padding:8px 12px">
+        <div>
+          <div style="font-weight:600">${escHtml(u.name || u.email)}</div>
+          <div style="color:var(--skp-text-muted);font-size:var(--skp-fs-sm)">${escHtml(u.email)}</div>
+        </div>
+        <div class="skp-spacer"></div>
+        ${u.waived
+          ? `<button class="skp-btn skp-btn--ghost skp-btn--sm" onclick="unwaive('${escHtml(u.id)}')" data-testid="button-unwaive-search-${escHtml(u.id)}"><i class="fas fa-times"></i> Remove waiver</button>`
+          : `<button class="skp-btn skp-btn--primary skp-btn--sm" onclick="waive('${escHtml(u.id)}')" data-testid="button-waive-${escHtml(u.id)}"><i class="fas fa-check"></i> Grant free access</button>`}
+      </div>
+    `).join('') : `<div style="color:var(--skp-text-muted)">No matches</div>`;
+  }, 250);
+});
+
+async function waive(id) {
+  const r = await fetch('/api/ethics/admin/waive-payment', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: id }) });
+  if (r.ok) { skpToast('Granted', 'success'); await loadSettings(); document.getElementById('userSearch').dispatchEvent(new Event('input')); }
+}
+async function unwaive(id) {
+  const r = await fetch('/api/ethics/admin/unwaive-payment', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: id }) });
+  if (r.ok) { skpToast('Removed', 'success'); await loadSettings(); document.getElementById('userSearch').dispatchEvent(new Event('input')); }
+}
+
+document.getElementById('saveAll').addEventListener('click', async () => {
+  const status = document.getElementById('saveStatus');
+  status.textContent = 'Saving…';
+  const pricing = {}, free_levels = {}, questions_per_level = {};
+  document.querySelectorAll('[data-price]').forEach(i => pricing[i.dataset.price] = parseFloat(i.value)||0);
+  document.querySelectorAll('[data-free]').forEach(i => free_levels[i.dataset.free] = i.checked);
+  document.querySelectorAll('[data-questions]').forEach(i => {
+    const v = parseInt(i.value, 10);
+    questions_per_level[i.dataset.questions] = Math.max(20, isNaN(v) ? 20 : v);
+  });
+  const body = {
+    module_enabled: document.getElementById('moduleEnabled').checked,
+    passing_score: parseInt(document.getElementById('passingScore').value, 10) || 70,
+    paypal_payment_link: document.getElementById('paypalLink').value.trim(),
+    pricing, free_levels, questions_per_level,
+  };
+  const r = await fetch('/api/ethics/admin/settings', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (r.ok) { status.textContent = 'Saved ✓'; skpToast('Settings saved', 'success'); }
+  else { status.textContent = 'Failed'; skpToast('Save failed', 'error'); }
+  setTimeout(()=>status.textContent='', 3000);
+});
+
+document.addEventListener('DOMContentLoaded', loadSettings);
+</script>
+{% endblock %}

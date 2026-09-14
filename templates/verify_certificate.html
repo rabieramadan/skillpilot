@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificate Verification - SkillPilot</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #1a5c5e 0%, #2a8084 100%);
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; color: #1a1a1a;
+  }
+  .card {
+    background: #fff; border-radius: 16px; max-width: 560px; width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25); overflow: hidden;
+  }
+  .header { padding: 28px; text-align: center; color: #fff; }
+  .header.valid   { background: linear-gradient(135deg,#16a34a 0%,#15803d 100%); }
+  .header.invalid { background: linear-gradient(135deg,#dc2626 0%,#991b1b 100%); }
+  .header .icon { font-size: 56px; line-height: 1; margin-bottom: 8px; }
+  .header h1 { font-size: 24px; margin-bottom: 4px; }
+  .header p  { opacity: .9; font-size: 14px; }
+  .body { padding: 28px; }
+  .row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9; gap: 16px; }
+  .row:last-child { border-bottom: 0; }
+  .row .label { color: #64748b; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .row .value { color: #0f172a; font-size: 15px; font-weight: 600; text-align: right; word-break: break-word; }
+  .badge {
+    display: inline-block; padding: 4px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 700; background: #dcfce7; color: #166534;
+  }
+  .footer {
+    padding: 16px 28px; background: #f8fafc; color: #64748b;
+    font-size: 12px; text-align: center;
+  }
+  .cert-number {
+    font-family: 'Courier New', monospace; font-size: 14px;
+    background: #f1f5f9; padding: 4px 8px; border-radius: 4px;
+  }
+  .help { margin-top: 16px; padding: 14px; background: #fef3c7; border-radius: 8px; color: #78350f; font-size: 13px; line-height: 1.5; }
+</style>
+</head>
+<body>
+  {% set _name = (issued.student_name if issued else (student.full_name or student.username if student else None)) %}
+  {% set _course = (issued.course_title if issued else (course.title if course else None)) %}
+  {% set _issued_at = (issued.issued_at if issued else (enrollment.certificate_issued_at if enrollment else None)) %}
+  {% set _grade = (issued.final_grade if issued else (enrollment.final_grade if enrollment else None)) %}
+  <div class="card" data-testid="card-verification">
+    {% if _name %}
+      <div class="header valid">
+        <div class="icon">&#10004;</div>
+        <h1>Certificate Verified</h1>
+        <p>This certificate is authentic and was issued by SkillPilot.</p>
+      </div>
+      <div class="body">
+        <div class="row">
+          <span class="label">Certificate No.</span>
+          <span class="value cert-number" data-testid="text-cert-number">{{ cert_number }}</span>
+        </div>
+        <div class="row">
+          <span class="label">Student</span>
+          <span class="value" data-testid="text-student">{{ _name }}</span>
+        </div>
+        <div class="row">
+          <span class="label">Course</span>
+          <span class="value" data-testid="text-course">{{ _course or '—' }}</span>
+        </div>
+        <div class="row">
+          <span class="label">Issued</span>
+          <span class="value" data-testid="text-issued">
+            {{ _issued_at.strftime('%B %d, %Y') if _issued_at else '—' }}
+          </span>
+        </div>
+        {% if _grade is not none %}
+        <div class="row">
+          <span class="label">Final Grade</span>
+          <span class="value" data-testid="text-grade">{{ '%.1f'|format(_grade) }}%</span>
+        </div>
+        {% endif %}
+        <div class="row">
+          <span class="label">Status</span>
+          <span class="value"><span class="badge" data-testid="badge-status">Valid</span></span>
+        </div>
+      </div>
+    {% else %}
+      <div class="header invalid">
+        <div class="icon">&#9888;</div>
+        <h1>Certificate Not Found</h1>
+        <p>We could not verify the certificate number you scanned.</p>
+      </div>
+      <div class="body">
+        <div class="row">
+          <span class="label">Scanned Number</span>
+          <span class="value cert-number" data-testid="text-cert-number">{{ cert_number or '(none)' }}</span>
+        </div>
+        <div class="help" data-testid="text-help">
+          If this certificate was issued without being linked to a class,
+          it may not be stored in our verification database. Please contact
+          the issuing administrator to confirm authenticity.
+        </div>
+      </div>
+    {% endif %}
+    <div class="footer">SkillPilot &middot; Certificate Verification</div>
+  </div>
+</body>
+</html>

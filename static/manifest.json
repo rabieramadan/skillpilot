@@ -1,0 +1,47 @@
+{
+  "name": "SkillPilot — AI-Powered Training",
+  "short_name": "SkillPilot",
+  "description": "Bilingual AI-powered Learning Management System for courses, exams, and certificates.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f3a3c",
+  "theme_color": "#1a5c5e",
+  "lang": "en",
+  "dir": "auto",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/static/images/aiac-logo.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/images/aiac-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/images/aiac-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open courses",
+      "short_name": "Courses",
+      "url": "/app",
+      "icons": [{ "src": "/static/images/aiac-logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Sign in",
+      "short_name": "Sign in",
+      "url": "/skillpilot-landing"
+    }
+  ]
+}

@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="{{ lang or 'en' }}" dir="{{ 'rtl' if lang == 'ar' else 'ltr' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    {% include '_pwa_meta.html' %}
+    <title>{{ settings.site_name or 'SkillPilot' }} - {{ settings.hero_title or 'AI-Powered Training Platform' }}</title>
+    <meta name="description" content="{{ settings.hero_subtitle or 'Empower your learning journey with cutting-edge AI technology' }}">
+    <link rel="icon" href="{{ settings.favicon_url or url_for('static', filename='images/skillpilot-logo.png') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/design-system.css') }}">
+    <script>
+        window.APP_BASE_URL = '{{ request.script_root }}' || '';
+        (function() {
+            const originalFetch = window.fetch;
+            window.fetch = function(url, options) {
+                if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('//')) {
+                    url = window.APP_BASE_URL + url;
+                }
+                return originalFetch.call(this, url, options);
+            };
+        })();
+    </script>
+    <style>
+        :root {
+            --primary: {{ settings.primary_color or '#1B5E20' }};
+            --secondary: {{ settings.secondary_color or '#2E7D32' }};
+            --accent: {{ settings.accent_color or '#4CAF50' }};
+            --header-bg: {{ settings.header_bg_color or '#1B5E20' }};
+            --text-primary: #1a1a2e;
+            --text-secondary: #4a5568;
+            --text-light: #718096;
+            --bg-light: #f8fafc;
+            --bg-white: #ffffff;
+            --border-color: #e2e8f0;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 25px -5px rgba(0,0,0,0.1);
+            --shadow-xl: 0 20px 40px -10px rgba(0,0,0,0.15);
+            --radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: var(--text-primary);
+            line-height: 1.6;
+            background: var(--bg-white);
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        .header {
+            background: var(--header-bg);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            padding: 16px 0;
+            transition: var(--transition);
+        }
+
+        .header.scrolled {
+            background: rgba(27, 94, 32, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+
+        .logo img {
+            height: 44px;
+            width: auto;
+        }
+
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+        }
+
+        .nav-links a {
+            color: rgba(255,255,255,0.9);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: var(--transition);
+        }
+
+        .nav-links a:hover {
+            color: white;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: var(--radius);
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-decoration: none;
+            transition: var(--transition);
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: white;
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+
+        .btn-outline:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: white;
+        }
+
+        .btn-white {
+            background: white;
+            color: var(--primary);
+        }
+
+        .btn-white:hover {
+            background: var(--bg-light);
+            transform: translateY(-2px);
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 0.875rem;
+        }
+
+        .btn-lg {
+            padding: 16px 32px;
+            font-size: 1.05rem;
+        }
+
+        .lang-toggle {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            border: 1px solid rgba(255,255,255,0.3);
+            transition: var(--transition);
+        }
+
+        .lang-toggle:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 50%, var(--accent) 100%);
+            position: relative;
+            overflow: hidden;
+            padding-top: 80px;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='m36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            opacity: 0.5;
+        }
+
+        {% if settings.hero_image_url %}
+        .hero::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("{{ settings.hero_image_url }}") center/cover;
+            opacity: 0.15;
+        }
+        {% endif %}
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            color: white;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            text-shadow: 0 2px 20px rgba(0,0,0,0.2);
+        }
+
+        .hero p {
+            font-size: clamp(1.1rem, 2vw, 1.35rem);
+            opacity: 0.95;
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .hero-stats {
+            display: flex;
+            justify-content: center;
+            gap: 48px;
+            margin-top: 60px;
+            padding-top: 40px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            opacity: 0.8;
+        }
+
+        .features {
+            padding: 100px 0;
+            background: var(--bg-light);
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-tag {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-size: clamp(2rem, 4vw, 2.75rem);
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .section-subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 32px;
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            transition: var(--transition);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .feature-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .feature-icon i {
+            font-size: 24px;
+            color: white;
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .courses {
+            padding: 100px 0;
+        }
+
+        .courses-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 32px;
+        }
+
+        .course-card {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+            transition: var(--transition);
+            border: 1px solid var(--border-color);
+        }
+
+        .course-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .course-image {
+            height: 180px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .course-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .course-image i {
+            font-size: 48px;
+            color: rgba(255,255,255,0.8);
+        }
+
+        .course-content {
+            padding: 24px;
+        }
+
+        .course-content h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        .course-content p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+        }
+
+        .course-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .course-meta span {
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        .about {
+            padding: 100px 0;
+            background: var(--bg-light);
+        }
+
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .about-image {
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: var(--shadow-xl);
+        }
+
+        .about-image img {
+            width: 100%;
+            height: auto;
+        }
+
+        .about-image-placeholder {
+            height: 400px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .about-image-placeholder i {
+            font-size: 80px;
+            color: rgba(255,255,255,0.5);
+        }
+
+        .about-content h2 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            color: var(--text-primary);
+        }
+
+        .about-content p {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            font-size: 1.05rem;
+        }
+
+        .cta {
+            padding: 100px 0;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            text-align: center;
+            color: white;
+        }
+
+        .cta h2 {
+            font-size: clamp(2rem, 4vw, 2.75rem);
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .cta p {
+            font-size: 1.15rem;
+            opacity: 0.9;
+            margin-bottom: 32px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .footer {
+            background: #1a1a2e;
+            color: rgba(255,255,255,0.8);
+            padding: 60px 0 30px;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 48px;
+            margin-bottom: 48px;
+        }
+
+        .footer-brand {
+            max-width: 300px;
+        }
+
+        .footer-brand img {
+            height: 48px;
+            margin-bottom: 16px;
+        }
+
+        .footer-brand p {
+            font-size: 0.95rem;
+            opacity: 0.8;
+            margin-bottom: 20px;
+        }
+
+        .social-links {
+            display: flex;
+            gap: 12px;
+        }
+
+        .social-links a {
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            transition: var(--transition);
+        }
+
+        .social-links a:hover {
+            background: var(--accent);
+            transform: translateY(-3px);
+        }
+
+        .footer-column h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .footer-column ul {
+            list-style: none;
+        }
+
+        .footer-column li {
+            margin-bottom: 12px;
+        }
+
+        .footer-column a {
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: var(--transition);
+        }
+
+        .footer-column a:hover {
+            color: white;
+        }
+
+        .footer-bottom {
+            padding-top: 30px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .footer-bottom p {
+            font-size: 0.875rem;
+            opacity: 0.7;
+        }
+
+        .contact-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .contact-info span {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        @media (max-width: 992px) {
+            .footer-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .about-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            .header-actions .btn {
+                display: none;
+            }
+
+            .hero-stats {
+                flex-direction: column;
+                gap: 24px;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-bottom {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+
+        [dir="rtl"] {
+            text-align: right;
+        }
+
+        [dir="rtl"] .hero-content,
+        [dir="rtl"] .section-header,
+        [dir="rtl"] .cta {
+            text-align: center;
+        }
+
+        {{ settings.custom_css|safe if settings.custom_css else '' }}
+    </style>
+</head>
+<body>
+    <header class="header" id="header">
+        <div class="container">
+            <div class="header-content">
+                <a href="/" class="logo">
+                    {% if settings.logo_url %}
+                    <img src="{{ settings.logo_url }}" alt="{{ settings.site_name or 'Logo' }}">
+                    {% else %}
+                    <img src="{{ url_for('static', filename='images/skillpilot-logo.png') }}" alt="SkillPilot">
+                    {% endif %}
+                    <span class="logo-text">{{ settings.site_name if lang != 'ar' else settings.site_name_ar or settings.site_name or 'SkillPilot' }}</span>
+                </a>
+
+                <nav class="nav-links">
+                    <a href="#features">{{ 'Features' if lang != 'ar' else 'الميزات' }}</a>
+                    <a href="#courses">{{ 'Courses' if lang != 'ar' else 'الدورات' }}</a>
+                    <a href="#about">{{ 'About' if lang != 'ar' else 'عنا' }}</a>
+                    <a href="#contact">{{ 'Contact' if lang != 'ar' else 'اتصل بنا' }}</a>
+                </nav>
+
+                <div class="header-actions">
+                    <button class="lang-toggle" onclick="toggleLanguage()">
+                        <i class="fas fa-globe"></i>
+                        {{ 'العربية' if lang != 'ar' else 'English' }}
+                    </button>
+                    <a href="#" onclick="showLoginModal('login'); return false;" class="btn btn-outline" data-testid="btn-login">
+                        <i class="fas fa-sign-in-alt"></i>
+                        {{ 'Login' if lang != 'ar' else 'تسجيل الدخول' }}
+                    </a>
+                    <a href="#" onclick="showLoginModal('register'); return false;" class="btn btn-white" data-testid="btn-get-started">
+                        {{ 'Get Started' if lang != 'ar' else 'ابدأ الآن' }}
+                    </a>
+                    <button class="mobile-menu-btn" onclick="toggleMobileMenu()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <i class="fas fa-rocket"></i>
+                    {{ 'AI-Powered Learning' if lang != 'ar' else 'تعلم مدعوم بالذكاء الاصطناعي' }}
+                </div>
+                <h1>{{ settings.hero_title if lang != 'ar' else settings.hero_title_ar or settings.hero_title or 'AI-Powered Training Platform' }}</h1>
+                <p>{{ settings.hero_subtitle if lang != 'ar' else settings.hero_subtitle_ar or settings.hero_subtitle or 'Empower your learning journey with cutting-edge AI technology' }}</p>
+                <div class="hero-buttons">
+                    <a href="#" onclick="showLoginModal('register'); return false;" class="btn btn-white btn-lg" data-testid="hero-btn-start">
+                        <i class="fas fa-play"></i>
+                        {{ 'Start Learning' if lang != 'ar' else 'ابدأ التعلم' }}
+                    </a>
+                    <a href="#courses" class="btn btn-outline btn-lg" data-testid="hero-btn-courses">
+                        <i class="fas fa-book"></i>
+                        {{ 'Browse Courses' if lang != 'ar' else 'تصفح الدورات' }}
+                    </a>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <div class="stat-number">{{ stats.courses or '10+' }}</div>
+                        <div class="stat-label">{{ 'Courses' if lang != 'ar' else 'دورة' }}</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number">{{ stats.students or '500+' }}</div>
+                        <div class="stat-label">{{ 'Students' if lang != 'ar' else 'طالب' }}</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-number">{{ stats.certificates or '100+' }}</div>
+                        <div class="stat-label">{{ 'Certificates' if lang != 'ar' else 'شهادة' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="features" id="features">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">{{ 'Features' if lang != 'ar' else 'الميزات' }}</span>
+                <h2 class="section-title">{{ settings.features_title if lang != 'ar' else settings.features_title_ar or 'Why Choose Us' }}</h2>
+                <p class="section-subtitle">{{ 'Discover what makes our platform the best choice for your learning journey' if lang != 'ar' else 'اكتشف ما يجعل منصتنا الخيار الأفضل لرحلتك التعليمية' }}</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-robot"></i></div>
+                    <h3>{{ 'AI-Powered Learning' if lang != 'ar' else 'تعلم بالذكاء الاصطناعي' }}</h3>
+                    <p>{{ 'Get personalized learning experiences with our advanced AI technology that adapts to your pace and style.' if lang != 'ar' else 'احصل على تجارب تعليمية مخصصة مع تقنية الذكاء الاصطناعي المتقدمة.' }}</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-certificate"></i></div>
+                    <h3>{{ 'Professional Certificates' if lang != 'ar' else 'شهادات احترافية' }}</h3>
+                    <p>{{ 'Earn recognized certificates upon course completion to boost your career prospects.' if lang != 'ar' else 'احصل على شهادات معترف بها عند إتمام الدورة لتعزيز فرصك المهنية.' }}</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-users"></i></div>
+                    <h3>{{ 'Expert Instructors' if lang != 'ar' else 'مدربون خبراء' }}</h3>
+                    <p>{{ 'Learn from industry experts who bring real-world experience to every lesson.' if lang != 'ar' else 'تعلم من خبراء الصناعة الذين يجلبون الخبرة العملية لكل درس.' }}</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-globe"></i></div>
+                    <h3>{{ 'Multilingual Support' if lang != 'ar' else 'دعم متعدد اللغات' }}</h3>
+                    <p>{{ 'Access courses in multiple languages including English and Arabic.' if lang != 'ar' else 'الوصول إلى الدورات بلغات متعددة بما في ذلك العربية والإنجليزية.' }}</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-mobile-alt"></i></div>
+                    <h3>{{ 'Learn Anywhere' if lang != 'ar' else 'تعلم في أي مكان' }}</h3>
+                    <p>{{ 'Access your courses on any device, anytime, anywhere with our responsive platform.' if lang != 'ar' else 'الوصول إلى دوراتك على أي جهاز، في أي وقت، في أي مكان.' }}</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-chart-line"></i></div>
+                    <h3>{{ 'Progress Tracking' if lang != 'ar' else 'تتبع التقدم' }}</h3>
+                    <p>{{ 'Monitor your learning progress with detailed analytics and insights.' if lang != 'ar' else 'راقب تقدمك في التعلم مع تحليلات ورؤى مفصلة.' }}</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {% if settings.courses_section_enabled != False %}
+    <section class="courses" id="courses">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">{{ 'Courses' if lang != 'ar' else 'الدورات' }}</span>
+                <h2 class="section-title">{{ settings.courses_section_title if lang != 'ar' else settings.courses_section_title_ar or 'Our Courses' }}</h2>
+                <p class="section-subtitle">{{ 'Explore our wide range of courses designed to help you succeed' if lang != 'ar' else 'استكشف مجموعتنا الواسعة من الدورات المصممة لمساعدتك على النجاح' }}</p>
+            </div>
+            <div class="courses-grid">
+                {% for course in courses[:6] %}
+                <div class="course-card" data-testid="course-card-{{ course.id }}">
+                    <div class="course-image">
+                        {% if course.thumbnail_url %}
+                        <img src="{{ course.thumbnail_url }}" alt="{{ course.title }}">
+                        {% else %}
+                        <i class="fas fa-book-open"></i>
+                        {% endif %}
+                    </div>
+                    <div class="course-content">
+                        <h3>{{ course.title if lang != 'ar' else course.title_ar or course.title }}</h3>
+                        <p>{{ (course.description or '')[:100] }}{{ '...' if (course.description or '')|length > 100 else '' }}</p>
+                        <div class="course-meta">
+                            <span><i class="fas fa-clock"></i> {{ 'Self-paced' if course.is_self_paced else 'Instructor-led' }}</span>
+                            <a href="{{ url_for('main.app_page') }}" class="btn btn-primary btn-sm">{{ 'Enroll' if lang != 'ar' else 'سجل الآن' }}</a>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="course-card">
+                    <div class="course-image"><i class="fas fa-graduation-cap"></i></div>
+                    <div class="course-content">
+                        <h3>{{ 'Coming Soon' if lang != 'ar' else 'قريباً' }}</h3>
+                        <p>{{ 'New courses are being prepared. Stay tuned!' if lang != 'ar' else 'يتم إعداد دورات جديدة. ترقبوا!' }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    <section class="about" id="about">
+        <div class="container">
+            <div class="about-grid">
+                <div class="about-image">
+                    {% if settings.about_image_url %}
+                    <img src="{{ settings.about_image_url }}" alt="About Us">
+                    {% else %}
+                    <div class="about-image-placeholder"><i class="fas fa-university"></i></div>
+                    {% endif %}
+                </div>
+                <div class="about-content">
+                    <span class="section-tag">{{ 'About Us' if lang != 'ar' else 'من نحن' }}</span>
+                    <h2>{{ settings.about_title if lang != 'ar' else settings.about_title_ar or 'About Our Platform' }}</h2>
+                    <p>{{ settings.about_content if lang != 'ar' else settings.about_content_ar or 'We are dedicated to providing world-class education and training to help individuals and organizations achieve their full potential through innovative learning solutions.' }}</p>
+                    <a href="{{ url_for('main.app_page') }}" class="btn btn-primary" data-testid="about-btn-learn-more">{{ 'Learn More' if lang != 'ar' else 'اعرف المزيد' }}</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta">
+        <div class="container">
+            <h2>{{ settings.cta_title if lang != 'ar' else settings.cta_title_ar or 'Ready to Start Your Learning Journey?' }}</h2>
+            <p>{{ settings.cta_subtitle if lang != 'ar' else settings.cta_subtitle_ar or 'Join thousands of learners who are already transforming their careers.' }}</p>
+            <a href="{{ settings.cta_button_url or url_for('main.app_page') }}" class="btn btn-white btn-lg" data-testid="cta-btn-start">
+                {{ settings.cta_button_text if lang != 'ar' else settings.cta_button_text_ar or 'Get Started Free' }}
+            </a>
+        </div>
+    </section>
+
+    <footer class="footer" id="contact">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    {% if settings.logo_url %}
+                    <img src="{{ settings.logo_url }}" alt="{{ settings.site_name or 'Logo' }}" style="filter: brightness(0) invert(1);">
+                    {% else %}
+                    <img src="{{ url_for('static', filename='images/skillpilot-logo.png') }}" alt="SkillPilot" style="filter: brightness(0) invert(1);">
+                    {% endif %}
+                    <p>{{ settings.footer_text or 'Empowering learners worldwide with AI-powered education and professional training.' }}</p>
+                    <div class="social-links">
+                        {% set social = settings.social_links_parsed if settings.social_links_parsed else {} %}
+                        {% if social.get('facebook') %}<a href="{{ social.facebook }}" target="_blank" data-testid="social-facebook"><i class="fab fa-facebook-f"></i></a>{% endif %}
+                        {% if social.get('twitter') %}<a href="{{ social.twitter }}" target="_blank" data-testid="social-twitter"><i class="fab fa-twitter"></i></a>{% endif %}
+                        {% if social.get('linkedin') %}<a href="{{ social.linkedin }}" target="_blank" data-testid="social-linkedin"><i class="fab fa-linkedin-in"></i></a>{% endif %}
+                        {% if social.get('instagram') %}<a href="{{ social.instagram }}" target="_blank" data-testid="social-instagram"><i class="fab fa-instagram"></i></a>{% endif %}
+                        {% if social.get('youtube') %}<a href="{{ social.youtube }}" target="_blank" data-testid="social-youtube"><i class="fab fa-youtube"></i></a>{% endif %}
+                        {% if not social %}
+                        <a href="#" data-testid="social-facebook"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#" data-testid="social-twitter"><i class="fab fa-twitter"></i></a>
+                        <a href="#" data-testid="social-linkedin"><i class="fab fa-linkedin-in"></i></a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="footer-column">
+                    <h4>{{ 'Quick Links' if lang != 'ar' else 'روابط سريعة' }}</h4>
+                    <ul>
+                        <li><a href="#features">{{ 'Features' if lang != 'ar' else 'الميزات' }}</a></li>
+                        <li><a href="#courses">{{ 'Courses' if lang != 'ar' else 'الدورات' }}</a></li>
+                        <li><a href="#about">{{ 'About Us' if lang != 'ar' else 'من نحن' }}</a></li>
+                        <li><a href="#" onclick="showLoginModal('login'); return false;">{{ 'Login' if lang != 'ar' else 'تسجيل الدخول' }}</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>{{ 'Support' if lang != 'ar' else 'الدعم' }}</h4>
+                    <ul>
+                        <li><a href="#">{{ 'Help Center' if lang != 'ar' else 'مركز المساعدة' }}</a></li>
+                        <li><a href="#">{{ 'Privacy Policy' if lang != 'ar' else 'سياسة الخصوصية' }}</a></li>
+                        <li><a href="#">{{ 'Terms of Service' if lang != 'ar' else 'شروط الخدمة' }}</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h4>{{ 'Contact' if lang != 'ar' else 'اتصل بنا' }}</h4>
+                    <div class="contact-info">
+                        {% if settings.contact_email %}<span><i class="fas fa-envelope"></i> {{ settings.contact_email }}</span>{% endif %}
+                        {% if settings.phone %}<span><i class="fas fa-phone"></i> {{ settings.phone }}</span>{% endif %}
+                        {% if settings.address %}<span><i class="fas fa-map-marker-alt"></i> {{ settings.address if lang != 'ar' else settings.address_ar or settings.address }}</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; {{ current_year }} {{ settings.site_name or 'SkillPilot' }}. {{ 'All rights reserved.' if lang != 'ar' else 'جميع الحقوق محفوظة.' }}</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeLoginModal()">&times;</button>
+            <h2 id="modalTitle">{{ 'Login' if lang != 'ar' else 'تسجيل الدخول' }}</h2>
+            
+            <!-- Login Form -->
+            <form id="loginForm" style="display: block;">
+                <div class="form-group">
+                    <label><i class="fas fa-user"></i> {{ 'Username' if lang != 'ar' else 'اسم المستخدم' }}</label>
+                    <input type="text" id="loginUsername" placeholder="{{ 'Enter your username' if lang != 'ar' else 'أدخل اسم المستخدم' }}" required>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-lock"></i> {{ 'Password' if lang != 'ar' else 'كلمة المرور' }}</label>
+                    <input type="password" id="loginPassword" placeholder="{{ 'Enter your password' if lang != 'ar' else 'أدخل كلمة المرور' }}" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    <i class="fas fa-sign-in-alt"></i> {{ 'Login' if lang != 'ar' else 'تسجيل الدخول' }}
+                </button>
+                <p class="form-switch">
+                    {{ "Don't have an account?" if lang != 'ar' else 'ليس لديك حساب؟' }}
+                    <a href="#" onclick="switchToRegister(); return false;">{{ 'Register' if lang != 'ar' else 'سجل الآن' }}</a>
+                </p>
+                <p class="form-switch">
+                    <a href="#" onclick="switchToForgotPassword(); return false;"><i class="fas fa-key"></i> {{ 'Forgot Password?' if lang != 'ar' else 'نسيت كلمة المرور؟' }}</a>
+                </p>
+            </form>
+
+            <!-- Register Form -->
+            <form id="registerForm" style="display: none;">
+                <div class="form-group">
+                    <label><i class="fas fa-user"></i> {{ 'Full Name' if lang != 'ar' else 'الاسم الكامل' }} *</label>
+                    <input type="text" id="regFullName" placeholder="{{ 'Enter your full name' if lang != 'ar' else 'أدخل اسمك الكامل' }}" required>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-envelope"></i> {{ 'Email' if lang != 'ar' else 'البريد الإلكتروني' }} *</label>
+                    <input type="email" id="regEmail" placeholder="{{ 'Enter your email' if lang != 'ar' else 'أدخل بريدك الإلكتروني' }}" required>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-user-circle"></i> {{ 'Username' if lang != 'ar' else 'اسم المستخدم' }} *</label>
+                    <input type="text" id="regUsername" placeholder="{{ 'Choose a username' if lang != 'ar' else 'اختر اسم مستخدم' }}" required>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-lock"></i> {{ 'Password' if lang != 'ar' else 'كلمة المرور' }} *</label>
+                    <input type="password" id="regPassword" placeholder="{{ 'Choose a password (min 6 chars)' if lang != 'ar' else 'اختر كلمة مرور (6 أحرف على الأقل)' }}" required>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-phone"></i> {{ 'Phone (optional)' if lang != 'ar' else 'الهاتف (اختياري)' }}</label>
+                    <input type="text" id="regPhone" placeholder="{{ 'Enter phone number' if lang != 'ar' else 'أدخل رقم الهاتف' }}">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-building"></i> {{ 'Organization (optional)' if lang != 'ar' else 'المنظمة (اختياري)' }}</label>
+                    <input type="text" id="regOrganization" placeholder="{{ 'Enter organization' if lang != 'ar' else 'أدخل اسم المنظمة' }}">
+                </div>
+                <p style="font-size: 0.85rem; color: #666; margin: 10px 0;">{{ 'Security Questions (for password recovery):' if lang != 'ar' else 'أسئلة الأمان (لاستعادة كلمة المرور):' }}</p>
+                <div class="form-group">
+                    <label><i class="fas fa-question-circle"></i> {{ "Mother's maiden name?" if lang != 'ar' else 'اسم والدتك الأوسط؟' }}</label>
+                    <input type="text" id="regSecurityQ1" placeholder="{{ 'Your answer' if lang != 'ar' else 'إجابتك' }}" required>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-question-circle"></i> {{ 'City where you were born?' if lang != 'ar' else 'المدينة التي ولدت فيها؟' }}</label>
+                    <input type="text" id="regSecurityQ2" placeholder="{{ 'Your answer' if lang != 'ar' else 'إجابتك' }}" required>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-question-circle"></i> {{ 'Name of your first pet?' if lang != 'ar' else 'اسم حيوانك الأليف الأول؟' }}</label>
+                    <input type="text" id="regSecurityQ3" placeholder="{{ 'Your answer' if lang != 'ar' else 'إجابتك' }}" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    <i class="fas fa-user-plus"></i> {{ 'Register' if lang != 'ar' else 'تسجيل' }}
+                </button>
+                <p class="form-switch">
+                    {{ 'Already have an account?' if lang != 'ar' else 'لديك حساب بالفعل؟' }}
+                    <a href="#" onclick="switchToLogin(); return false;">{{ 'Login' if lang != 'ar' else 'تسجيل الدخول' }}</a>
+                </p>
+            </form>
+
+            <!-- Forgot Password Form -->
+            <form id="forgotPasswordForm" style="display: none;">
+                <div class="form-group">
+                    <label><i class="fas fa-user"></i> {{ 'Username' if lang != 'ar' else 'اسم المستخدم' }}</label>
+                    <input type="text" id="forgotUsername" placeholder="{{ 'Enter your username' if lang != 'ar' else 'أدخل اسم المستخدم' }}" required>
+                </div>
+                <div id="securityQuestionsSection" style="display: none;">
+                    <div class="form-group">
+                        <label><i class="fas fa-question-circle"></i> {{ "Mother's maiden name?" if lang != 'ar' else 'اسم والدتك الأوسط؟' }}</label>
+                        <input type="text" id="forgotSecurityQ1" placeholder="{{ 'Your answer' if lang != 'ar' else 'إجابتك' }}">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-question-circle"></i> {{ 'City where you were born?' if lang != 'ar' else 'المدينة التي ولدت فيها؟' }}</label>
+                        <input type="text" id="forgotSecurityQ2" placeholder="{{ 'Your answer' if lang != 'ar' else 'إجابتك' }}">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-question-circle"></i> {{ 'Name of your first pet?' if lang != 'ar' else 'اسم حيوانك الأليف الأول؟' }}</label>
+                        <input type="text" id="forgotSecurityQ3" placeholder="{{ 'Your answer' if lang != 'ar' else 'إجابتك' }}">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-lock"></i> {{ 'New Password' if lang != 'ar' else 'كلمة المرور الجديدة' }}</label>
+                        <input type="password" id="forgotNewPassword" placeholder="{{ 'Enter new password (min 6 chars)' if lang != 'ar' else 'أدخل كلمة المرور الجديدة' }}">
+                    </div>
+                </div>
+                <button type="button" id="forgotCheckBtn" onclick="checkForgotPassword()" class="btn btn-primary btn-block">
+                    <i class="fas fa-search"></i> {{ 'Check Account' if lang != 'ar' else 'تحقق من الحساب' }}
+                </button>
+                <button type="button" id="forgotResetBtn" onclick="resetPassword()" class="btn btn-primary btn-block" style="display: none;">
+                    <i class="fas fa-key"></i> {{ 'Reset Password' if lang != 'ar' else 'إعادة تعيين كلمة المرور' }}
+                </button>
+                <button type="button" id="forgotEmailLinkBtn" onclick="requestEmailResetLink()" class="btn btn-primary btn-block" style="margin-top:8px;background:#1a5c5e;">
+                    <i class="fas fa-envelope"></i> {{ 'Email me a reset link' if lang != 'ar' else 'أرسل لي رابط إعادة تعيين بالبريد' }}
+                </button>
+                <p id="forgotEmailLinkStatus" style="font-size:.85rem;color:#444;margin:8px 0 0;text-align:center;"></p>
+                <p class="form-switch">
+                    <a href="#" onclick="switchToLogin(); return false;"><i class="fas fa-arrow-left"></i> {{ 'Back to Login' if lang != 'ar' else 'العودة لتسجيل الدخول' }}</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <style>
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 450px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 28px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #666;
+        }
+        .modal-content h2 {
+            margin-bottom: 20px;
+            color: {{ settings.primary_color or '#1B5E20' }};
+        }
+        .modal-content .form-group {
+            margin-bottom: 15px;
+        }
+        .modal-content .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+        .modal-content .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .modal-content .form-group input:focus {
+            outline: none;
+            border-color: {{ settings.primary_color or '#1B5E20' }};
+        }
+        .btn-block {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+        }
+        .btn-primary {
+            background: {{ settings.primary_color or '#1B5E20' }};
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .btn-primary:hover {
+            background: {{ settings.secondary_color or '#2E7D32' }};
+        }
+        .form-switch {
+            text-align: center;
+            margin-top: 15px;
+            color: #666;
+        }
+        .form-switch a {
+            color: {{ settings.primary_color or '#1B5E20' }};
+            text-decoration: none;
+        }
+    </style>
+
+    <script>
+        window.addEventListener('scroll', function() {
+            const header = document.getElementById('header');
+            if (window.scrollY > 50) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
+        });
+
+        function toggleLanguage() {
+            const currentLang = '{{ lang }}';
+            const newLang = currentLang === 'ar' ? 'en' : 'ar';
+            const currentUrl = window.location.pathname;
+            window.location.href = currentUrl + '?lang=' + newLang;
+        }
+
+        function toggleMobileMenu() {
+            const navLinks = document.querySelector('.nav-links');
+            navLinks.style.display = navLinks.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                const href = this.getAttribute('href');
+                if (href && href !== '#') {
+                    e.preventDefault();
+                    const target = document.querySelector(href);
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }
+            });
+        });
+
+        function showLoginModal(mode) {
+            document.getElementById('loginModal').style.display = 'flex';
+            if (mode === 'register') {
+                switchToRegister();
+            } else {
+                switchToLogin();
+            }
+        }
+
+        function closeLoginModal() {
+            document.getElementById('loginModal').style.display = 'none';
+        }
+
+        function switchToLogin() {
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('forgotPasswordForm').style.display = 'none';
+            document.getElementById('modalTitle').textContent = '{{ 'Login' if lang != 'ar' else 'تسجيل الدخول' }}';
+        }
+
+        function switchToRegister() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'block';
+            document.getElementById('forgotPasswordForm').style.display = 'none';
+            document.getElementById('modalTitle').textContent = '{{ 'Create Account' if lang != 'ar' else 'إنشاء حساب' }}';
+        }
+
+        function switchToForgotPassword() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('forgotPasswordForm').style.display = 'block';
+            document.getElementById('modalTitle').textContent = '{{ 'Reset Password' if lang != 'ar' else 'إعادة تعيين كلمة المرور' }}';
+            document.getElementById('securityQuestionsSection').style.display = 'none';
+            document.getElementById('forgotCheckBtn').style.display = 'block';
+            document.getElementById('forgotResetBtn').style.display = 'none';
+        }
+
+        // Handle login form submission
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            if (!username || !password) {
+                alert('{{ 'Please enter username and password' if lang != 'ar' else 'الرجاء إدخال اسم المستخدم وكلمة المرور' }}');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/user/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    window.location.href = '/app/';
+                } else {
+                    alert(data.error || '{{ 'Login failed' if lang != 'ar' else 'فشل تسجيل الدخول' }}');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('{{ 'Login failed. Please try again.' if lang != 'ar' else 'فشل تسجيل الدخول. حاول مرة أخرى.' }}');
+            }
+        });
+
+        // Handle register form submission
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const fullName = document.getElementById('regFullName').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const username = document.getElementById('regUsername').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const phone = document.getElementById('regPhone').value.trim();
+            const organization = document.getElementById('regOrganization').value.trim();
+            const securityQ1 = document.getElementById('regSecurityQ1').value.trim();
+            const securityQ2 = document.getElementById('regSecurityQ2').value.trim();
+            const securityQ3 = document.getElementById('regSecurityQ3').value.trim();
+
+            if (!fullName || !email || !username || !password) {
+                alert('{{ 'Full name, email, username, and password are required' if lang != 'ar' else 'الاسم والبريد واسم المستخدم وكلمة المرور مطلوبة' }}');
+                return;
+            }
+
+            if (password.length < 6) {
+                alert('{{ 'Password must be at least 6 characters' if lang != 'ar' else 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' }}');
+                return;
+            }
+
+            if (!securityQ1 || !securityQ2 || !securityQ3) {
+                alert('{{ 'All security questions are required' if lang != 'ar' else 'جميع أسئلة الأمان مطلوبة' }}');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        full_name: fullName,
+                        email,
+                        username,
+                        password,
+                        phone,
+                        organization,
+                        security_q1: securityQ1,
+                        security_q2: securityQ2,
+                        security_q3: securityQ3
+                    })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('{{ 'Registration successful! You can now login.' if lang != 'ar' else 'تم التسجيل بنجاح! يمكنك الآن تسجيل الدخول.' }}');
+                    switchToLogin();
+                    document.getElementById('loginUsername').value = username;
+                } else {
+                    alert(data.error || '{{ 'Registration failed' if lang != 'ar' else 'فشل التسجيل' }}');
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                alert('{{ 'Registration failed. Please try again.' if lang != 'ar' else 'فشل التسجيل. حاول مرة أخرى.' }}');
+            }
+        });
+
+        async function checkForgotPassword() {
+            const username = document.getElementById('forgotUsername').value.trim();
+            if (!username) {
+                alert('{{ 'Please enter your username' if lang != 'ar' else 'الرجاء إدخال اسم المستخدم' }}');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/forgot-password/check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                const data = await response.json();
+
+                if (response.ok && data.user_found) {
+                    if (data.source === 'json' && data.has_security_questions) {
+                        document.getElementById('securityQuestionsSection').style.display = 'block';
+                        document.getElementById('forgotCheckBtn').style.display = 'none';
+                        document.getElementById('forgotResetBtn').style.display = 'block';
+                    } else {
+                        alert('{{ 'Password reset requires administrator assistance for this account.' if lang != 'ar' else 'إعادة تعيين كلمة المرور تتطلب مساعدة المسؤول لهذا الحساب.' }}');
+                    }
+                } else {
+                    alert(data.error || '{{ 'User not found' if lang != 'ar' else 'المستخدم غير موجود' }}');
+                }
+            } catch (error) {
+                console.error('Check error:', error);
+                alert('{{ 'Failed to check account' if lang != 'ar' else 'فشل التحقق من الحساب' }}');
+            }
+        }
+
+        async function requestEmailResetLink() {
+            const username = document.getElementById('forgotUsername').value.trim();
+            const statusEl = document.getElementById('forgotEmailLinkStatus');
+            const btn = document.getElementById('forgotEmailLinkBtn');
+            if (!username) {
+                statusEl.style.color = '#b00020';
+                statusEl.textContent = '{{ "Please enter your username or email first." if lang != "ar" else "الرجاء إدخال اسم المستخدم أو البريد أولاً." }}';
+                return;
+            }
+            const original = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> {{ "Sending…" if lang != "ar" else "جارٍ الإرسال…" }}';
+            statusEl.style.color = '#1a5c5e';
+            statusEl.textContent = '';
+            try {
+                const response = await fetch('/api/auth/forgot-password/email-link', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username, email: username })
+                });
+                const data = await response.json().catch(() => ({}));
+                statusEl.style.color = response.ok ? '#0d9488' : '#b00020';
+                statusEl.textContent = data.message || (response.ok
+                    ? '{{ "If an account exists, a reset link has been emailed." if lang != "ar" else "إذا كان الحساب موجوداً، فقد تم إرسال رابط إعادة التعيين." }}'
+                    : '{{ "Could not send reset link. Try again later." if lang != "ar" else "تعذر إرسال الرابط. حاول لاحقاً." }}');
+            } catch (err) {
+                statusEl.style.color = '#b00020';
+                statusEl.textContent = '{{ "Network error. Try again." if lang != "ar" else "خطأ في الشبكة. حاول مجدداً." }}';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = original;
+            }
+        }
+
+        async function resetPassword() {
+            const username = document.getElementById('forgotUsername').value.trim();
+            const securityQ1 = document.getElementById('forgotSecurityQ1').value.trim().toLowerCase();
+            const securityQ2 = document.getElementById('forgotSecurityQ2').value.trim().toLowerCase();
+            const securityQ3 = document.getElementById('forgotSecurityQ3').value.trim().toLowerCase();
+            const newPassword = document.getElementById('forgotNewPassword').value;
+
+            if (!securityQ1 || !securityQ2 || !securityQ3) {
+                alert('{{ 'Please answer all security questions' if lang != 'ar' else 'الرجاء الإجابة على جميع أسئلة الأمان' }}');
+                return;
+            }
+
+            if (!newPassword || newPassword.length < 6) {
+                alert('{{ 'New password must be at least 6 characters' if lang != 'ar' else 'كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل' }}');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/forgot-password/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username,
+                        security_q1: securityQ1,
+                        security_q2: securityQ2,
+                        security_q3: securityQ3,
+                        new_password: newPassword
+                    })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('{{ 'Password reset successful! You can now login.' if lang != 'ar' else 'تم إعادة تعيين كلمة المرور بنجاح! يمكنك الآن تسجيل الدخول.' }}');
+                    switchToLogin();
+                    document.getElementById('loginUsername').value = username;
+                } else {
+                    alert(data.error || '{{ 'Password reset failed' if lang != 'ar' else 'فشل إعادة تعيين كلمة المرور' }}');
+                }
+            } catch (error) {
+                console.error('Reset error:', error);
+                alert('{{ 'Password reset failed' if lang != 'ar' else 'فشل إعادة تعيين كلمة المرور' }}');
+            }
+        }
+
+        // Close modal on outside click
+        document.getElementById('loginModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeLoginModal();
+            }
+        });
+    </script>
+</body>
+</html>

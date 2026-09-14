@@ -1,0 +1,224 @@
+{# Shared global top menu, rendered server-side with role-based visibility.
+   Included by _skp_base.html so every standalone page (EthicalSense, admin
+   pages, integrations, community, etc.) shows the SAME menu chrome as the
+   main /app page. Buttons are <a> links that point either to /app?tab=<id>
+   for in-app tabs, or to standalone URLs for redirect tabs. #}
+{% set _role  = (session.get('role') or '').lower() %}
+{% set _is_admin       = _role in ('admin', 'superadmin') or session.get('is_admin') %}
+{% set _is_super       = _role == 'superadmin' %}
+{% set _is_teacher     = _role == 'teacher' %}
+{% set _is_student     = _role == 'student' %}
+{% set _is_logged_in   = session.get('user_id') or session.get('is_admin') %}
+{% set _instr_or_admin = _is_teacher or _is_admin %}
+
+{% if _is_logged_in %}
+<aside class="top-cards-menu skp-top-menu" data-testid="top-cards-menu" aria-label="Primary navigation">
+
+  <!-- AI Tools -->
+  <section class="menu-group" data-group="ai">
+    <h4 class="menu-group-title" data-i18n="menu_cat_ai">Artificial Intelligence</h4>
+    <div class="menu-group-cards">
+      <a class="menu-item card-tone-ai" href="/app?tab=chat" data-testid="menu-ai-chat">
+        <span class="menu-card-icon"><i class="fas fa-comments"></i></span>
+        <span class="menu-card-label">Artificial Intelligence Assistant</span>
+      </a>
+      <a class="menu-item card-tone-ai" href="/app?tab=ai-tools-suite" data-testid="menu-ai-tools-suite">
+        <span class="menu-card-icon"><i class="fas fa-wand-magic-sparkles"></i></span>
+        <span class="menu-card-label">Artificial Intelligence Tools Suite</span>
+      </a>
+      <a class="menu-item card-tone-ai" href="/app?tab=library" data-testid="menu-library">
+        <span class="menu-card-icon"><i class="fas fa-book"></i></span>
+        <span class="menu-card-label">Templates</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- Learning -->
+  <section class="menu-group" data-group="learn">
+    <h4 class="menu-group-title" data-i18n="menu_cat_learning">Learning</h4>
+    <div class="menu-group-cards">
+      {% if _is_student %}
+      <a class="menu-item card-tone-learn" href="/app?tab=my-courses" data-testid="menu-available-courses">
+        <span class="menu-card-icon"><i class="fas fa-book-open"></i></span>
+        <span class="menu-card-label">Browse Courses</span>
+      </a>
+      <a class="menu-item card-tone-learn" href="/app?tab=my-classes" data-testid="menu-my-courses">
+        <span class="menu-card-icon"><i class="fas fa-graduation-cap"></i></span>
+        <span class="menu-card-label">Enrolled Courses</span>
+      </a>
+      <a class="menu-item card-tone-learn" href="/app?tab=retention-checks" data-testid="menu-retention-checks">
+        <span class="menu-card-icon"><i class="fas fa-clock-rotate-left"></i></span>
+        <span class="menu-card-label">Retention Checks</span>
+      </a>
+      {% endif %}
+      <a class="menu-item card-tone-learn" href="/community" data-testid="menu-community">
+        <span class="menu-card-icon"><i class="fas fa-users"></i></span>
+        <span class="menu-card-label">Community Forum</span>
+      </a>
+      <a class="menu-item card-tone-learn" href="/ethicalsense" data-testid="menu-ethicalsense">
+        <span class="menu-card-icon"><i class="fas fa-balance-scale"></i></span>
+        <span class="menu-card-label">EthicalSense</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- Teaching -->
+  {% if _is_teacher or _is_admin %}
+  <section class="menu-group" data-group="teach">
+    <h4 class="menu-group-title" data-i18n="menu_cat_teaching">Teaching</h4>
+    <div class="menu-group-cards">
+      {% if _is_teacher %}
+      <a class="menu-item card-tone-teach" href="/app?tab=teacher-dashboard" data-testid="menu-teacher-dashboard">
+        <span class="menu-card-icon"><i class="fas fa-tachometer-alt"></i></span>
+        <span class="menu-card-label">Dashboard</span>
+      </a>
+      <a class="menu-item card-tone-teach" href="/app?tab=instructor-classes" data-testid="menu-my-classes">
+        <span class="menu-card-icon"><i class="fas fa-chalkboard-teacher"></i></span>
+        <span class="menu-card-label">My Classes</span>
+      </a>
+      {% endif %}
+      <a class="menu-item card-tone-teach" href="/authoring" data-testid="menu-authoring">
+        <span class="menu-card-icon"><i class="fas fa-pen-fancy"></i></span>
+        <span class="menu-card-label">Course Authoring</span>
+      </a>
+      <a class="menu-item card-tone-teach" href="/insights" data-testid="menu-insights">
+        <span class="menu-card-icon"><i class="fas fa-chart-line"></i></span>
+        <span class="menu-card-label">Insights and Analytics</span>
+      </a>
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- Account -->
+  <section class="menu-group" data-group="account">
+    <h4 class="menu-group-title" data-i18n="menu_cat_account">Account</h4>
+    <div class="menu-group-cards">
+      <a class="menu-item card-tone-account" href="/app?tab=profile" data-testid="menu-profile">
+        <span class="menu-card-icon"><i class="fas fa-user-circle"></i></span>
+        <span class="menu-card-label">Profile</span>
+      </a>
+      <a class="menu-item card-tone-account" href="/guardian" data-testid="menu-guardian">
+        <span class="menu-card-icon"><i class="fas fa-house-user"></i></span>
+        <span class="menu-card-label">Parent and Guardian</span>
+      </a>
+      <a class="menu-item card-tone-account" href="/links" data-testid="menu-links">
+        <span class="menu-card-icon"><i class="fas fa-link"></i></span>
+        <span class="menu-card-label">Useful Links</span>
+      </a>
+      <a class="menu-item card-tone-logout" href="/logout" data-testid="menu-logout">
+        <span class="menu-card-icon"><i class="fas fa-sign-out-alt"></i></span>
+        <span class="menu-card-label">Logout</span>
+      </a>
+    </div>
+  </section>
+
+  {% if _is_admin %}
+  <!-- Administration -->
+  <section class="menu-group" data-group="admin">
+    <h4 class="menu-group-title" data-i18n="menu_cat_admin">Administration</h4>
+    <div class="menu-group-cards">
+      <a class="menu-item card-tone-admin" href="/admin/dashboard" data-testid="menu-admin-dashboard">
+        <span class="menu-card-icon"><i class="fas fa-shield-alt"></i></span>
+        <span class="menu-card-label">Admin Panel</span>
+      </a>
+      <a class="menu-item card-tone-admin" href="/admin/system" data-testid="menu-admin-system">
+        <span class="menu-card-icon"><i class="fas fa-server"></i></span>
+        <span class="menu-card-label">System Administration</span>
+      </a>
+      <a class="menu-item card-tone-admin" href="/admin/integrations" data-testid="menu-integrations">
+        <span class="menu-card-icon"><i class="fas fa-plug"></i></span>
+        <span class="menu-card-label">Integrations</span>
+      </a>
+      <a class="menu-item card-tone-admin" href="/admin/ethics-settings" data-testid="menu-admin-ethics">
+        <span class="menu-card-icon"><i class="fas fa-balance-scale"></i></span>
+        <span class="menu-card-label">EthicalSense Settings</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- Content Management -->
+  <section class="menu-group" data-group="content">
+    <h4 class="menu-group-title" data-i18n="menu_cat_content">Content Management</h4>
+    <div class="menu-group-cards">
+      <a class="menu-item card-tone-admin" href="/admin/dashboard?action=courses" data-testid="menu-admin-courses">
+        <span class="menu-card-icon"><i class="fas fa-folder-tree"></i></span>
+        <span class="menu-card-label">Manage Courses</span>
+      </a>
+      <a class="menu-item card-tone-admin" href="/admin/dashboard?action=exams" data-testid="menu-admin-exams">
+        <span class="menu-card-icon"><i class="fas fa-file-alt"></i></span>
+        <span class="menu-card-label">Exams</span>
+      </a>
+      <a class="menu-item card-tone-admin" href="/admin/dashboard?action=surveys" data-testid="menu-admin-surveys">
+        <span class="menu-card-icon"><i class="fas fa-poll"></i></span>
+        <span class="menu-card-label">Surveys</span>
+      </a>
+      <a class="menu-item card-tone-admin" href="/admin/dashboard?action=certificates" data-testid="menu-admin-certificates">
+        <span class="menu-card-icon"><i class="fas fa-certificate"></i></span>
+        <span class="menu-card-label">Certificates</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- People -->
+  <section class="menu-group" data-group="people">
+    <h4 class="menu-group-title" data-i18n="menu_cat_people">People</h4>
+    <div class="menu-group-cards">
+      <a class="menu-item card-tone-admin" href="/admin/dashboard?action=users" data-testid="menu-admin-users">
+        <span class="menu-card-icon"><i class="fas fa-users-cog"></i></span>
+        <span class="menu-card-label">Manage Users</span>
+      </a>
+      <a class="menu-item card-tone-admin" href="/admin/dashboard?action=enrollments" data-testid="menu-admin-enrollments">
+        <span class="menu-card-icon"><i class="fas fa-user-graduate"></i></span>
+        <span class="menu-card-label">Enrollments</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- Platform -->
+  <section class="menu-group" data-group="platform">
+    <h4 class="menu-group-title" data-i18n="menu_cat_platform">Platform</h4>
+    <div class="menu-group-cards">
+      <a class="menu-item card-tone-admin" href="/admin/dashboard?action=ai-models" data-testid="menu-admin-ai-models">
+        <span class="menu-card-icon"><i class="fas fa-microchip"></i></span>
+        <span class="menu-card-label">AI Models</span>
+      </a>
+      <a class="menu-item card-tone-admin" href="/admin/dashboard?action=site-settings" data-testid="menu-admin-site-settings">
+        <span class="menu-card-icon"><i class="fas fa-sliders-h"></i></span>
+        <span class="menu-card-label">Site Settings</span>
+      </a>
+      <a class="menu-item card-tone-admin" href="/admin/dashboard?action=freeze" data-testid="menu-admin-freeze">
+        <span class="menu-card-icon"><i class="fas fa-snowflake"></i></span>
+        <span class="menu-card-label">Freeze Platform</span>
+      </a>
+    </div>
+  </section>
+  {% endif %}
+
+</aside>
+
+<script>
+(function () {
+  // Touch / click-to-open support for the top menu groups.
+  // Hover already works via CSS for desktop.
+  document.querySelectorAll('.skp-top-menu .menu-group').forEach(function (g) {
+    var title = g.querySelector('.menu-group-title');
+    if (!title) return;
+    title.addEventListener('click', function (e) {
+      e.preventDefault();
+      var wasOpen = g.classList.contains('open');
+      document.querySelectorAll('.skp-top-menu .menu-group.open').forEach(function (o) {
+        o.classList.remove('open');
+      });
+      if (!wasOpen) g.classList.add('open');
+    });
+  });
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('.skp-top-menu')) {
+      document.querySelectorAll('.skp-top-menu .menu-group.open').forEach(function (o) {
+        o.classList.remove('open');
+      });
+    }
+  });
+})();
+</script>
+{% endif %}

@@ -1,0 +1,317 @@
+{
+  "categories": [
+    "General",
+    "Analysis",
+    "Coding",
+    "Creative",
+    "Teaching"
+  ],
+  "prompts": [
+    {
+      "id": "tpl-001",
+      "title": "Explain Like I'm Five",
+      "content": "Explain the following topic in very simple terms, as if you are speaking to a curious five-year-old. Use everyday analogies, short sentences, and avoid jargon.\n\nTopic: [PASTE TOPIC HERE]",
+      "category": "General",
+      "description": "Turns any complex subject into a beginner-friendly explanation using simple analogies.",
+      "tags": [
+        "beginner",
+        "explain",
+        "simplify"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 5,
+      "use_count": 0
+    },
+    {
+      "id": "tpl-002",
+      "title": "Meeting Notes Summarizer",
+      "content": "You are an executive assistant. Read the meeting transcript below and produce:\n1. A 3-sentence executive summary\n2. Key decisions (bulleted)\n3. Action items with owner and due date\n4. Open questions for the next meeting\n\nTranscript:\n[PASTE TRANSCRIPT HERE]",
+      "category": "General",
+      "description": "Turns raw meeting transcripts into a clean summary with decisions and action items.",
+      "tags": [
+        "meeting",
+        "summary",
+        "productivity"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 5,
+      "use_count": 0
+    },
+    {
+      "id": "tpl-003",
+      "title": "Professional Email Rewrite",
+      "content": "Rewrite the email below to be clear, professional, and polite. Keep it under 120 words. Preserve the original intent and any specific dates or numbers.\n\nOriginal email:\n[PASTE EMAIL HERE]",
+      "category": "General",
+      "description": "Polishes a draft email into a concise, professional tone.",
+      "tags": [
+        "email",
+        "communication",
+        "rewrite"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 4,
+      "use_count": 0
+    },
+    {
+      "id": "tpl-101",
+      "title": "SWOT Analysis",
+      "content": "Act as a senior business analyst. Perform a SWOT analysis on the following subject. For each of Strengths, Weaknesses, Opportunities, and Threats, give 4 specific, evidence-based bullets. End with one strategic recommendation.\n\nSubject: [PASTE COMPANY/PRODUCT/IDEA HERE]",
+      "category": "Analysis",
+      "description": "Generates a structured SWOT with a closing strategic recommendation.",
+      "tags": [
+        "swot",
+        "strategy",
+        "business"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 5,
+      "use_count": 0
+    },
+    {
+      "id": "tpl-102",
+      "title": "Root-Cause Analysis (5 Whys)",
+      "content": "Use the \"5 Whys\" technique on the problem below. Start with the symptom, then ask Why? five times in a row, going one level deeper each time. Finish with the most likely root cause and 2 corrective actions.\n\nProblem: [DESCRIBE THE PROBLEM HERE]",
+      "category": "Analysis",
+      "description": "Walks through the 5 Whys to surface the true root cause of an incident.",
+      "tags": [
+        "root-cause",
+        "5-whys",
+        "troubleshooting"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 5,
+      "use_count": 0
+    },
+    {
+      "id": "tpl-103",
+      "title": "Compare and Contrast",
+      "content": "Compare and contrast the two items below across these dimensions: purpose, cost, ease of use, performance, and ideal user. Present the result as a Markdown table, then add a 2-sentence verdict on which is better and for whom.\n\nItem A: [ITEM A]\nItem B: [ITEM B]",
+      "category": "Analysis",
+      "description": "Side-by-side comparison table plus a short verdict.",
+      "tags": [
+        "compare",
+        "decision",
+        "table"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 4,
+      "use_count": 0
+    },
+    {
+      "id": "tpl-201",
+      "title": "Code Review",
+      "content": "You are a senior software engineer doing a code review. Review the code below for: correctness, security issues, performance, readability, and missing tests. For each issue, quote the line, explain the risk, and suggest a concrete fix.\n\n```\n[PASTE CODE HERE]\n```",
+      "category": "Coding",
+      "description": "Detailed code review covering correctness, security, performance and tests.",
+      "tags": [
+        "code-review",
+        "quality",
+        "security"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 5,
+      "use_count": 0
+    },
+    {
+      "id": "tpl-202",
+      "title": "Explain This Code",
+      "content": "Explain what the following code does, step by step, as if teaching a junior developer. Identify inputs, outputs, side effects, and any non-obvious behavior. End with one suggested improvement.\n\n```\n[PASTE CODE HERE]\n```",
+      "category": "Coding",
+      "description": "Walks through unfamiliar code line-by-line in plain English.",
+      "tags": [
+        "explain",
+        "learning",
+        "junior"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 5,
+      "use_count": 0
+    },
+    {
+      "id": "tpl-203",
+      "title": "Generate Unit Tests",
+      "content": "Write a complete unit-test suite for the function below. Use the testing framework idiomatic to the language. Cover: the happy path, edge cases (empty/null/zero/very large), and at least one failure case. Include short comments explaining each test.\n\n```\n[PASTE FUNCTION HERE]\n```",
+      "category": "Coding",
+      "description": "Produces a thorough unit-test suite with happy path, edge, and failure cases.",
+      "tags": [
+        "tests",
+        "tdd",
+        "coverage"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 5,
+      "use_count": 0
+    },
+    {
+      "id": "tpl-204",
+      "title": "Debug This Error",
+      "content": "I am getting the following error. Diagnose the most likely cause, list 3 things I should check first, and suggest a corrected version of the relevant snippet.\n\nError message:\n[PASTE ERROR]\n\nRelevant code:\n```\n[PASTE CODE]\n```",
+      "category": "Coding",
+      "description": "Walks through a stack trace and proposes the most likely fix.",
+      "tags": [
+        "debug",
+        "error",
+        "troubleshoot"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 4,
+      "use_count": 0
+    },
+    {
+      "id": "tpl-301",
+      "title": "Blog Post Outline",
+      "content": "You are an experienced content strategist. Create an outline for a 1,200-word blog post on the topic below. Include: a working title, a hook intro, 5 H2 sections (each with 2-3 H3 sub-points), a call-to-action, and 3 SEO keyword suggestions.\n\nTopic: [PASTE TOPIC HERE]\nTarget audience: [DESCRIBE AUDIENCE]",
+      "category": "Creative",
+      "description": "Full SEO-aware blog outline ready to hand off to a writer.",
+      "tags": [
+        "blog",
+        "outline",
+        "seo"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 5,
+      "use_count": 0
+    },
+    {
+      "id": "tpl-302",
+      "title": "Short Story Starter",
+      "content": "Write the opening scene (around 300 words) of a short story in the [GENRE] genre. The protagonist is [CHARACTER]. The setting is [SETTING]. End the scene on a small cliffhanger that hints at the central conflict.",
+      "category": "Creative",
+      "description": "Produces a vivid 300-word opening scene with a built-in hook.",
+      "tags": [
+        "fiction",
+        "story",
+        "creative-writing"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 4,
+      "use_count": 0
+    },
+    {
+      "id": "tpl-303",
+      "title": "Social Media Caption Pack",
+      "content": "Generate 5 distinct social-media captions for the post described below. Provide one variant each: short and punchy, story-driven, question-based, list-style, and emoji-rich. For each, suggest 3 relevant hashtags.\n\nPost description: [DESCRIBE THE POST]\nTarget platform: [PLATFORM]",
+      "category": "Creative",
+      "description": "Five caption variants in different styles, each with hashtag suggestions.",
+      "tags": [
+        "social",
+        "captions",
+        "marketing"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 4,
+      "use_count": 0
+    },
+    {
+      "id": "tpl-401",
+      "title": "Lesson Plan (45 minutes)",
+      "content": "You are a curriculum designer. Build a 45-minute lesson plan on the topic below for [LEVEL] learners. Include:\n- Learning objective (Bloom verb)\n- Materials needed\n- Hook activity (5 min)\n- Direct instruction (15 min)\n- Guided practice (15 min)\n- Independent check (8 min)\n- Exit ticket (2 min)\n\nTopic: [PASTE TOPIC HERE]",
+      "category": "Teaching",
+      "description": "Complete 45-minute lesson plan ready to use in a classroom.",
+      "tags": [
+        "lesson-plan",
+        "teaching",
+        "classroom"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 5,
+      "use_count": 0
+    },
+    {
+      "id": "tpl-402",
+      "title": "Quiz Generator (10 questions)",
+      "content": "Create a 10-question quiz on the topic below for [LEVEL] learners. Mix: 6 multiple-choice (4 options each), 2 true/false, and 2 short-answer. For each question, mark the correct answer and add a one-sentence explanation.\n\nTopic: [PASTE TOPIC HERE]",
+      "category": "Teaching",
+      "description": "Mixed-format 10-question quiz with answer key and explanations.",
+      "tags": [
+        "quiz",
+        "assessment",
+        "questions"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 5,
+      "use_count": 0
+    },
+    {
+      "id": "tpl-403",
+      "title": "Rubric Builder",
+      "content": "Design a 4-level grading rubric (Excellent / Proficient / Developing / Beginning) for the assignment described below. Use 4-5 evaluation criteria. For each criterion at each level, write a single descriptive sentence of what the work looks like.\n\nAssignment: [DESCRIBE ASSIGNMENT]",
+      "category": "Teaching",
+      "description": "Generates a clean 4-level rubric grid with descriptive language.",
+      "tags": [
+        "rubric",
+        "grading",
+        "assessment"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 5,
+      "use_count": 0
+    },
+    {
+      "id": "tpl-404",
+      "title": "Differentiated Instruction",
+      "content": "I am teaching the topic [TOPIC] to a class of mixed ability. Suggest 3 versions of the same activity tailored for: (a) struggling learners, (b) on-level learners, and (c) advanced learners. Each version should keep the same learning objective.",
+      "category": "Teaching",
+      "description": "Three versions of one activity calibrated to different ability levels.",
+      "tags": [
+        "differentiation",
+        "inclusion",
+        "activity"
+      ],
+      "model": null,
+      "parameters": {},
+      "created_at": "2026-04-27T00:00:00",
+      "created_by": "skillpilot",
+      "rating": 4,
+      "use_count": 1
+    }
+  ]
+}

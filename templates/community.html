@@ -1,0 +1,237 @@
+{% extends "_skp_base.html" %}
+{% block title %}Discussions · SkillPilot{% endblock %}
+
+{% block content %}
+<script>
+  window.SKP_I18N = {
+    en: {
+      nav_app:'Workspace', nav_guardian:'Parent Portal', nav_authoring:'Course Builder',
+      nav_insights:'Analytics', nav_community:'Discussions',
+      nav_links:'Approvals', nav_integrations:'SCORM & xAPI',
+      title: 'Discussions', subtitle: 'Engage with peers and track community contributions.',
+      threads: 'Discussion Threads', leaderboard: 'Engagement Leaderboard',
+      new_thread: 'New Discussion', cancel: 'Cancel',
+      title_label: 'Subject', body_label: 'Discussion', course_label: 'Linked Course (Optional)',
+      post: 'Publish Discussion', reply_label: 'Your Reply',
+      reply: 'Post Reply', back_threads: 'Back to Discussions',
+      no_threads: 'No discussions yet — start the first one.',
+      no_posts: 'No replies yet.',
+      no_lb: 'No engagement points recorded yet.',
+      rank: 'Rank', name: 'Member', xp: 'Points',
+      posts: 'replies', pinned: 'pinned', locked: 'locked',
+    },
+    ar: {
+      nav_app:'مساحة العمل', nav_guardian:'بوابة ولي الأمر', nav_authoring:'منشئ الدورات',
+      nav_insights:'التحليلات', nav_community:'النقاشات',
+      nav_links:'الموافقات', nav_integrations:'SCORM و xAPI',
+      title: 'النقاشات', subtitle: 'تفاعل مع الزملاء وتتبّع المساهمات المجتمعية.',
+      threads: 'مواضيع النقاش', leaderboard: 'لوحة المتصدرين بالمشاركة',
+      new_thread: 'نقاش جديد', cancel: 'إلغاء',
+      title_label: 'الموضوع', body_label: 'محتوى النقاش', course_label: 'الدورة المرتبطة (اختياري)',
+      post: 'نشر النقاش', reply_label: 'ردّك',
+      reply: 'إرسال الرد', back_threads: 'العودة إلى النقاشات',
+      no_threads: 'لا توجد نقاشات بعد — كن أول من يبدأ.',
+      no_posts: 'لا توجد ردود بعد.',
+      no_lb: 'لا توجد نقاط مشاركة مسجلة بعد.',
+      rank: 'الترتيب', name: 'العضو', xp: 'النقاط',
+      posts: 'ردود', pinned: 'مثبت', locked: 'مغلق',
+    }
+  };
+</script>
+
+<div class="skp-page-header">
+  <div>
+    <div class="skp-page-header__title" data-i18n="title">Community</div>
+    <div class="skp-page-header__subtitle" data-i18n="subtitle"></div>
+  </div>
+</div>
+
+<div class="skp-grid" style="grid-template-columns: 2fr 1fr; gap: var(--skp-s-6);">
+  <div>
+    <!-- Threads list -->
+    <div id="threadsView">
+      <div class="skp-row" style="margin-bottom: var(--skp-s-4);">
+        <h2 style="margin:0; font-size: var(--skp-fs-xl);" data-i18n="threads">Forum threads</h2>
+        <div class="skp-spacer"></div>
+        <button class="skp-btn skp-btn--primary" id="btnNew" data-testid="button-new-thread">
+          <i class="fas fa-plus"></i> <span data-i18n="new_thread">Start a thread</span>
+        </button>
+      </div>
+
+      <div id="newForm" class="skp-card" style="display:none; margin-bottom: var(--skp-s-4);">
+        <div class="skp-form-row">
+          <label class="skp-label" data-i18n="title_label">Title</label>
+          <input class="skp-input" id="ntTitle" data-testid="input-thread-title" />
+        </div>
+        <div class="skp-form-row">
+          <label class="skp-label" data-i18n="body_label">Message</label>
+          <textarea class="skp-textarea" id="ntBody" data-testid="textarea-thread-body"></textarea>
+        </div>
+        <div class="skp-form-row">
+          <label class="skp-label" data-i18n="course_label">Course ID (optional)</label>
+          <input class="skp-input" id="ntCourse" data-testid="input-thread-course" />
+        </div>
+        <div class="skp-row">
+          <div class="skp-spacer"></div>
+          <button class="skp-btn skp-btn--ghost" id="btnCancelNew" data-testid="button-cancel"><span data-i18n="cancel">Cancel</span></button>
+          <button class="skp-btn skp-btn--primary" id="btnPostNew" data-testid="button-post"><span data-i18n="post">Post thread</span></button>
+        </div>
+      </div>
+
+      <div id="threadsList" class="skp-stack"></div>
+    </div>
+
+    <!-- Single thread view -->
+    <div id="threadView" style="display:none;">
+      <button class="skp-btn skp-btn--ghost" id="btnBackThreads" data-testid="button-back-threads">
+        <i class="fas fa-arrow-left"></i> <span data-i18n="back_threads">Back to threads</span>
+      </button>
+      <div class="skp-card" style="margin-top: var(--skp-s-3);">
+        <h2 id="tvTitle" style="margin:0;"></h2>
+        <div id="tvMeta" class="skp-card__meta" style="margin-top: var(--skp-s-1);"></div>
+      </div>
+      <div id="tvPosts" class="skp-stack" style="margin-top: var(--skp-s-4);"></div>
+      <div class="skp-card" style="margin-top: var(--skp-s-4);">
+        <label class="skp-label" data-i18n="reply_label">Write a reply</label>
+        <textarea class="skp-textarea" id="replyBody" data-testid="textarea-reply"></textarea>
+        <div class="skp-row" style="margin-top: var(--skp-s-3);">
+          <div class="skp-spacer"></div>
+          <button class="skp-btn skp-btn--primary" id="btnReply" data-testid="button-reply"><span data-i18n="reply">Reply</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <aside>
+    <h2 style="margin:0 0 var(--skp-s-4); font-size: var(--skp-fs-xl);" data-i18n="leaderboard">XP leaderboard</h2>
+    <div class="skp-card" style="padding:0;">
+      <table class="skp-table">
+        <thead><tr><th data-i18n="rank">Rank</th><th data-i18n="name">Name</th><th data-i18n="xp">XP</th></tr></thead>
+        <tbody id="lbBody"></tbody>
+      </table>
+    </div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  let currentThread = null;
+  function t(k){ return (window.SKP_I18N[window.SKP_LANG]||window.SKP_I18N.en)[k] || k; }
+  function show(id) {
+    document.getElementById('threadsView').style.display = id==='list' ? '' : 'none';
+    document.getElementById('threadView').style.display = id==='thread' ? '' : 'none';
+  }
+
+  async function loadThreads() {
+    const r = await fetch('/api/v1/social/forums/threads', { credentials: 'same-origin' });
+    if (!r.ok) {
+      document.getElementById('threadsList').innerHTML = `<div class="skp-card__meta">Sign in to view forum threads.</div>`;
+      return;
+    }
+    const data = await r.json();
+    const arr = data.threads || [];
+    const wrap = document.getElementById('threadsList');
+    if (!arr.length) { wrap.innerHTML = `<div class="skp-card"><div class="skp-card__meta" style="text-align:center;">${escHtml(t('no_threads'))}</div></div>`; return; }
+    wrap.innerHTML = arr.map(th => {
+      const id = escHtml(th.id);
+      return `
+      <article class="skp-card skp-card--hover" data-open-thread="${id}" data-testid="card-thread-${id}" style="cursor:pointer;">
+        <div class="skp-row">
+          <div class="skp-card__title">${escHtml(th.title)}</div>
+          <div class="skp-spacer"></div>
+          ${th.pinned?`<span class="skp-badge skp-badge--brand">${escHtml(t('pinned'))}</span>`:''}
+          ${th.locked?`<span class="skp-badge skp-badge--warning">${escHtml(t('locked'))}</span>`:''}
+        </div>
+        <div class="skp-card__meta">
+          <i class="fas fa-comments"></i> ${Number(th.post_count)||0} ${escHtml(t('posts'))}
+          ${th.course_id?` · course #${escHtml(th.course_id)}`:''}
+          ${th.updated_at?` · ${escHtml(String(th.updated_at).slice(0,16).replace('T',' '))}`:''}
+        </div>
+      </article>`;
+    }).join('');
+    wrap.querySelectorAll('[data-open-thread]').forEach(el =>
+      el.addEventListener('click', e => openThread(e.currentTarget.dataset.openThread)));
+  }
+
+  async function openThread(id) {
+    const r = await fetch(`/api/v1/social/forums/threads/${id}/posts`, { credentials: 'same-origin' });
+    if (!r.ok) return window.skpToast('Could not load thread', 'error');
+    const data = await r.json();
+    // find thread metadata from list
+    const tr = await fetch('/api/v1/social/forums/threads', { credentials: 'same-origin' });
+    const td = await tr.json();
+    const th = (td.threads || []).find(x => String(x.id) === String(id));
+    currentThread = th;
+    document.getElementById('tvTitle').textContent = th ? String(th.title) : `Thread #${id}`;
+    document.getElementById('tvMeta').textContent = th ? `${Number(th.post_count)||0} ${t('posts')}` : '';
+    const posts = data.posts || [];
+    const pwrap = document.getElementById('tvPosts');
+    pwrap.innerHTML = posts.length
+      ? posts.map(p => `
+        <div class="skp-card" data-testid="card-post-${escHtml(p.id)}">
+          <div class="skp-card__meta">${escHtml(p.author_id)} · ${escHtml(String(p.created_at||'').slice(0,16).replace('T',' '))}</div>
+          <div style="margin-top: var(--skp-s-2); white-space: pre-wrap;">${escHtml(p.body||'')}</div>
+        </div>`).join('')
+      : `<div class="skp-card__meta">${escHtml(t('no_posts'))}</div>`;
+    show('thread');
+  }
+
+  document.getElementById('btnNew').addEventListener('click', () => {
+    document.getElementById('newForm').style.display = '';
+  });
+  document.getElementById('btnCancelNew').addEventListener('click', () => {
+    document.getElementById('newForm').style.display = 'none';
+  });
+  document.getElementById('btnPostNew').addEventListener('click', async () => {
+    const title = document.getElementById('ntTitle').value.trim();
+    const body = document.getElementById('ntBody').value.trim();
+    const courseId = document.getElementById('ntCourse').value.trim();
+    if (!title || !body) return window.skpToast('Title and body required', 'error');
+    const r = await fetch('/api/v1/social/forums/threads', {
+      method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin',
+      body: JSON.stringify({ title, body, course_id: courseId || null, language: window.SKP_LANG }),
+    });
+    const data = await r.json();
+    if (!r.ok) return window.skpToast(data.error || 'Failed', 'error');
+    window.skpToast('Posted', 'success');
+    document.getElementById('newForm').style.display = 'none';
+    document.getElementById('ntTitle').value = '';
+    document.getElementById('ntBody').value = '';
+    document.getElementById('ntCourse').value = '';
+    loadThreads(); loadLeaderboard();
+  });
+  document.getElementById('btnBackThreads').addEventListener('click', () => show('list'));
+  document.getElementById('btnReply').addEventListener('click', async () => {
+    if (!currentThread) return;
+    const body = document.getElementById('replyBody').value.trim();
+    if (!body) return;
+    const r = await fetch(`/api/v1/social/forums/threads/${currentThread.id}/posts`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin',
+      body: JSON.stringify({ body }),
+    });
+    const data = await r.json();
+    if (!r.ok) return window.skpToast(data.error || 'Failed', 'error');
+    document.getElementById('replyBody').value = '';
+    openThread(currentThread.id); loadLeaderboard();
+  });
+
+  async function loadLeaderboard() {
+    const r = await fetch('/api/v1/engagement/leaderboard?limit=25', { credentials: 'same-origin' });
+    const tbody = document.getElementById('lbBody');
+    if (!r.ok) { tbody.innerHTML = `<tr><td colspan="3" class="skp-card__meta">—</td></tr>`; return; }
+    const data = await r.json();
+    const rows = data.leaderboard || [];
+    if (!rows.length) { tbody.innerHTML = `<tr><td colspan="3" class="skp-card__meta" style="text-align:center;">${escHtml(t('no_lb'))}</td></tr>`; return; }
+    tbody.innerHTML = rows.map(r => `
+      <tr data-testid="row-leader-${escHtml(r.user_id)}">
+        <td><strong>${Number(r.rank)||''}</strong></td>
+        <td>${escHtml(r.name || r.user_id)}</td>
+        <td><span class="skp-badge skp-badge--brand">${Number(r.xp)||0}</span></td>
+      </tr>`).join('');
+  }
+
+  document.addEventListener('skp:lang', () => { loadThreads(); loadLeaderboard(); });
+  loadThreads(); loadLeaderboard(); show('list');
+})();
+</script>
+{% endblock %}

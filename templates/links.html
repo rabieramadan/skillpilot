@@ -1,0 +1,97 @@
+{% extends "_skp_base.html" %}
+{% block title %}Guardian links · SkillPilot{% endblock %}
+
+{% block content %}
+<script>
+  window.SKP_I18N = {
+    en: {
+      title: 'Approve a guardian link',
+      subtitle: 'A parent or guardian can request read-only access to your progress. Paste the consent token they shared with you to approve the link.',
+      label_token: 'Consent token',
+      btn_approve: 'Approve link',
+      success: 'Guardian link approved. They can now see the data you allowed.',
+      err_invalid: 'That consent token is not valid for your account.',
+      err_generic: 'Could not approve the link. Please try again.',
+    },
+    ar: {
+      title: 'اعتماد ربط ولي الأمر',
+      subtitle: 'يمكن لولي الأمر طلب عرض تقدمك للقراءة فقط. الصق رمز الموافقة الذي شاركه معك لاعتماد الربط.',
+      label_token: 'رمز الموافقة',
+      btn_approve: 'اعتماد الربط',
+      success: 'تم اعتماد ربط ولي الأمر. أصبح بإمكانه رؤية البيانات التي سمحت بها.',
+      err_invalid: 'رمز الموافقة غير صالح لحسابك.',
+      err_generic: 'تعذّر اعتماد الربط. حاول مرة أخرى.',
+    }
+  };
+  function t(k) { return (window.SKP_I18N[window.SKP_LANG] || window.SKP_I18N.en)[k] || k; }
+</script>
+
+<div class="skp-page-header">
+  <div>
+    <div class="skp-page-header__title" data-i18n="title">Approve a guardian link</div>
+    <div class="skp-page-header__subtitle" data-i18n="subtitle">
+      A parent or guardian can request read-only access to your progress. Paste the consent token they shared with you to approve the link.
+    </div>
+  </div>
+</div>
+
+<section class="skp-card" style="max-width: 640px;" data-testid="card-approve-link">
+  <form id="approveForm" class="skp-stack" onsubmit="return false;">
+    <label class="skp-field">
+      <span data-i18n="label_token">Consent token</span>
+      <input type="text" id="tokenInput" required autocomplete="off"
+             placeholder="xxxx-xxxx-xxxx" data-testid="input-consent-token" />
+    </label>
+    <div>
+      <button class="skp-btn skp-btn--primary" id="approveBtn" type="submit" data-testid="button-approve-link">
+        <i class="fas fa-user-shield"></i> <span data-i18n="btn_approve">Approve link</span>
+      </button>
+    </div>
+  </form>
+  <div id="approveSuccess" class="skp-card__meta" style="display:none; color: var(--skp-success, #2E7D32); margin-top: var(--skp-s-3);" data-testid="text-approve-success"></div>
+  <div id="approveError" class="skp-card__meta" style="display:none; color: var(--skp-danger, #b00020); margin-top: var(--skp-s-3);" data-testid="text-approve-error"></div>
+</section>
+
+<script>
+  async function submitApproval() {
+    const btn = document.getElementById('approveBtn');
+    const okEl = document.getElementById('approveSuccess');
+    const errEl = document.getElementById('approveError');
+    const token = document.getElementById('tokenInput').value.trim();
+    if (!token) return;
+    okEl.style.display = 'none';
+    errEl.style.display = 'none';
+    btn.disabled = true;
+    try {
+      const r = await fetch('/api/v1/guardian/links/approve', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ consent_token: token })
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data.success) {
+        okEl.textContent = t('success');
+        okEl.style.display = '';
+        document.getElementById('tokenInput').value = '';
+      } else if (r.status === 404) {
+        errEl.textContent = t('err_invalid');
+        errEl.style.display = '';
+      } else {
+        errEl.textContent = (data && data.error) ? data.error : t('err_generic');
+        errEl.style.display = '';
+      }
+    } catch (e) {
+      errEl.textContent = t('err_generic');
+      errEl.style.display = '';
+      console.error(e);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  document.getElementById('approveForm').addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    submitApproval();
+  });
+</script>
+{% endblock %}

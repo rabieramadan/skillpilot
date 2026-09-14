@@ -1,0 +1,401 @@
+/* ============================================================
+   SkillPilot - Comprehensive Mobile Adaptation
+   Loads LAST so it overrides feature/responsive rules.
+   Targets phones (≤640px) and small tablets (≤900px).
+   ============================================================ */
+
+/* -----------------------------
+   Universal: prevent horizontal page-scroll on phones
+   ----------------------------- */
+html, body {
+    max-width: 100vw;
+    overflow-x: hidden;
+}
+
+/* Make sure long words / URLs don't blow out the layout */
+@media (max-width: 900px) {
+    body, p, h1, h2, h3, h4, h5, h6, span, div, td, th, li {
+        word-wrap: break-word;
+        overflow-wrap: anywhere;
+    }
+    pre, code {
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    /* Generic image containment */
+    img, video, iframe { max-width: 100%; height: auto; }
+}
+
+/* ============================================================
+   ≤ 900px  (Tablets and large phones)
+   ============================================================ */
+@media (max-width: 900px) {
+    .main-container,
+    .container,
+    .admin-container,
+    .teacher-container,
+    .student-container {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+        max-width: 100% !important;
+    }
+
+    /* Stats grid → 2 cols */
+    .stats-grid,
+    .dashboard-grid,
+    .analytics-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+    }
+
+    /* Course / item grids → narrower cards */
+    .courses-grid,
+    .course-grid,
+    #teacherCoursesGrid,
+    #adminCoursesGrid,
+    #studentCoursesGrid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
+        gap: 12px !important;
+    }
+}
+
+/* ============================================================
+   ≤ 640px  (Phones)
+   ============================================================ */
+@media (max-width: 640px) {
+    body { font-size: 14px; }
+
+    h1 { font-size: 1.4rem !important; }
+    h2 { font-size: 1.2rem !important; }
+    h3 { font-size: 1.05rem !important; }
+
+    /* ------------- Top nav ------------- */
+    .top-nav {
+        padding: 8px 10px !important;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .nav-brand h1 { font-size: 1rem !important; }
+    .nav-logo { height: 28px !important; }
+    .nav-tabs {
+        order: 3;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        white-space: nowrap;
+        flex-wrap: nowrap !important;
+    }
+    .nav-tabs::-webkit-scrollbar { display: none; }
+    .nav-tab {
+        flex: 0 0 auto;
+        font-size: 11px !important;
+        padding: 8px 10px !important;
+    }
+    .nav-actions {
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .user-btn, .nav-actions button, .nav-actions a {
+        font-size: 12px !important;
+        padding: 6px 10px !important;
+    }
+
+    /* ------------- Containers / cards ------------- */
+    .main-container,
+    .container,
+    .admin-container,
+    .teacher-container,
+    .student-container {
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+    }
+
+    .admin-card {
+        padding: 12px !important;
+        border-radius: 10px !important;
+        margin-bottom: 14px !important;
+    }
+    .admin-card-header {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        padding: 10px 12px !important;
+    }
+    .admin-card-header h3 { font-size: 1rem !important; }
+    .admin-card-header > button,
+    .admin-card-header > .btn-primary,
+    .admin-card-header > .btn-secondary {
+        margin-left: 0 !important;
+        flex: 1 1 100%;
+        text-align: center;
+    }
+    .admin-card-body { padding: 10px !important; }
+
+    /* ------------- Stats grid → 1 col ------------- */
+    .stats-grid,
+    .dashboard-grid,
+    .analytics-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+    .stat-card, .stats-card {
+        padding: 14px !important;
+    }
+
+    /* ------------- Course / item grids ------------- */
+    .courses-grid,
+    .course-grid,
+    #teacherCoursesGrid,
+    #adminCoursesGrid,
+    #studentCoursesGrid,
+    #courseAIToolsGrid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    /* ------------- Teacher/Student/Admin tab bars ------------- */
+    .teacher-tabs,
+    .student-tabs,
+    .admin-tabs,
+    .tabs {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        gap: 6px !important;
+        padding-bottom: 4px;
+        margin-bottom: 12px !important;
+        scrollbar-width: thin;
+    }
+    .teacher-tabs::-webkit-scrollbar,
+    .student-tabs::-webkit-scrollbar,
+    .admin-tabs::-webkit-scrollbar { height: 4px; }
+    .teacher-tab-btn,
+    .student-tab-btn,
+    .admin-tab-btn,
+    .tab-btn {
+        flex: 0 0 auto !important;
+        white-space: nowrap !important;
+        font-size: 12px !important;
+        padding: 8px 12px !important;
+        min-height: 38px;
+    }
+    .teacher-tab-btn i,
+    .student-tab-btn i { margin-right: 4px; }
+
+    /* ------------- Buttons: bigger tap target ------------- */
+    button,
+    .btn,
+    .btn-primary,
+    .btn-secondary,
+    .btn-success,
+    .btn-danger {
+        min-height: 40px;
+        font-size: 13px !important;
+    }
+    .btn-icon, .icon-btn { min-width: 40px; }
+
+    /* ------------- Forms ------------- */
+    .form-row,
+    .form-group-row {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    .form-group { width: 100% !important; }
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="date"],
+    input[type="time"],
+    input[type="search"],
+    select,
+    textarea,
+    .form-control {
+        width: 100% !important;
+        max-width: 100% !important;
+        font-size: 16px !important;       /* prevents iOS zoom-on-focus */
+        padding: 10px 12px !important;
+        box-sizing: border-box;
+    }
+    label { font-size: 13px !important; }
+
+    /* Inline action rows (model + lang + 3 buttons) on AI Analysis tab,
+       attendance bar, etc. — make them stack neatly. */
+    .admin-card-body > div[style*="display: flex"][style*="flex-wrap"],
+    .admin-card-body > div[style*="display:flex"][style*="flex-wrap"] {
+        gap: 8px !important;
+    }
+
+    /* ------------- Tables: horizontal scroll wrapper ------------- */
+    .table-responsive,
+    .data-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table {
+        font-size: 12px !important;
+        min-width: 100%;
+    }
+    th, td { padding: 8px 6px !important; }
+
+    /* ------------- Modals: near full-screen ------------- */
+    .modal-content {
+        width: 96vw !important;
+        max-width: 96vw !important;
+        max-height: 92vh !important;
+        margin: 4vh auto !important;
+        border-radius: 12px !important;
+        padding: 14px !important;
+    }
+    .modal-header { padding: 10px !important; }
+    .modal-body { padding: 10px !important; max-height: 70vh; overflow-y: auto; }
+    .modal-footer {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        padding: 10px !important;
+    }
+    .modal-footer button { flex: 1 1 calc(50% - 4px); }
+
+    /* AI Tools modal specifically */
+    #aiToolModal .modal-content { width: 98vw !important; max-width: 98vw !important; }
+    #aiToolModalContent textarea { min-height: 120px; }
+
+    /* ------------- Chat layout ------------- */
+    .chat-layout {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+    .messages-container { padding: 10px !important; }
+    .message-content { font-size: 14px !important; max-width: 100% !important; }
+    .chat-input-area { padding: 8px !important; gap: 6px; }
+    #messageInput { min-height: 44px; }
+
+    /* Three-column chat: collapse history + analytics into drawers */
+    .chat-history-sidebar,
+    .analytics-sidebar {
+        position: fixed !important;
+        top: 0;
+        bottom: 0;
+        width: 85vw !important;
+        max-width: 320px;
+        z-index: 1050;
+        background: #fff;
+        box-shadow: 0 0 24px rgba(0,0,0,0.25);
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+    }
+    .chat-history-sidebar.mobile-open,
+    .analytics-sidebar.mobile-open { transform: translateX(0); }
+    .analytics-sidebar { right: 0; left: auto; transform: translateX(100%); }
+    .analytics-sidebar.mobile-open { transform: translateX(0); }
+
+    /* ------------- AI Analysis tab specific ------------- */
+    #classAnalysisResult {
+        font-size: 12px !important;
+        padding: 12px !important;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+    #teacher-tab-ai-analysis select,
+    #teacher-tab-ai-analysis button {
+        flex: 1 1 calc(50% - 6px);
+        max-width: none !important;
+    }
+
+    /* Course detail header: stack title and actions */
+    #teacherStudentDetail .admin-card,
+    #studentDetailHeader {
+        text-align: center;
+    }
+
+    /* Attendance bar: stack the controls */
+    #teacher-tab-attendance .admin-card-body > div[style*="display: flex"] {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    #teacher-tab-attendance .admin-card-body > div[style*="display: flex"] > div {
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    /* ------------- Authoring / Insights / Community pages ------------- */
+    .skp-appbar,
+    .skp-topbar {
+        padding: 8px 10px !important;
+        flex-wrap: wrap;
+    }
+    .skp-card { padding: 12px !important; }
+    .skp-grid { grid-template-columns: 1fr !important; }
+    .skp-row { flex-direction: column !important; align-items: stretch !important; }
+
+    /* AI Tools Suite category list (the main /ai-tools page) */
+    .ai-tools-grid,
+    #aiToolsGrid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+    .ai-tool-card { padding: 12px !important; }
+
+    /* Prompt-library chips */
+    .prompt-chip {
+        font-size: 11px !important;
+        padding: 6px 10px !important;
+    }
+
+    /* User dropdown / language switcher */
+    .user-menu,
+    .lang-switcher,
+    .nav-dropdown {
+        right: 4px !important;
+        left: auto !important;
+        width: min(92vw, 280px) !important;
+    }
+}
+
+/* ============================================================
+   ≤ 420px  (Small phones)
+   ============================================================ */
+@media (max-width: 420px) {
+    .nav-brand h1 { font-size: 0.9rem !important; }
+    .nav-logo { height: 24px !important; }
+    .admin-card-header h3 { font-size: 0.95rem !important; }
+
+    .teacher-tab-btn,
+    .student-tab-btn { font-size: 11px !important; padding: 6px 10px !important; }
+
+    .modal-content { padding: 10px !important; }
+    .modal-footer button { flex: 1 1 100%; }
+
+    /* AI Analysis controls full-width on tiny screens */
+    #teacher-tab-ai-analysis select,
+    #teacher-tab-ai-analysis button { flex: 1 1 100% !important; }
+}
+
+/* ============================================================
+   RTL (Arabic) mirror adjustments
+   ============================================================ */
+@media (max-width: 640px) {
+    body.rtl .chat-history-sidebar { right: auto; left: 0; transform: translateX(-100%); }
+    body.rtl .chat-history-sidebar.mobile-open { transform: translateX(0); }
+    body.rtl .analytics-sidebar { left: 0; right: auto; transform: translateX(-100%); }
+    body.rtl .analytics-sidebar.mobile-open { transform: translateX(0); }
+    body.rtl .user-menu,
+    body.rtl .lang-switcher,
+    body.rtl .nav-dropdown {
+        left: 4px !important;
+        right: auto !important;
+    }
+}
+
+/* ============================================================
+   Touch device niceties (covers iPad too)
+   ============================================================ */
+@media (hover: none) and (pointer: coarse) {
+    /* Disable hover-only motion that feels janky on touch */
+    button:hover, .btn:hover, .card:hover {
+        transform: none !important;
+    }
+    /* Larger checkbox / radio targets */
+    input[type="checkbox"], input[type="radio"] {
+        width: 18px;
+        height: 18px;
+    }
+}

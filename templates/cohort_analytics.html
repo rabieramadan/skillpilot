@@ -1,0 +1,219 @@
+{% extends "_skp_base.html" %}
+{% block title %}Cohort Analytics · SkillPilot{% endblock %}
+
+{% block content %}
+<script>
+  window.SKP_I18N = {
+    en: {
+      nav_app:'Workspace', nav_guardian:'Parent Portal', nav_authoring:'Course Builder',
+      nav_insights:'Analytics', nav_community:'Discussions',
+      nav_links:'Approvals', nav_integrations:'SCORM & xAPI',
+      title: 'Cohort Analytics',
+      subtitle: 'Aggregate progress, exam scores, sentiment, and at-risk learners.',
+      filter_course: 'Course ID', filter_cohort: 'Cohort ID',
+      apply: 'Apply Filters', refresh: 'Refresh Snapshot',
+      learners: 'Learners', active: 'Active', avg_progress: 'Avg. Progress',
+      avg_exam: 'Avg. Exam Score', completion: 'Completion Rate', at_risk: 'At Risk',
+      heatmap_h: 'Weekly Engagement Heatmap', heatmap_empty: 'No weekly data yet — run a fresh snapshot to populate the heatmap.',
+      atrisk_h: 'At-Risk Learners', no_alerts: 'No active alerts.',
+      learner: 'Learner', course: 'Course', score: 'Risk Score', level: 'Severity', factors: 'Contributing Factors',
+      ack: 'Acknowledge', resolve: 'Mark Resolved', scan: 'Run At-Risk Scan',
+    },
+    ar: {
+      nav_app:'مساحة العمل', nav_guardian:'بوابة ولي الأمر', nav_authoring:'منشئ الدورات',
+      nav_insights:'التحليلات', nav_community:'النقاشات',
+      nav_links:'الموافقات', nav_integrations:'SCORM و xAPI',
+      title: 'تحليلات المجموعات',
+      subtitle: 'التقدم، درجات الاختبارات، المشاعر، والمتعلمون المعرضون للخطر.',
+      filter_course: 'رقم الدورة', filter_cohort: 'رقم المجموعة',
+      apply: 'تطبيق التصفية', refresh: 'تحديث اللقطة',
+      learners: 'المتعلمون', active: 'نشطون', avg_progress: 'متوسط التقدم',
+      avg_exam: 'متوسط درجة الاختبار', completion: 'نسبة الإنجاز', at_risk: 'معرّضون للخطر',
+      heatmap_h: 'الخريطة الحرارية للمشاركة الأسبوعية', heatmap_empty: 'لا توجد بيانات أسبوعية — شغّل لقطة جديدة لتعبئة الخريطة.',
+      atrisk_h: 'المتعلمون المعرّضون للخطر', no_alerts: 'لا توجد تنبيهات نشطة.',
+      learner: 'المتعلم', course: 'الدورة', score: 'درجة الخطر', level: 'مستوى الخطورة', factors: 'العوامل المساهمة',
+      ack: 'إقرار', resolve: 'وضع كمحلول', scan: 'تشغيل فحص المخاطر',
+    }
+  };
+</script>
+
+<div class="skp-page-header">
+  <div>
+    <div class="skp-page-header__title" data-i18n="title">Cohort insights</div>
+    <div class="skp-page-header__subtitle" data-i18n="subtitle"></div>
+  </div>
+  <button class="skp-btn skp-btn--secondary" id="btnScan" data-testid="button-scan">
+    <i class="fas fa-radar"></i> <span data-i18n="scan">Scan now</span>
+  </button>
+</div>
+
+<div class="skp-card" style="margin-bottom: var(--skp-s-6);">
+  <div class="skp-grid skp-grid--4">
+    <div>
+      <label class="skp-label" data-i18n="filter_course">Course ID</label>
+      <input class="skp-input" id="fCourse" data-testid="input-course-id" />
+    </div>
+    <div>
+      <label class="skp-label" data-i18n="filter_cohort">Cohort ID</label>
+      <input class="skp-input" id="fCohort" data-testid="input-cohort-id" />
+    </div>
+    <div style="display:flex; align-items:end;">
+      <button class="skp-btn skp-btn--primary" id="btnApply" data-testid="button-apply"><span data-i18n="apply">Apply</span></button>
+    </div>
+    <div style="display:flex; align-items:end;">
+      <button class="skp-btn skp-btn--ghost" id="btnRefresh" data-testid="button-refresh"><i class="fas fa-sync"></i> <span data-i18n="refresh">Refresh snapshot</span></button>
+    </div>
+  </div>
+</div>
+
+<div class="skp-grid skp-grid--3" id="kpis"></div>
+
+<section style="margin-top: var(--skp-s-8);">
+  <h2 style="font-size: var(--skp-fs-xl); margin-bottom: var(--skp-s-4);" data-i18n="heatmap_h">Weekly heatmap</h2>
+  <div id="heatmap" class="skp-card"></div>
+</section>
+
+<section style="margin-top: var(--skp-s-8);">
+  <h2 style="font-size: var(--skp-fs-xl); margin-bottom: var(--skp-s-4);" data-i18n="atrisk_h">At-risk learners</h2>
+  <div class="skp-card" style="padding:0;">
+    <table class="skp-table" id="atRiskTable">
+      <thead><tr>
+        <th data-i18n="learner">Learner</th>
+        <th data-i18n="course">Course</th>
+        <th data-i18n="score">Score</th>
+        <th data-i18n="level">Level</th>
+        <th data-i18n="factors">Factors</th>
+        <th></th>
+      </tr></thead>
+      <tbody id="atRiskBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<script>
+(function () {
+  function t(k){ return (window.SKP_I18N[window.SKP_LANG]||window.SKP_I18N.en)[k] || k; }
+
+  function kpi(label, value, sub) {
+    return `<div class="skp-card">
+      <div class="skp-stat">
+        <div class="skp-stat__label">${escHtml(t(label))}</div>
+        <div class="skp-stat__value">${value==null?'—':escHtml(value)}</div>
+        <div class="skp-stat__delta">${escHtml(sub||'')}</div>
+      </div>
+    </div>`;
+  }
+
+  function renderHeatmap(snap) {
+    const wrap = document.getElementById('heatmap');
+    const hm = (snap && snap.heatmap) || {};
+    const weeks = hm.weeks || [];
+    if (!weeks.length) {
+      wrap.innerHTML = `<div class="skp-empty">
+        <div class="skp-empty__icon"><i class="fas fa-th"></i></div>
+        <div>${escHtml(t('heatmap_empty'))}</div>
+      </div>`;
+      return;
+    }
+    const max = Math.max(1, ...weeks.flatMap(w => (w.cells||[]).map(c => Number(c.value) || 0)));
+    wrap.innerHTML = `<div style="display:grid; gap: var(--skp-s-2);">` +
+      weeks.map(w => {
+        const len = (w.cells||[]).length;
+        const cells = (w.cells||[]).map(c => {
+          const v = Number(c.value) || 0;
+          const intensity = Math.max(0.08, Math.min(1, v/max));
+          return `<div title="${escHtml(c.label||'')}: ${v}"
+            style="height:32px; border-radius: var(--skp-r-sm); background: rgba(46,125,50,${intensity}); display:flex; align-items:center; justify-content:center; color:#fff; font-size: var(--skp-fs-xs);">
+            ${escHtml(c.value ?? '')}</div>`;
+        }).join('');
+        return `<div style="display:grid; grid-template-columns: 80px repeat(${len}, 1fr); gap:6px; align-items:center;">
+          <div class="skp-card__meta">Week ${escHtml(w.week ?? '')}</div>${cells}
+        </div>`;
+      }).join('') + `</div>`;
+  }
+
+  async function loadCohort() {
+    const params = new URLSearchParams();
+    const c = document.getElementById('fCourse').value.trim();
+    const co = document.getElementById('fCohort').value.trim();
+    if (c) params.set('course_id', c);
+    if (co) params.set('cohort_id', co);
+    const refresh = window.__refreshNext ? '1' : '0';
+    if (refresh === '1') params.set('refresh', '1');
+    window.__refreshNext = false;
+
+    const r = await fetch('/api/v1/insights/cohort?' + params.toString(), { credentials: 'same-origin' });
+    if (r.status === 401 || r.status === 403) {
+      document.getElementById('kpis').innerHTML = `<div class="skp-card"><div class="skp-card__meta">Teacher/admin access required.</div></div>`;
+      return;
+    }
+    const data = await r.json();
+    const s = (data && data.snapshot) || {};
+    document.getElementById('kpis').innerHTML = [
+      kpi('learners', s.learner_count),
+      kpi('active', s.active_learner_count),
+      kpi('avg_progress', s.avg_progress_percent != null ? s.avg_progress_percent + '%' : '—'),
+      kpi('avg_exam', s.avg_exam_score != null ? s.avg_exam_score : '—'),
+      kpi('completion', s.completion_rate != null ? s.completion_rate + '%' : '—'),
+      kpi('at_risk', s.at_risk_count),
+    ].join('');
+    renderHeatmap(s);
+  }
+
+  async function loadAtRisk() {
+    const r = await fetch('/api/v1/insights/at-risk', { credentials: 'same-origin' });
+    if (!r.ok) return;
+    const data = await r.json();
+    const tbody = document.getElementById('atRiskBody');
+    const rows = data.alerts || [];
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="skp-card__meta" style="text-align:center;">${escHtml(t('no_alerts'))}</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map(a => {
+      const id = escHtml(a.id);
+      return `
+      <tr data-testid="row-alert-${id}">
+        <td>${escHtml(a.user_id)}</td>
+        <td>${escHtml(a.course_id || '—')}</td>
+        <td><strong>${escHtml(a.risk_score)}</strong></td>
+        <td><span class="skp-badge ${a.risk_level==='critical'?'skp-badge--danger':(a.risk_level==='high'?'skp-badge--warning':'skp-badge--info')}">${escHtml(a.risk_level)}</span></td>
+        <td class="skp-card__meta">${escHtml((a.factors||[]).map(f=>f.factor).join(', '))}</td>
+        <td style="text-align:end; white-space:nowrap;">
+          <button class="skp-btn skp-btn--ghost skp-btn--sm" data-ack="${id}" data-testid="button-ack-${id}">${escHtml(t('ack'))}</button>
+          <button class="skp-btn skp-btn--secondary skp-btn--sm" data-resolve="${id}" data-testid="button-resolve-${id}">${escHtml(t('resolve'))}</button>
+        </td>
+      </tr>`;
+    }).join('');
+    tbody.querySelectorAll('[data-ack]').forEach(b => b.addEventListener('click', async e => {
+      const id = e.currentTarget.dataset.ack;
+      const r = await fetch(`/api/v1/insights/at-risk/${id}/acknowledge`, { method:'POST', credentials:'same-origin' });
+      if (r.ok) { window.skpToast('Acknowledged', 'success'); loadAtRisk(); }
+    }));
+    tbody.querySelectorAll('[data-resolve]').forEach(b => b.addEventListener('click', async e => {
+      const id = e.currentTarget.dataset.resolve;
+      const r = await fetch(`/api/v1/insights/at-risk/${id}/resolve`, { method:'POST', credentials:'same-origin' });
+      if (r.ok) { window.skpToast('Resolved', 'success'); loadAtRisk(); }
+    }));
+  }
+
+  document.getElementById('btnApply').addEventListener('click', () => { loadCohort(); loadAtRisk(); });
+  document.getElementById('btnRefresh').addEventListener('click', () => { window.__refreshNext = true; loadCohort(); });
+  document.getElementById('btnScan').addEventListener('click', async () => {
+    const c = document.getElementById('fCourse').value.trim();
+    const r = await fetch('/api/v1/insights/at-risk/scan', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      credentials:'same-origin',
+      body: JSON.stringify(c ? { course_id: c } : {}),
+    });
+    const data = await r.json();
+    if (r.ok) window.skpToast(`Created ${data.alerts_created} alert(s)`, 'success');
+    else window.skpToast(data.error || 'Scan failed', 'error');
+    loadAtRisk();
+  });
+  document.addEventListener('skp:lang', () => { loadCohort(); loadAtRisk(); });
+
+  loadCohort(); loadAtRisk();
+})();
+</script>
+{% endblock %}

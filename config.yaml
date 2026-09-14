@@ -1,0 +1,241 @@
+# AIACMate Configuration File
+# Configure your API keys and model settings here
+
+# API Keys - DO NOT commit secrets here. Leave blank and load from
+# environment variables / Replit Secrets / the in-app KeyValueSetting admin UI.
+# Any non-empty value here is treated as a fallback for local dev only.
+api_keys:
+  openai: ""        # Use env var OPENAI_API_KEY or admin UI
+  claude: ""        # Use env var ANTHROPIC_API_KEY or admin UI
+  gemini: ""        # Use env var GEMINI_API_KEY or admin UI
+  grok: ""          # Use env var XAI_API_KEY or admin UI
+  deepseek: ""      # Use env var DEEPSEEK_API_KEY or admin UI
+  llama: ""         # Your Meta Llama API key
+  perplexity: ""    # Use env var PERPLEXITY_API_KEY or admin UI
+  census: ""  # Your Census API key
+  dify: ""  # Your Dify API key (from Applications → Access API)
+  bedrock: ""  # AWS credentials: access_key|secret_key|region (e.g., AKIAXXXXXXX|SecretXXXXX|us-west-2)
+
+# Model Configurations
+models:
+  openai:
+    default_model: "gpt-5"
+    vision_model: "gpt-5"
+    max_tokens: 16000
+    temperature: 0.7
+    top_p: 1.0
+    available_models:
+      - gpt-5            # Latest flagship (2025)
+      - gpt-5-mini       # Faster GPT-5
+      - gpt-5-nano       # Smallest GPT-5
+      - gpt-4.1
+      - gpt-4.1-mini
+      - gpt-4.1-nano
+      - gpt-4o
+      - gpt-4o-mini
+      - o3
+      - o3-mini
+
+  claude:
+    default_model: "claude-sonnet-4-5-20250929"
+    max_tokens: 4000
+    temperature: 0.7
+    available_models:
+      - claude-sonnet-4-5-20250929  # Most capable (default)
+      - claude-opus-4-20250514      # Precision coding
+      - claude-sonnet-4-20250514    # Balanced
+      - claude-haiku-3-5-20241022   # Fast and concise
+  
+  gemini:
+    default_model: "gemini-2.5-flash"
+    vision_model: "gemini-2.5-flash"
+    max_tokens: 8000
+    temperature: 0.7
+    available_models:
+      - gemini-2.5-flash
+      - gemini-2.5-pro
+      - gemini-2.0-flash
+      - gemini-1.5-pro
+  
+  dalle:
+    default_model: "dall-e-3"
+    size: "1024x1024"
+    quality: "standard"  # or "hd"
+    style: "vivid"  # or "natural"
+  
+  bedrock:
+    default_model: "anthropic.claude-sonnet-4-20250514-v1:0"
+    max_tokens: 4000
+    temperature: 0.7
+    available_models:
+      - anthropic.claude-sonnet-4-5-20250929-v1:0  # Claude Sonnet 4.5 - Most intelligent
+      - anthropic.claude-opus-4-20250514-v1:0  # Claude Opus 4 - Precision coding
+      - anthropic.claude-sonnet-4-20250514-v1:0  # Claude Sonnet 4 - Balanced
+      - anthropic.claude-3-5-haiku-20241022-v1:0  # Claude 3.5 Haiku - Fast
+      - anthropic.claude-3-haiku-20240307-v1:0  # Claude 3 Haiku - Budget-friendly
+  
+  llama_bedrock:
+    default_model: "meta.llama3-2-90b-instruct-v1:0"
+    max_tokens: 4000
+    temperature: 0.7
+    available_models:
+      - meta.llama3-2-90b-instruct-v1:0  # Llama 3.2 90B - Most capable
+      - meta.llama3-2-11b-instruct-v1:0  # Llama 3.2 11B - Balanced
+      - meta.llama3-2-3b-instruct-v1:0  # Llama 3.2 3B - Fast
+      - meta.llama3-2-1b-instruct-v1:0  # Llama 3.2 1B - Ultra fast
+      - meta.llama3-1-405b-instruct-v1:0  # Llama 3.1 405B - Largest
+      - meta.llama3-1-70b-instruct-v1:0  # Llama 3.1 70B - Capable
+      - meta.llama3-1-8b-instruct-v1:0  # Llama 3.1 8B - Efficient
+  
+  mistral_bedrock:
+    default_model: "mistral.mistral-large-2407-v1:0"
+    max_tokens: 4000
+    temperature: 0.7
+    available_models:
+      - mistral.mistral-large-2407-v1:0  # Mistral Large 2 - Most capable
+      - mistral.mistral-large-2402-v1:0  # Mistral Large - Capable
+      - mistral.mistral-small-2402-v1:0  # Mistral Small - Fast
+      - mistral.mixtral-8x7b-instruct-v0:1  # Mixtral 8x7B - Balanced
+      - mistral.mistral-7b-instruct-v0:2  # Mistral 7B - Efficient
+  
+  amazon_nova:
+    default_model: "amazon.nova-pro-v1:0"
+    max_tokens: 4000
+    temperature: 0.7
+    available_models:
+      - amazon.nova-pro-v1:0  # Nova Pro - Most capable
+      - amazon.nova-lite-v1:0  # Nova Lite - Balanced
+      - amazon.nova-micro-v1:0  # Nova Micro - Fast
+  
+  cohere_bedrock:
+    default_model: "cohere.command-r-plus-v1:0"
+    max_tokens: 4000
+    temperature: 0.7
+    available_models:
+      - cohere.command-r-plus-v1:0  # Command R+ - Most capable
+      - cohere.command-r-v1:0  # Command R - Capable
+      - cohere.command-text-v14  # Command - Balanced
+      - cohere.command-light-text-v14  # Command Light - Fast
+  
+  ai21_bedrock:
+    default_model: "ai21.jamba-1-5-large-v1:0"
+    max_tokens: 4000
+    temperature: 0.7
+    available_models:
+      - ai21.jamba-1-5-large-v1:0  # Jamba 1.5 Large - Most capable
+      - ai21.jamba-1-5-mini-v1:0  # Jamba 1.5 Mini - Balanced
+      - ai21.j2-ultra-v1  # Jurassic-2 Ultra - Capable
+      - ai21.j2-mid-v1  # Jurassic-2 Mid - Efficient
+  
+  stable_diffusion:
+    default_model: "stability.sd3-large-v1:0"
+    size: "1024x1024"
+    available_models:
+      - stability.sd3-large-v1:0  # Stable Diffusion 3 Large - Best quality
+      - stability.stable-diffusion-xl-v1  # Stable Diffusion XL - Fast
+      - stability.stable-image-ultra-v1:0  # Stable Image Ultra - Premium
+      - stability.stable-image-core-v1:0  # Stable Image Core - Balanced
+
+# File Upload Settings
+files:
+  max_size_mb: 50
+  allowed_extensions:
+    documents:
+      - pdf
+      - doc
+      - docx
+      - txt
+      - rtf
+      - odt
+    spreadsheets:
+      - xls
+      - xlsx
+      - csv
+      - ods
+    presentations:
+      - ppt
+      - pptx
+      - odp
+    images:
+      - jpg
+      - jpeg
+      - png
+      - gif
+      - bmp
+      - webp
+      - svg
+      - tiff
+    data:
+      - json
+      - xml
+      - yaml
+      - yml
+    code:
+      - py
+      - js
+      - ts
+      - jsx
+      - tsx
+      - java
+      - cpp
+      - c
+      - h
+      - cs
+      - rb
+      - go
+      - rs
+      - php
+      - html
+      - css
+      - sql
+    archives:
+      - zip
+      - tar
+      - gz
+  
+  # Maximum content to extract per file (characters)
+  max_content_length: 50000
+
+# Application Settings
+app:
+  debug: true
+  enable_streaming: true
+  enable_conversation_history: true
+  max_conversation_length: 50
+  enable_prompt_templates: true
+  enable_model_comparison: true
+  enable_cost_tracking: true
+  
+# Admin Authentication
+admin:
+  password: "admin123"  # Change this password for security
+  session_timeout: 3600  # Session timeout in seconds (1 hour)
+
+# Prompt Engineering Features
+prompt_engineering:
+  # Enable system prompts
+  enable_system_prompts: true
+  
+  # Default system prompts for different use cases
+  default_system_prompts:
+    general: "You are a helpful AI assistant."
+    teaching: "You are an expert educator helping students learn about prompt engineering. Provide detailed explanations and examples."
+    analysis: "You are a data analyst. Provide thorough analysis with insights and recommendations."
+    coding: "You are an expert programmer. Provide well-commented code with explanations."
+    creative: "You are a creative assistant. Think outside the box and provide innovative ideas."
+  
+  # Prompt templates for training
+  templates_enabled: true
+  
+  # Advanced parameters
+  allow_temperature_control: true
+  allow_top_p_control: true
+  allow_frequency_penalty: true
+  allow_presence_penalty: true
+
+# Response Enhancement
+responses:
+  include_metadata: true  # Include tokens, cost, model info
+  include_thinking_process: false  # Show model's reasoning (if supported)
+  format_code_blocks: true
+  highlight_syntax: true

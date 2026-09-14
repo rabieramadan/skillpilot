@@ -1,0 +1,533 @@
+{% extends "_skp_base.html" %}
+{% block title %}Course Authoring Studio · SkillPilot{% endblock %}
+
+{% block content %}
+<script>
+  window.SKP_I18N = {
+    en: {
+      nav_app:'Workspace', nav_guardian:'Parent Portal', nav_authoring:'Course Builder',
+      nav_insights:'Analytics', nav_community:'Discussions',
+      nav_links:'Approvals', nav_integrations:'SCORM & xAPI',
+      title: 'Course Authoring Studio',
+      subtitle: 'Plan, draft, and publish a complete course in four guided steps.',
+      step1: 'Topic', step2: 'Outline', step3: 'Review', step4: 'Publish',
+      next: 'Continue', back: 'Back', generate: 'Generate Course Outline',
+      publish: 'Publish Course', save: 'Save Draft',
+      drafts_heading: 'Saved Drafts',
+      title_label: 'Course Title (English)',
+      title_ar_label: 'Course Title (Arabic)',
+      topic_label: 'Topic or Theme',
+      audience_label: 'Target Audience',
+      lang_label: 'Primary Language', weeks_label: 'Number of Weeks',
+      use_ai: 'Use AI to draft a starting outline',
+      outcomes: 'Learning Outcomes', weeks_h: 'Course Modules',
+      add_outcome: 'Add Learning Outcome', add_week: 'Add Module',
+      remove: 'Remove', materials: 'Resources', exam_q: 'Exam Questions',
+      survey_q: 'Survey Questions',
+      add_material: 'Add Resource', add_exam: 'Add Exam Question', add_survey: 'Add Survey Question',
+      material_title_ph: 'Resource title', question_ph: 'Question text',
+      score_h: 'Quality Score', breakdown: 'Score Breakdown',
+      published_ok: 'Published successfully. Course ID: ',
+      none_yet: 'No saved drafts yet.',
+      status: 'Status', updated: 'Last Updated', open: 'Resume Editing',
+    },
+    ar: {
+      nav_app:'مساحة العمل', nav_guardian:'بوابة ولي الأمر', nav_authoring:'منشئ الدورات',
+      nav_insights:'التحليلات', nav_community:'النقاشات',
+      nav_links:'الموافقات', nav_integrations:'SCORM و xAPI',
+      title: 'استوديو تأليف الدورات',
+      subtitle: 'خطّط، اكتب، وانشر دورة كاملة عبر أربع خطوات مرشدة.',
+      step1: 'الموضوع', step2: 'المخطط', step3: 'المراجعة', step4: 'النشر',
+      next: 'متابعة', back: 'رجوع', generate: 'إنشاء مخطط الدورة',
+      publish: 'نشر الدورة', save: 'حفظ المسودة',
+      drafts_heading: 'المسودات المحفوظة',
+      title_label: 'عنوان الدورة (إنجليزي)',
+      title_ar_label: 'عنوان الدورة (عربي)',
+      topic_label: 'الموضوع أو المحور',
+      audience_label: 'الجمهور المستهدف',
+      lang_label: 'اللغة الأساسية', weeks_label: 'عدد الأسابيع',
+      use_ai: 'استخدام الذكاء الاصطناعي لإنشاء مخطط أولي',
+      outcomes: 'مخرجات التعلّم', weeks_h: 'وحدات الدورة',
+      add_outcome: 'إضافة مخرَج تعلّم', add_week: 'إضافة وحدة',
+      remove: 'حذف', materials: 'الموارد', exam_q: 'أسئلة الاختبار',
+      survey_q: 'أسئلة الاستبيان',
+      add_material: 'إضافة مورد', add_exam: 'إضافة سؤال اختبار', add_survey: 'إضافة سؤال استبيان',
+      material_title_ph: 'عنوان المورد', question_ph: 'نص السؤال',
+      score_h: 'درجة الجودة', breakdown: 'تفاصيل الدرجة',
+      published_ok: 'تم النشر بنجاح. رقم الدورة: ',
+      none_yet: 'لا توجد مسودات محفوظة بعد.',
+      status: 'الحالة', updated: 'آخر تحديث', open: 'استئناف التحرير',
+    }
+  };
+</script>
+
+<div class="skp-page-header">
+  <div>
+    <div class="skp-page-header__title" data-i18n="title">AI course-authoring wizard</div>
+    <div class="skp-page-header__subtitle" data-i18n="subtitle">Topic → AI outline → review → publish.</div>
+  </div>
+</div>
+
+<!-- Stepper -->
+<div class="skp-card" style="margin-bottom: var(--skp-s-6);">
+  <div id="stepper" class="skp-row" style="gap: var(--skp-s-2);"></div>
+</div>
+
+<!-- Step 1: topic -->
+<section id="step1" class="skp-card">
+  <div class="skp-form-row">
+    <label class="skp-label" data-i18n="title_label">Course title (English)</label>
+    <input class="skp-input" id="fTitle" data-testid="input-title" />
+  </div>
+  <div class="skp-form-row">
+    <label class="skp-label" data-i18n="title_ar_label">Course title (Arabic)</label>
+    <input class="skp-input" id="fTitleAr" dir="rtl" data-testid="input-title-ar" />
+  </div>
+  <div class="skp-form-row">
+    <label class="skp-label" data-i18n="topic_label">Topic / theme</label>
+    <input class="skp-input" id="fTopic" data-testid="input-topic" />
+  </div>
+  <div class="skp-form-row">
+    <label class="skp-label" data-i18n="audience_label">Target audience</label>
+    <input class="skp-input" id="fAudience" data-testid="input-audience" />
+  </div>
+  <div class="skp-grid skp-grid--2">
+    <div class="skp-form-row">
+      <label class="skp-label" data-i18n="lang_label">Primary language</label>
+      <select class="skp-select" id="fLang" data-testid="select-language">
+        <option value="en">English</option>
+        <option value="ar">العربية</option>
+      </select>
+    </div>
+    <div class="skp-form-row">
+      <label class="skp-label" data-i18n="weeks_label">Number of weeks</label>
+      <input class="skp-input" type="number" min="1" max="16" value="4" id="fWeeks" data-testid="input-weeks" />
+    </div>
+  </div>
+  <label class="skp-row" style="gap: var(--skp-s-2); margin-bottom: var(--skp-s-4);">
+    <input type="checkbox" id="fUseAI" checked data-testid="checkbox-use-ai" />
+    <span data-i18n="use_ai">Use AI to draft a starting outline</span>
+  </label>
+  <div class="skp-row">
+    <div class="skp-spacer"></div>
+    <button class="skp-btn skp-btn--primary" id="btnGenerate" data-testid="button-generate">
+      <i class="fas fa-wand-magic-sparkles"></i> <span data-i18n="generate">Generate outline</span>
+    </button>
+  </div>
+</section>
+
+<!-- Step 2: outline editor -->
+<section id="step2" class="skp-card" style="display:none;">
+  <div class="skp-stack">
+    <div>
+      <div class="skp-row">
+        <h3 style="margin:0;" data-i18n="outcomes">Learning outcomes</h3>
+        <div class="skp-spacer"></div>
+        <button class="skp-btn skp-btn--secondary skp-btn--sm" id="btnAddOutcome" data-testid="button-add-outcome">
+          <i class="fas fa-plus"></i> <span data-i18n="add_outcome">Add outcome</span>
+        </button>
+      </div>
+      <div id="outcomesList" class="skp-stack" style="margin-top: var(--skp-s-3);"></div>
+    </div>
+    <div>
+      <div class="skp-row">
+        <h3 style="margin:0;" data-i18n="weeks_h">Weekly modules</h3>
+        <div class="skp-spacer"></div>
+        <button class="skp-btn skp-btn--secondary skp-btn--sm" id="btnAddWeek" data-testid="button-add-week">
+          <i class="fas fa-plus"></i> <span data-i18n="add_week">Add week</span>
+        </button>
+      </div>
+      <div id="weeksList" class="skp-stack" style="margin-top: var(--skp-s-3);"></div>
+    </div>
+  </div>
+  <div class="skp-row" style="margin-top: var(--skp-s-6);">
+    <button class="skp-btn skp-btn--ghost" id="btnBack2" data-testid="button-back-2">
+      <i class="fas fa-arrow-left"></i> <span data-i18n="back">Back</span>
+    </button>
+    <div class="skp-spacer"></div>
+    <button class="skp-btn skp-btn--secondary" id="btnSave" data-testid="button-save">
+      <i class="fas fa-save"></i> <span data-i18n="save">Save changes</span>
+    </button>
+    <button class="skp-btn skp-btn--primary" id="btnNext2" data-testid="button-next-2">
+      <span data-i18n="next">Next</span> <i class="fas fa-arrow-right"></i>
+    </button>
+  </div>
+</section>
+
+<!-- Step 3: review -->
+<section id="step3" class="skp-card" style="display:none;">
+  <div class="skp-grid skp-grid--2">
+    <div class="skp-stat">
+      <div class="skp-stat__label" data-i18n="score_h">Quality score</div>
+      <div class="skp-stat__value" id="qScore">—</div>
+    </div>
+    <div>
+      <div class="skp-stat__label" data-i18n="breakdown">Breakdown</div>
+      <pre id="qBreakdown" style="background: var(--skp-surface-2); padding: var(--skp-s-3); border-radius: var(--skp-r-md); font-size: var(--skp-fs-xs); overflow:auto; max-height:240px;"></pre>
+    </div>
+  </div>
+  <div id="previewPane" style="margin-top: var(--skp-s-6);"></div>
+  <div class="skp-row" style="margin-top: var(--skp-s-6);">
+    <button class="skp-btn skp-btn--ghost" id="btnBack3" data-testid="button-back-3">
+      <i class="fas fa-arrow-left"></i> <span data-i18n="back">Back</span>
+    </button>
+    <div class="skp-spacer"></div>
+    <button class="skp-btn skp-btn--primary skp-btn--lg" id="btnPublish" data-testid="button-publish">
+      <i class="fas fa-rocket"></i> <span data-i18n="publish">Publish to course</span>
+    </button>
+  </div>
+</section>
+
+<!-- Step 4: published -->
+<section id="step4" class="skp-card" style="display:none; text-align:center;">
+  <div class="skp-empty__icon" style="color: var(--skp-success);"><i class="fas fa-check-circle"></i></div>
+  <h2 id="publishedMsg" data-testid="text-published"></h2>
+  <a class="skp-btn skp-btn--secondary" href="{{ url_for('main.app_page') }}">App</a>
+</section>
+
+<section style="margin-top: var(--skp-s-12);">
+  <h2 style="font-size: var(--skp-fs-xl); margin-bottom: var(--skp-s-4);" data-i18n="drafts_heading">My drafts</h2>
+  <div id="drafts" class="skp-grid skp-grid--3"></div>
+</section>
+
+<script>
+(function () {
+  const STEPS = ['step1','step2','step3','step4'];
+  const STEP_LABELS = ['step1','step2','step3','step4']; // i18n keys
+  let current = 0;
+  let draft = null; // working draft object
+
+  function t(k){ return (window.SKP_I18N[window.SKP_LANG]||window.SKP_I18N.en)[k] || k; }
+
+  function renderStepper() {
+    const el = document.getElementById('stepper');
+    el.innerHTML = STEP_LABELS.map((k,i) => `
+      <div class="skp-row" style="gap:8px;">
+        <span class="skp-badge ${i===current?'skp-badge--brand':''}" data-testid="step-${i+1}">${i+1}. ${escHtml(t(k))}</span>
+        ${i<STEP_LABELS.length-1?'<i class="fas fa-chevron-right" style="color:var(--skp-text-subtle);"></i>':''}
+      </div>`).join('');
+  }
+  function showStep(i) {
+    current = i;
+    STEPS.forEach((id, idx) => document.getElementById(id).style.display = idx===i ? '' : 'none');
+    renderStepper();
+  }
+
+  function listOutcomes() {
+    const wrap = document.getElementById('outcomesList');
+    const arr = (draft && draft.learning_outcomes) || [];
+    wrap.innerHTML = arr.map((o,i)=>`
+      <div class="skp-row">
+        <input class="skp-input" data-out-idx="${i}" value="${escHtml(o||'')}" data-testid="input-outcome-${i}" />
+        <button class="skp-btn skp-btn--ghost skp-btn--sm" data-rm-out="${i}" data-testid="button-remove-outcome-${i}"><i class="fas fa-trash"></i></button>
+      </div>`).join('') || `<div class="skp-card__meta">—</div>`;
+    wrap.querySelectorAll('input[data-out-idx]').forEach(inp=>{
+      inp.addEventListener('change', e => {
+        draft.learning_outcomes[+e.target.dataset.outIdx] = e.target.value;
+      });
+    });
+    wrap.querySelectorAll('[data-rm-out]').forEach(b=>{
+      b.addEventListener('click', e => {
+        draft.learning_outcomes.splice(+e.currentTarget.dataset.rmOut, 1);
+        listOutcomes();
+      });
+    });
+  }
+
+  const MAT_TYPES = ['reading','video','link','document'];
+  const EXAM_TYPES = ['mcq','short_answer','true_false'];
+  const SURVEY_TYPES = ['likert','text','multiple_choice'];
+
+  function optHtml(opts, val){
+    return opts.map(o => `<option value="${o}" ${o===val?'selected':''}>${o}</option>`).join('');
+  }
+  function pair(s){ const [a,b] = s.split('-'); return [+a, +b]; }
+
+  function listWeeks() {
+    const wrap = document.getElementById('weeksList');
+    const arr = (draft && draft.weeks) || [];
+    wrap.innerHTML = arr.map((w,i)=>{
+      const mats = (w.materials||[]).map((m,mi)=>`
+        <div class="skp-row" data-testid="row-material-${i}-${mi}">
+          <select class="skp-select" data-mat-type="${i}-${mi}" data-testid="select-material-type-${i}-${mi}">${optHtml(MAT_TYPES, m.type||'reading')}</select>
+          <input class="skp-input" data-mat-title="${i}-${mi}" value="${escHtml(m.title||'')}" placeholder="${escHtml(t('material_title_ph'))}" data-testid="input-material-title-${i}-${mi}" />
+          <button class="skp-btn skp-btn--ghost skp-btn--sm" data-rm-mat="${i}-${mi}" data-testid="button-remove-material-${i}-${mi}"><i class="fas fa-trash"></i></button>
+        </div>`).join('');
+      const exams = (w.exam_questions||[]).map((q,qi)=>`
+        <div class="skp-row" data-testid="row-exam-${i}-${qi}">
+          <input class="skp-input" data-exam-q="${i}-${qi}" value="${escHtml(q.question||'')}" placeholder="${escHtml(t('question_ph'))}" data-testid="input-exam-question-${i}-${qi}" />
+          <select class="skp-select" data-exam-type="${i}-${qi}" data-testid="select-exam-type-${i}-${qi}">${optHtml(EXAM_TYPES, q.type||'mcq')}</select>
+          <button class="skp-btn skp-btn--ghost skp-btn--sm" data-rm-exam="${i}-${qi}" data-testid="button-remove-exam-${i}-${qi}"><i class="fas fa-trash"></i></button>
+        </div>`).join('');
+      const survs = (w.survey_questions||[]).map((q,qi)=>`
+        <div class="skp-row" data-testid="row-survey-${i}-${qi}">
+          <input class="skp-input" data-surv-q="${i}-${qi}" value="${escHtml(q.question||'')}" placeholder="${escHtml(t('question_ph'))}" data-testid="input-survey-question-${i}-${qi}" />
+          <select class="skp-select" data-surv-type="${i}-${qi}" data-testid="select-survey-type-${i}-${qi}">${optHtml(SURVEY_TYPES, q.type||'likert')}</select>
+          <button class="skp-btn skp-btn--ghost skp-btn--sm" data-rm-surv="${i}-${qi}" data-testid="button-remove-survey-${i}-${qi}"><i class="fas fa-trash"></i></button>
+        </div>`).join('');
+      return `
+        <div class="skp-card" style="background: var(--skp-bg-muted);" data-testid="card-week-${i}">
+          <div class="skp-row">
+            <input class="skp-input" data-week-title="${i}" value="${escHtml(w.title||'')}" data-testid="input-week-title-${i}" />
+            <button class="skp-btn skp-btn--ghost skp-btn--sm" data-rm-week="${i}" data-testid="button-remove-week-${i}"><i class="fas fa-trash"></i></button>
+          </div>
+          <div class="skp-stack" style="margin-top: var(--skp-s-3);">
+            <div>
+              <div class="skp-row">
+                <strong>${escHtml(t('materials'))}</strong>
+                <div class="skp-spacer"></div>
+                <button class="skp-btn skp-btn--ghost skp-btn--sm" data-add-mat="${i}" data-testid="button-add-material-${i}"><i class="fas fa-plus"></i> ${escHtml(t('add_material'))}</button>
+              </div>
+              <div class="skp-stack" style="margin-top: var(--skp-s-2);">${mats||`<div class="skp-card__meta">—</div>`}</div>
+            </div>
+            <div>
+              <div class="skp-row">
+                <strong>${escHtml(t('exam_q'))}</strong>
+                <div class="skp-spacer"></div>
+                <button class="skp-btn skp-btn--ghost skp-btn--sm" data-add-exam="${i}" data-testid="button-add-exam-${i}"><i class="fas fa-plus"></i> ${escHtml(t('add_exam'))}</button>
+              </div>
+              <div class="skp-stack" style="margin-top: var(--skp-s-2);">${exams||`<div class="skp-card__meta">—</div>`}</div>
+            </div>
+            <div>
+              <div class="skp-row">
+                <strong>${escHtml(t('survey_q'))}</strong>
+                <div class="skp-spacer"></div>
+                <button class="skp-btn skp-btn--ghost skp-btn--sm" data-add-surv="${i}" data-testid="button-add-survey-${i}"><i class="fas fa-plus"></i> ${escHtml(t('add_survey'))}</button>
+              </div>
+              <div class="skp-stack" style="margin-top: var(--skp-s-2);">${survs||`<div class="skp-card__meta">—</div>`}</div>
+            </div>
+          </div>
+        </div>`;
+    }).join('') || `<div class="skp-card__meta">—</div>`;
+
+    wrap.querySelectorAll('input[data-week-title]').forEach(inp=>{
+      inp.addEventListener('change', e => {
+        draft.weeks[+e.target.dataset.weekTitle].title = e.target.value;
+      });
+    });
+    wrap.querySelectorAll('[data-rm-week]').forEach(b=>{
+      b.addEventListener('click', e => {
+        draft.weeks.splice(+e.currentTarget.dataset.rmWeek, 1);
+        listWeeks();
+      });
+    });
+
+    // Materials
+    wrap.querySelectorAll('[data-mat-type]').forEach(s=>{
+      s.addEventListener('change', e=>{
+        const [wi, mi] = pair(e.target.dataset.matType);
+        draft.weeks[wi].materials[mi].type = e.target.value;
+      });
+    });
+    wrap.querySelectorAll('[data-mat-title]').forEach(inp=>{
+      inp.addEventListener('change', e=>{
+        const [wi, mi] = pair(e.target.dataset.matTitle);
+        draft.weeks[wi].materials[mi].title = e.target.value;
+      });
+    });
+    wrap.querySelectorAll('[data-rm-mat]').forEach(b=>{
+      b.addEventListener('click', e=>{
+        const [wi, mi] = pair(e.currentTarget.dataset.rmMat);
+        draft.weeks[wi].materials.splice(mi, 1);
+        listWeeks();
+      });
+    });
+    wrap.querySelectorAll('[data-add-mat]').forEach(b=>{
+      b.addEventListener('click', e=>{
+        const wi = +e.currentTarget.dataset.addMat;
+        draft.weeks[wi].materials = draft.weeks[wi].materials || [];
+        draft.weeks[wi].materials.push({type:'reading', title:''});
+        listWeeks();
+      });
+    });
+
+    // Exam questions
+    wrap.querySelectorAll('[data-exam-q]').forEach(inp=>{
+      inp.addEventListener('change', e=>{
+        const [wi, qi] = pair(e.target.dataset.examQ);
+        draft.weeks[wi].exam_questions[qi].question = e.target.value;
+      });
+    });
+    wrap.querySelectorAll('[data-exam-type]').forEach(s=>{
+      s.addEventListener('change', e=>{
+        const [wi, qi] = pair(e.target.dataset.examType);
+        draft.weeks[wi].exam_questions[qi].type = e.target.value;
+      });
+    });
+    wrap.querySelectorAll('[data-rm-exam]').forEach(b=>{
+      b.addEventListener('click', e=>{
+        const [wi, qi] = pair(e.currentTarget.dataset.rmExam);
+        draft.weeks[wi].exam_questions.splice(qi, 1);
+        listWeeks();
+      });
+    });
+    wrap.querySelectorAll('[data-add-exam]').forEach(b=>{
+      b.addEventListener('click', e=>{
+        const wi = +e.currentTarget.dataset.addExam;
+        draft.weeks[wi].exam_questions = draft.weeks[wi].exam_questions || [];
+        draft.weeks[wi].exam_questions.push({question:'', type:'mcq'});
+        listWeeks();
+      });
+    });
+
+    // Survey questions
+    wrap.querySelectorAll('[data-surv-q]').forEach(inp=>{
+      inp.addEventListener('change', e=>{
+        const [wi, qi] = pair(e.target.dataset.survQ);
+        draft.weeks[wi].survey_questions[qi].question = e.target.value;
+      });
+    });
+    wrap.querySelectorAll('[data-surv-type]').forEach(s=>{
+      s.addEventListener('change', e=>{
+        const [wi, qi] = pair(e.target.dataset.survType);
+        draft.weeks[wi].survey_questions[qi].type = e.target.value;
+      });
+    });
+    wrap.querySelectorAll('[data-rm-surv]').forEach(b=>{
+      b.addEventListener('click', e=>{
+        const [wi, qi] = pair(e.currentTarget.dataset.rmSurv);
+        draft.weeks[wi].survey_questions.splice(qi, 1);
+        listWeeks();
+      });
+    });
+    wrap.querySelectorAll('[data-add-surv]').forEach(b=>{
+      b.addEventListener('click', e=>{
+        const wi = +e.currentTarget.dataset.addSurv;
+        draft.weeks[wi].survey_questions = draft.weeks[wi].survey_questions || [];
+        draft.weeks[wi].survey_questions.push({question:'', type:'likert'});
+        listWeeks();
+      });
+    });
+  }
+
+  document.getElementById('btnAddOutcome').addEventListener('click', ()=>{
+    if (!draft) return;
+    draft.learning_outcomes = draft.learning_outcomes || [];
+    draft.learning_outcomes.push(''); listOutcomes();
+  });
+  document.getElementById('btnAddWeek').addEventListener('click', ()=>{
+    if (!draft) return;
+    draft.weeks = draft.weeks || [];
+    const i = draft.weeks.length + 1;
+    draft.weeks.push({ title: `Week ${i}`, materials: [], exam_questions: [], survey_questions: [] });
+    listWeeks();
+  });
+
+  async function generate() {
+    const body = {
+      title: document.getElementById('fTitle').value.trim(),
+      title_ar: document.getElementById('fTitleAr').value.trim() || null,
+      topic: document.getElementById('fTopic').value.trim(),
+      target_audience: document.getElementById('fAudience').value.trim() || null,
+      language: document.getElementById('fLang').value,
+      weeks_count: +document.getElementById('fWeeks').value || 4,
+      use_ai: document.getElementById('fUseAI').checked,
+    };
+    if (!body.title) return window.skpToast('Title is required', 'error');
+    const r = await fetch('/api/v1/authoring/drafts', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      credentials: 'same-origin', body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (!r.ok) return window.skpToast(data.error || 'Failed', 'error');
+    draft = data.draft;
+    listOutcomes(); listWeeks();
+    showStep(1);
+    loadDrafts();
+  }
+
+  async function save() {
+    if (!draft) return;
+    const r = await fetch(`/api/v1/authoring/drafts/${draft.id}`, {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        title: draft.title, title_ar: draft.title_ar,
+        topic: draft.topic, target_audience: draft.target_audience,
+        learning_outcomes: draft.learning_outcomes,
+        weeks: draft.weeks, ethics_tags: draft.ethics_tags || [],
+        change_note: 'wizard edit',
+      }),
+    });
+    const data = await r.json();
+    if (!r.ok) return window.skpToast(data.error || 'Save failed', 'error');
+    draft = data.draft;
+    window.skpToast('Saved', 'success');
+  }
+
+  async function review() {
+    await save();
+    const r = await fetch(`/api/v1/authoring/drafts/${draft.id}/score`, {
+      method: 'POST', credentials: 'same-origin',
+    });
+    const data = await r.json();
+    if (!r.ok) return window.skpToast(data.error || 'Score failed', 'error');
+    document.getElementById('qScore').textContent = data.quality_score;
+    document.getElementById('qBreakdown').textContent = JSON.stringify(data.breakdown, null, 2);
+    document.getElementById('previewPane').innerHTML = `
+      <h3>${escHtml(draft.title)}</h3>
+      ${draft.title_ar ? `<h4 dir="rtl">${escHtml(draft.title_ar)}</h4>` : ''}
+      <p class="skp-card__meta">${escHtml(draft.topic||'')} · ${escHtml(draft.language||'en')}</p>
+      <ol>${(draft.weeks||[]).map(w=>`<li>${escHtml(w.title||'')}</li>`).join('')}</ol>`;
+    showStep(2);
+  }
+
+  async function publish() {
+    const r = await fetch(`/api/v1/authoring/drafts/${draft.id}/publish`, {
+      method: 'POST', credentials: 'same-origin',
+    });
+    const data = await r.json();
+    if (!r.ok) return window.skpToast(data.error || 'Publish failed', 'error');
+    document.getElementById('publishedMsg').textContent = t('published_ok') + String(data.course_id);
+    showStep(3);
+    loadDrafts();
+  }
+
+  async function loadDrafts() {
+    const r = await fetch('/api/v1/authoring/drafts', { credentials: 'same-origin' });
+    if (!r.ok) return;
+    const data = await r.json();
+    const wrap = document.getElementById('drafts');
+    const arr = data.drafts || [];
+    if (!arr.length) { wrap.innerHTML = `<div class="skp-card__meta">${escHtml(t('none_yet'))}</div>`; return; }
+    wrap.innerHTML = arr.map(d => {
+      const id = escHtml(d.id);
+      const status = escHtml(d.status || '');
+      return `
+      <div class="skp-card skp-card--hover" data-testid="card-draft-${id}">
+        <div class="skp-card__title">${escHtml(d.title)}</div>
+        <div class="skp-card__meta">${escHtml(t('status'))}: <span class="skp-badge ${d.status==='published'?'skp-badge--success':'skp-badge--info'}">${status}</span></div>
+        <div class="skp-card__meta">${escHtml(t('updated'))}: ${escHtml((d.updated_at||'').slice(0,16).replace('T',' '))}</div>
+        <div style="margin-top: var(--skp-s-3);">
+          <button class="skp-btn skp-btn--secondary skp-btn--sm" data-open-draft="${id}" data-testid="button-open-${id}">${escHtml(t('open'))}</button>
+        </div>
+      </div>`;
+    }).join('');
+    wrap.querySelectorAll('[data-open-draft]').forEach(b => {
+      b.addEventListener('click', async e => {
+        const id = e.currentTarget.dataset.openDraft;
+        const r = await fetch(`/api/v1/authoring/drafts/${id}`, { credentials: 'same-origin' });
+        const d = await r.json();
+        if (d && d.draft) {
+          draft = d.draft;
+          listOutcomes(); listWeeks();
+          showStep(1);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      });
+    });
+  }
+
+  document.getElementById('btnGenerate').addEventListener('click', generate);
+  document.getElementById('btnBack2').addEventListener('click', ()=>showStep(0));
+  document.getElementById('btnSave').addEventListener('click', save);
+  document.getElementById('btnNext2').addEventListener('click', review);
+  document.getElementById('btnBack3').addEventListener('click', ()=>showStep(1));
+  document.getElementById('btnPublish').addEventListener('click', publish);
+  document.addEventListener('skp:lang', () => { renderStepper(); loadDrafts(); });
+
+  showStep(0);
+  loadDrafts();
+})();
+</script>
+{% endblock %}

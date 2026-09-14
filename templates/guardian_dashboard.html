@@ -1,0 +1,309 @@
+{% extends "_skp_base.html" %}
+{% block title %}Parent Portal · SkillPilot{% endblock %}
+
+{% block content %}
+<script>
+  window.SKP_I18N = {
+    en: {
+      nav_app: 'Workspace', nav_guardian: 'Parent Portal', nav_links: 'Approvals', nav_authoring: 'Course Builder',
+      nav_insights: 'Analytics', nav_community: 'Discussions', nav_integrations: 'SCORM & xAPI',
+      title: 'Parent Portal',
+      subtitle: 'Read-only progress for the learners linked to your account.',
+      empty: 'No learners are linked to your account yet.',
+      empty_hint: 'Ask your child to share a parent-link request, then approve it from their account.',
+      grades: 'Grades & Courses', attendance: 'Attendance',
+      ethics: 'Ethics & Integrity Profile', resources: 'Parent Resources',
+      progress: 'Progress', certificate: 'Certificate', course: 'Course',
+      issued: 'Issued', not_issued: 'Not Yet Issued', score: 'Score',
+      sessions: 'Recent Sessions', competency: 'Competency',
+      no_grades: 'Grades hidden by consent settings.', no_attendance: 'Attendance hidden by consent settings.',
+      no_ethics: 'Ethics scores hidden by consent settings.',
+      loading: 'Loading…', refresh: 'Refresh Data',
+      link_title: 'Connect a Learner',
+      link_hint: 'Enter the learner\'s user ID to request a link. Share the consent token with them so they can approve it from their account.',
+      label_learner_id: 'Learner User ID', label_relationship: 'Relationship',
+      perm_grades: 'View Grades', perm_attendance: 'View Attendance',
+      perm_ethics: 'View Ethics Profile', perm_message: 'Contact Instructors',
+      btn_request: 'Send Link Request', token_label: 'Share this consent token with the learner:',
+      copy: 'Copy Token', copied: 'Copied!', err_link: 'Could not create link request.',
+    },
+    ar: {
+      nav_app: 'مساحة العمل', nav_guardian: 'بوابة ولي الأمر', nav_links: 'الموافقات', nav_authoring: 'منشئ الدورات',
+      nav_insights: 'التحليلات', nav_community: 'النقاشات', nav_integrations: 'SCORM و xAPI',
+      title: 'بوابة ولي الأمر',
+      subtitle: 'عرض القراءة فقط لتقدم المتعلمين المرتبطين بحسابك.',
+      empty: 'لا يوجد متعلمون مرتبطون بحسابك بعد.',
+      empty_hint: 'اطلب من ابنك أو ابنتك إرسال طلب ربط ولي أمر، ثم اعتمده من حسابهم.',
+      grades: 'الدرجات والدورات', attendance: 'الحضور',
+      ethics: 'ملف الأخلاقيات والنزاهة', resources: 'موارد الأسرة',
+      progress: 'التقدم', certificate: 'الشهادة', course: 'الدورة',
+      issued: 'تم الإصدار', not_issued: 'لم تُصدر بعد', score: 'الدرجة',
+      sessions: 'الجلسات الأخيرة', competency: 'الكفاءة',
+      no_grades: 'الدرجات مخفية بحسب إعدادات الموافقة.', no_attendance: 'الحضور مخفي بحسب إعدادات الموافقة.',
+      no_ethics: 'درجات الأخلاقيات مخفية بحسب إعدادات الموافقة.',
+      loading: 'جارٍ التحميل…', refresh: 'تحديث البيانات',
+      link_title: 'ربط متعلّم',
+      link_hint: 'أدخل معرّف المستخدم للمتعلم لطلب الربط، ثم شارك معه رمز الموافقة لاعتماده من حسابه.',
+      label_learner_id: 'معرّف المستخدم للمتعلم', label_relationship: 'صلة القرابة',
+      perm_grades: 'عرض الدرجات', perm_attendance: 'عرض الحضور',
+      perm_ethics: 'عرض ملف الأخلاقيات', perm_message: 'التواصل مع المعلمين',
+      btn_request: 'إرسال طلب الربط', token_label: 'شارك رمز الموافقة هذا مع المتعلم:',
+      copy: 'نسخ الرمز', copied: 'تم النسخ!', err_link: 'تعذّر إنشاء طلب الربط.',
+    }
+  };
+</script>
+
+<div class="skp-page-header">
+  <div>
+    <div class="skp-page-header__title" data-i18n="title">Guardian dashboard</div>
+    <div class="skp-page-header__subtitle" data-i18n="subtitle">Read-only progress for the learners linked to your account.</div>
+  </div>
+  <button class="skp-btn skp-btn--secondary" id="refreshBtn" data-testid="button-refresh">
+    <i class="fas fa-sync"></i> <span data-i18n="refresh">Refresh</span>
+  </button>
+</div>
+
+<section class="skp-card" style="margin-bottom: var(--skp-s-6);" data-testid="card-link-learner">
+  <h2 style="font-size: var(--skp-fs-xl); margin: 0 0 var(--skp-s-2);" data-i18n="link_title">Link a learner</h2>
+  <p class="skp-card__meta" style="margin-bottom: var(--skp-s-4);" data-i18n="link_hint">
+    Enter the learner's user ID to request a link. Share the consent token with them so they can approve from their account.
+  </p>
+  <form id="linkForm" class="skp-stack" onsubmit="return false;">
+    <div class="skp-grid skp-grid--2">
+      <label class="skp-field">
+        <span data-i18n="label_learner_id">Learner user ID</span>
+        <input type="text" id="learnerIdInput" required data-testid="input-learner-id" />
+      </label>
+      <label class="skp-field">
+        <span data-i18n="label_relationship">Relationship</span>
+        <input type="text" id="relationshipInput" value="parent" data-testid="input-relationship" />
+      </label>
+    </div>
+    <div class="skp-row" style="flex-wrap:wrap; gap: var(--skp-s-4);">
+      <label><input type="checkbox" id="permGrades" checked data-testid="checkbox-perm-grades" /> <span data-i18n="perm_grades">View grades</span></label>
+      <label><input type="checkbox" id="permAttendance" checked data-testid="checkbox-perm-attendance" /> <span data-i18n="perm_attendance">View attendance</span></label>
+      <label><input type="checkbox" id="permEthics" checked data-testid="checkbox-perm-ethics" /> <span data-i18n="perm_ethics">View EthicSense</span></label>
+      <label><input type="checkbox" id="permMessage" data-testid="checkbox-perm-message" /> <span data-i18n="perm_message">Message instructors</span></label>
+    </div>
+    <div>
+      <button class="skp-btn skp-btn--primary" id="linkSubmitBtn" type="submit" data-testid="button-request-link">
+        <i class="fas fa-link"></i> <span data-i18n="btn_request">Request link</span>
+      </button>
+    </div>
+  </form>
+  <div id="linkResult" class="skp-card" style="display:none; margin-top: var(--skp-s-4); background: var(--skp-bg-soft, #f5f7fa);" data-testid="card-link-token">
+    <div class="skp-card__meta" data-i18n="token_label">Share this consent token with the learner:</div>
+    <div class="skp-row" style="margin-top: var(--skp-s-2); gap: var(--skp-s-2); align-items: center;">
+      <code id="linkToken" style="word-break: break-all; flex:1; font-size: var(--skp-fs-md); padding: var(--skp-s-2); background:#fff; border:1px solid var(--skp-border,#ddd); border-radius:6px;" data-testid="text-consent-token"></code>
+      <button class="skp-btn skp-btn--secondary" id="copyTokenBtn" type="button" data-testid="button-copy-token">
+        <i class="fas fa-copy"></i> <span data-i18n="copy">Copy</span>
+      </button>
+    </div>
+  </div>
+  <div id="linkError" class="skp-card__meta" style="display:none; color: var(--skp-danger, #b00020); margin-top: var(--skp-s-2);" data-testid="text-link-error"></div>
+</section>
+
+<div id="loadingState" class="skp-empty">
+  <div class="skp-empty__icon"><i class="fas fa-spinner fa-spin"></i></div>
+  <div data-i18n="loading">Loading…</div>
+</div>
+
+<div id="emptyState" class="skp-card" style="display:none; text-align:center;" data-testid="empty-guardian">
+  <div class="skp-empty__icon"><i class="fas fa-user-friends"></i></div>
+  <h3 data-i18n="empty">No learners are linked to your account yet.</h3>
+  <p class="skp-card__meta" data-i18n="empty_hint">Ask your child to share a guardian link request, then approve it from their account.</p>
+</div>
+
+<div id="children" class="skp-stack" style="display:none;"></div>
+
+<section style="margin-top: var(--skp-s-12);">
+  <h2 style="font-size: var(--skp-fs-xl); margin-bottom: var(--skp-s-4);" data-i18n="resources">Parent resources</h2>
+  <div id="resources" class="skp-grid skp-grid--2"></div>
+</section>
+
+<script>
+  function t(key) {
+    const dict = (window.SKP_I18N[window.SKP_LANG] || window.SKP_I18N.en);
+    return dict[key] || key;
+  }
+
+  function childCard(child) {
+    const perms = child.permissions || {};
+    const learnerId = escHtml(child.learner_id);
+    const enrollments = (child.enrollments || []).map(e => {
+      const cid = escHtml(e.course_id);
+      const pct = Math.max(0, Math.min(100, Number(e.progress_percent) || 0));
+      return `
+      <tr data-testid="row-enrollment-${cid}">
+        <td>${escHtml(t('course'))} #${cid}</td>
+        <td>
+          <div class="skp-progress" style="min-width:140px;">
+            <div class="skp-progress__bar" style="width:${pct}%"></div>
+          </div>
+          <div class="skp-card__meta" style="margin-top:4px;">${pct.toFixed(1)}%</div>
+        </td>
+        <td>
+          ${e.certificate_issued
+            ? `<span class="skp-badge skp-badge--success" data-testid="badge-cert-${cid}">${escHtml(t('issued'))}</span>`
+            : `<span class="skp-badge" data-testid="badge-cert-${cid}">${escHtml(t('not_issued'))}</span>`}
+        </td>
+      </tr>`;
+    }).join('');
+
+    const ethicsRows = (child.ethics || []).map(p => {
+      const compId = escHtml(p.competency_id);
+      const score = (p.score == null || isNaN(Number(p.score))) ? '—' : Number(p.score).toFixed(1);
+      return `
+      <tr data-testid="row-ethic-${compId}">
+        <td>${compId}</td>
+        <td>${escHtml(score)}</td>
+      </tr>`;
+    }).join('');
+
+    return `
+    <article class="skp-card" data-testid="card-child-${learnerId}">
+      <div class="skp-row">
+        <div>
+          <div class="skp-card__title" data-testid="text-child-name-${learnerId}">
+            <i class="fas fa-user-graduate" style="color: var(--skp-brand);"></i>
+            ${escHtml(child.name || child.learner_id)}
+          </div>
+          <div class="skp-card__meta">ID: ${learnerId}</div>
+        </div>
+        <div class="skp-spacer"></div>
+        <span class="skp-badge skp-badge--info" title="${escHtml(t('attendance'))}">
+          <i class="fas fa-clipboard-check"></i> ${Number(child.attendance_count) || 0} ${escHtml(t('sessions'))}
+        </span>
+      </div>
+
+      <div class="skp-grid skp-grid--2" style="margin-top: var(--skp-s-6);">
+        <div>
+          <h4 style="margin: 0 0 var(--skp-s-2);">${escHtml(t('grades'))}</h4>
+          ${perms.grades
+            ? (enrollments
+                ? `<table class="skp-table">
+                    <thead><tr><th>${escHtml(t('course'))}</th><th>${escHtml(t('progress'))}</th><th>${escHtml(t('certificate'))}</th></tr></thead>
+                    <tbody>${enrollments}</tbody>
+                  </table>`
+                : `<div class="skp-card__meta">—</div>`)
+            : `<div class="skp-card__meta"><i class="fas fa-lock"></i> ${escHtml(t('no_grades'))}</div>`}
+        </div>
+        <div>
+          <h4 style="margin: 0 0 var(--skp-s-2);">${escHtml(t('ethics'))}</h4>
+          ${perms.ethics
+            ? (ethicsRows
+                ? `<table class="skp-table">
+                    <thead><tr><th>${escHtml(t('competency'))}</th><th>${escHtml(t('score'))}</th></tr></thead>
+                    <tbody>${ethicsRows}</tbody>
+                  </table>`
+                : `<div class="skp-card__meta">—</div>`)
+            : `<div class="skp-card__meta"><i class="fas fa-lock"></i> ${escHtml(t('no_ethics'))}</div>`}
+        </div>
+      </div>
+
+      ${!perms.attendance
+        ? `<div class="skp-card__meta" style="margin-top: var(--skp-s-4);"><i class="fas fa-lock"></i> ${escHtml(t('no_attendance'))}</div>`
+        : ''}
+    </article>`;
+  }
+
+  async function load() {
+    const loading = document.getElementById('loadingState');
+    const empty = document.getElementById('emptyState');
+    const list = document.getElementById('children');
+    const res = document.getElementById('resources');
+    loading.style.display = ''; empty.style.display = 'none'; list.style.display = 'none';
+
+    try {
+      const r = await fetch('/api/v1/guardian/dashboard', { credentials: 'same-origin' });
+      if (r.status === 401 || r.status === 403) {
+        loading.style.display = 'none';
+        empty.style.display = '';
+        empty.querySelector('h3').textContent = 'Please sign in to view this dashboard.';
+        return;
+      }
+      const data = await r.json();
+      const children = data.children || [];
+      if (!children.length) {
+        loading.style.display = 'none';
+        empty.style.display = '';
+      } else {
+        list.innerHTML = children.map(childCard).join('');
+        loading.style.display = 'none';
+        list.style.display = '';
+      }
+      const lang = window.SKP_LANG;
+      res.innerHTML = (data.parent_resources || [])
+        .filter(x => !x.language || x.language === lang || lang === 'en')
+        .map(x => `
+          <a class="skp-card skp-card--hover" href="${safeUrl(x.url)}" target="_blank" rel="noopener" data-testid="link-resource">
+            <div class="skp-card__title"><i class="fas fa-file-pdf"></i> ${escHtml(x.title)}</div>
+            <div class="skp-card__meta">${escHtml((x.language || 'en').toString().toUpperCase())}</div>
+          </a>`).join('');
+    } catch (e) {
+      loading.style.display = 'none';
+      empty.style.display = '';
+      empty.querySelector('h3').textContent = 'Could not load dashboard.';
+      console.error(e);
+    }
+  }
+
+  document.getElementById('refreshBtn').addEventListener('click', load);
+  document.addEventListener('skp:lang', load);
+  load();
+
+  async function submitLinkRequest() {
+    const btn = document.getElementById('linkSubmitBtn');
+    const errEl = document.getElementById('linkError');
+    const resEl = document.getElementById('linkResult');
+    const tokenEl = document.getElementById('linkToken');
+    const learnerId = document.getElementById('learnerIdInput').value.trim();
+    if (!learnerId) return;
+    errEl.style.display = 'none';
+    btn.disabled = true;
+    try {
+      const r = await fetch('/api/v1/guardian/links', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          learner_user_id: learnerId,
+          relationship: document.getElementById('relationshipInput').value.trim() || 'parent',
+          can_view_grades: document.getElementById('permGrades').checked,
+          can_view_attendance: document.getElementById('permAttendance').checked,
+          can_view_ethics: document.getElementById('permEthics').checked,
+          can_message_instructor: document.getElementById('permMessage').checked,
+        })
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.consent_token) {
+        errEl.textContent = (data && data.error) ? data.error : t('err_link');
+        errEl.style.display = '';
+        return;
+      }
+      tokenEl.textContent = data.consent_token;
+      resEl.style.display = '';
+      load();
+    } catch (e) {
+      errEl.textContent = t('err_link');
+      errEl.style.display = '';
+      console.error(e);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById('linkForm').addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    submitLinkRequest();
+  });
+  document.getElementById('copyTokenBtn').addEventListener('click', async () => {
+    const token = document.getElementById('linkToken').textContent;
+    try { await navigator.clipboard.writeText(token); } catch (_) {}
+    const span = document.querySelector('#copyTokenBtn span');
+    const orig = span.textContent;
+    span.textContent = t('copied');
+    setTimeout(() => { span.textContent = orig; }, 1500);
+  });
+</script>
+{% endblock %}
