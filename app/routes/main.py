@@ -167,14 +167,9 @@ def app_page():
     # Check if user or admin is logged in
     if not session.get('user_id') and not session.get('is_admin'):
         return redirect(url_for('main.landing'))
-    ai_chat_hidden = False
-    try:
-        from app.models import KeyValueSetting
-        s = KeyValueSetting.query.filter_by(key='ai_chat_hidden').first()
-        ai_chat_hidden = bool(s and s.value == '1')
-    except Exception:
-        pass
-    return render_template('index.html', ai_chat_hidden=ai_chat_hidden)
+    # `ai_chat_hidden` comes from the context processor in app/__init__.py,
+    # so every template sees the same switch.
+    return render_template('index.html')
 
 @main_bp.route('/admin-login')
 def admin_login():

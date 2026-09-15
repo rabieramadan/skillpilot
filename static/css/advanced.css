@@ -466,6 +466,12 @@ body {
     }
 }
 
+/* The AI chat entry follows the admin switch, not the role. It is hidden
+   until app.js has read window.SKP_AI_CHAT_ENABLED, so it cannot flash up
+   for a moment and then vanish. */
+.menu-item.ai-chat-item { display: none; }
+.menu-item.ai-chat-item.role-visible { display: flex; }
+
 /* Hide role-restricted menu items by default */
 .menu-item.student-only,
 .menu-item.instructor-only,

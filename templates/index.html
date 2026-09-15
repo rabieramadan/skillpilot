@@ -4,17 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     {% include '_pwa_meta.html' %}
+    <script>
+      // The AI chat switch on the admin dashboard. When it is on, the chat
+      // tab stays put and everyone who may use the app gets a menu entry for
+      // it; when it is off, the tab and its menu entry are gone for everyone.
+      window.SKP_AI_CHAT_ENABLED = {{ 'false' if ai_chat_hidden else 'true' }};
+    </script>
     {% if ai_chat_hidden %}
     <style>
       #chat-tab { display: none !important; }
       [data-testid="menu-ai-chat"] { display: none !important; }
     </style>
-    <script>
-      document.addEventListener('DOMContentLoaded', function () {
-        var firstVisible = document.querySelector('.menu-item:not([style*="none"]):not([data-testid="menu-ai-chat"])');
-        if (firstVisible) firstVisible.click();
-      });
-    </script>
     {% endif %}
     <title>SkillPilot - AI-Powered Training Platform</title>
     <!-- Base URL for JavaScript API calls (handles reverse proxy prefix) -->
@@ -262,7 +262,7 @@
                 <section class="menu-group instructor-or-admin-only" data-group="ai">
                     <h4 class="menu-group-title" data-i18n="menu_cat_ai">Artificial Intelligence</h4>
                     <div class="menu-group-cards">
-                        <button class="menu-item card-tone-ai instructor-or-admin-only active" data-tab="chat" data-i18n="chat" data-testid="menu-ai-chat">
+                        <button class="menu-item card-tone-ai ai-chat-item active" data-tab="chat" data-i18n="chat" data-testid="menu-ai-chat">
                             <span class="menu-card-icon"><i class="fas fa-comments"></i></span>
                             <span class="menu-card-label">Artificial Intelligence Assistant</span>
                         </button>

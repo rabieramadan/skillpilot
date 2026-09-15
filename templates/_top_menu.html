@@ -18,10 +18,12 @@
   <section class="menu-group" data-group="ai">
     <h4 class="menu-group-title" data-i18n="menu_cat_ai">Artificial Intelligence</h4>
     <div class="menu-group-cards">
+      {% if not ai_chat_hidden %}
       <a class="menu-item card-tone-ai" href="/app?tab=chat" data-testid="menu-ai-chat">
         <span class="menu-card-icon"><i class="fas fa-comments"></i></span>
         <span class="menu-card-label">Artificial Intelligence Assistant</span>
       </a>
+      {% endif %}
       <a class="menu-item card-tone-ai" href="/app?tab=ai-tools-suite" data-testid="menu-ai-tools-suite">
         <span class="menu-card-icon"><i class="fas fa-wand-magic-sparkles"></i></span>
         <span class="menu-card-label">Artificial Intelligence Tools Suite</span>

@@ -341,6 +341,28 @@ h2{color:#0d9488;}p{color:#555;}#status{font-weight:600;color:#166534;}</style>
             )
         return resp
 
+    # ---- The AI chat switch, for every template ---------------------------
+    # The admin dashboard can switch the AI chat off. That state was read in
+    # one route and passed to one template, so the shared top menu -- on the
+    # admin pages and every standalone page -- went on offering a link to a
+    # chat that was switched off.
+    @app.context_processor
+    def _ai_chat_visibility():
+        from flask import g
+
+        if not hasattr(g, '_skp_ai_chat_hidden'):
+            hidden = False
+            try:
+                from app.models import KeyValueSetting
+                setting = KeyValueSetting.query.filter_by(
+                    key='ai_chat_hidden').first()
+                hidden = bool(setting and setting.value == '1')
+            except Exception:
+                # No database yet, or no table: the chat stays available.
+                hidden = False
+            g._skp_ai_chat_hidden = hidden
+        return {'ai_chat_hidden': g._skp_ai_chat_hidden}
+
     # ---- API errors must be JSON ------------------------------------------
     # Flask answers an error with an HTML page. Every screen in this platform
     # reads its API responses with `r.json()`, so any 404, 405, 415 or crash

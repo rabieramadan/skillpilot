@@ -172,13 +172,18 @@ class SkillPilot {
         
         // Normalize role to lowercase for comparison
         const normalizedRole = (this.userRole || '').toLowerCase();
-        
+
+        // The AI chat entry follows the admin switch for every role, so this
+        // runs before the role branches -- the super admin one returns early.
+        this.applyAiChatVisibility();
+
         // SUPER ADMIN CAN SEE EVERYTHING
         if (this.isSuperAdmin) {
             studentOnlyElements.forEach(el => el.classList.add('role-visible'));
             instructorOnlyElements.forEach(el => el.classList.add('role-visible'));
             instructorOrAdminElements.forEach(el => el.classList.add('role-visible'));
             instructorOrSuperAdminElements.forEach(el => el.classList.add('role-visible'));
+            this.syncMenuGroupVisibility();
             return; // Super admin has full access, no need to check other conditions
         }
         
@@ -187,11 +192,17 @@ class SkillPilot {
             studentOnlyElements.forEach(el => {
                 el.classList.add('role-visible');
             });
-            // Students must not land on AI tabs — redirect to Enrolled Courses
-            const aiOnlyTabs = ['chat', 'ai-tools-suite', 'library', 'agentic-ai-lab'];
+            // Students are kept off the authoring-side AI tabs, but the chat
+            // is the administrator's call: it is the default tab, so bouncing
+            // them off it made the chat appear for a moment and then vanish,
+            // with no menu entry to get back to it.
+            const staffOnlyTabs = ['ai-tools-suite', 'library', 'agentic-ai-lab'];
+            if (!this.aiChatEnabled()) {
+                staffOnlyTabs.push('chat');
+            }
             const activeBtn = document.querySelector('.menu-item.active');
             const activeTab = activeBtn ? activeBtn.getAttribute('data-tab') : null;
-            if (!activeTab || aiOnlyTabs.includes(activeTab)) {
+            if (!activeTab || staffOnlyTabs.includes(activeTab)) {
                 setTimeout(() => { this.showTab('my-classes'); }, 0);
             }
         } else if (normalizedRole === 'instructor' || normalizedRole === 'teacher') {
@@ -215,8 +226,62 @@ class SkillPilot {
             });
         }
 
+        // A group with nothing visible left in it should not be on the bar.
+        this.syncMenuGroupVisibility();
+
         // Chat gating for students without an approved enrollment
         this.updateChatGating();
+    }
+
+    /** Show a menu group when anything inside it is visible, hide it when
+     *  nothing is.
+     *
+     *  Groups carry their own role class, so the "Artificial Intelligence"
+     *  group stayed hidden for students and took the AI chat entry with it,
+     *  however the admin switch was set. The items inside keep their own
+     *  rules -- a student sees the group only because the chat entry is in
+     *  it, not the authoring tools beside it.
+     */
+    syncMenuGroupVisibility() {
+        document.querySelectorAll('.top-cards-menu .menu-group').forEach(group => {
+            const items = [...group.querySelectorAll('.menu-item')];
+            const anyVisible = items.some(item => {
+                const restricted = [...item.classList].some(
+                    name => name.endsWith('-only') || name === 'ai-chat-item');
+                return restricted ? item.classList.contains('role-visible') : true;
+            });
+            group.classList.toggle('role-visible', anyVisible);
+        });
+    }
+
+    /** Has an administrator switched the AI chat on? Defaults to on, which
+     *  is what the server reports when the setting has never been touched. */
+    aiChatEnabled() {
+        return window.SKP_AI_CHAT_ENABLED !== false;
+    }
+
+    /** Show or hide the AI chat menu entry to match the admin switch.
+     *
+     *  The entry used to be marked instructor-or-admin-only, so a student
+     *  had no way to reach the chat however the switch was set, and the tab
+     *  they landed on by default was taken away from them a moment later.
+     */
+    applyAiChatVisibility() {
+        const enabled = this.aiChatEnabled();
+        document.querySelectorAll('.ai-chat-item').forEach(el => {
+            el.classList.toggle('role-visible', enabled);
+        });
+
+        // Nobody should be sitting on the chat tab once it is switched off.
+        if (!enabled) {
+            const active = document.querySelector('.menu-item.active');
+            if (active && active.getAttribute('data-tab') === 'chat') {
+                const fallback = document.querySelector(
+                    '.top-cards-menu .menu-item.role-visible:not(.ai-chat-item)');
+                const tab = fallback ? fallback.getAttribute('data-tab') : null;
+                setTimeout(() => { this.showTab(tab || 'profile'); }, 0);
+            }
+        }
     }
 
     updateChatGating() {
@@ -1057,6 +1122,37 @@ Once your slides are generated, type one of these commands:
 
             container.appendChild(modelItem);
         });
+
+        // Start on a usable provider. Nothing was selected until the person
+        // clicked a card, so opening the chat and typing did nothing at all:
+        // sendMessage() bails out when no model is set.
+        this.selectDefaultModel();
+    }
+
+    /** Select the first provider that can actually answer, unless the person
+     *  has already chosen one. */
+    selectDefaultModel() {
+        if (this.selectedModel && this.selectedVersion) return;
+
+        const usable = Object.entries(this.modelsConfig || {})
+            .filter(([, config]) => config.enabled && config.has_api_key !== false)
+            // A chat provider, not an image one: typing a question and
+            // getting a picture back is not a sensible default.
+            .filter(([, config]) => config.kind !== 'image');
+        if (!usable.length) return;
+
+        const [provider, config] = usable[0];
+        const card = document.querySelector(`.model-item select[data-provider="${provider}"]`);
+        const version = (card && card.value) || config.default_version;
+        if (!version) return;
+
+        this.selectModel(provider, version);
+        const item = card ? card.closest('.model-item') : null;
+        if (item) {
+            document.querySelectorAll('.model-item').forEach(
+                el => el.classList.remove('selected'));
+            item.classList.add('selected');
+        }
     }
 
     selectModel(provider, version) {
