@@ -1,0 +1,701 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Prompt Engineering - Pre-Course Diagnostic Exam
+  25 questions, 40 marks. English and Arabic.
+
+  Imports into Moodle (Question bank > Import > Moodle XML format) and
+  into SkillPilot (Teacher > Exam > Import Moodle XML).
+  Arabic is carried in <questiontext_ar> and <answer_ar>, which SkillPilot
+  reads and Moodle ignores.
+-->
+<quiz>
+
+  <question type="category">
+    <category><text>$course$/Prompt Engineering/Pre-Course Diagnostic</text></category>
+  </question>
+
+  <!-- ============ TRUE / FALSE  (10 questions, 1 mark each) ============ -->
+
+  <question type="truefalse">
+    <name><text>LLM is not a fact database</text></name>
+    <questiontext format="html">
+      <text>A large language model answers by looking up facts stored in a database.</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>يجيب النموذج اللغوي الكبير عن طريق البحث عن حقائق مخزَّنة في قاعدة بيانات.</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>It generates text by prediction, not by retrieval from a stored table of facts. / ينتج النص بالتنبؤ، لا باسترجاعه من جدول حقائق مخزَّن.</text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0</penalty>
+    <answer fraction="0"><text>true</text></answer>
+    <answer fraction="100"><text>false</text></answer>
+  </question>
+
+  <question type="truefalse">
+    <name><text>Same prompt may vary</text></name>
+    <questiontext format="html">
+      <text>The same prompt can produce a different answer each time it is run.</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>قد ينتج عن الموجِّه نفسه إجابة مختلفة في كل مرة يُشغَّل فيها.</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>Generation involves sampling, so repeated runs can differ. / يتضمن التوليد عنصر اختيار عشوائي، لذا قد تختلف النتائج بين التشغيلات.</text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0</penalty>
+    <answer fraction="100"><text>true</text></answer>
+    <answer fraction="0"><text>false</text></answer>
+  </question>
+
+  <question type="truefalse">
+    <name><text>Specificity helps</text></name>
+    <questiontext format="html">
+      <text>Adding specific details and constraints to a prompt usually improves the result.</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>إضافة تفاصيل وقيود محددة إلى الموجِّه تحسّن النتيجة عادةً.</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>Specific audience, length, format and purpose narrow the range of acceptable answers. / تحديد الجمهور والطول والصيغة والغرض يضيّق نطاق الإجابات المقبولة.</text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0</penalty>
+    <answer fraction="100"><text>true</text></answer>
+    <answer fraction="0"><text>false</text></answer>
+  </question>
+
+  <question type="truefalse">
+    <name><text>Longer is not always better</text></name>
+    <questiontext format="html">
+      <text>A longer prompt always produces a better answer than a shorter one.</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>الموجِّه الأطول ينتج دائمًا إجابة أفضل من الموجِّه الأقصر.</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>Relevance matters more than length; padding can bury the actual instruction. / الأهم هو الصلة لا الطول؛ فالحشو قد يُخفي التعليمة الفعلية.</text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0</penalty>
+    <answer fraction="0"><text>true</text></answer>
+    <answer fraction="100"><text>false</text></answer>
+  </question>
+
+  <question type="truefalse">
+    <name><text>Step by step helps</text></name>
+    <questiontext format="html">
+      <text>Asking the model to work through a problem step by step can improve accuracy on multi-step questions.</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>مطالبة النموذج بمعالجة المسألة خطوة بخطوة قد تحسّن الدقة في الأسئلة متعددة الخطوات.</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>Laying out intermediate steps reduces errors that come from jumping to an answer. / عرض الخطوات الوسيطة يقلل الأخطاء الناتجة عن القفز إلى الإجابة.</text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0</penalty>
+    <answer fraction="100"><text>true</text></answer>
+    <answer fraction="0"><text>false</text></answer>
+  </question>
+
+  <question type="truefalse">
+    <name><text>Temperature zero is not truth</text></name>
+    <questiontext format="html">
+      <text>Setting the temperature to zero guarantees that the answer is factually correct.</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>ضبط درجة العشوائية (temperature) على صفر يضمن أن تكون الإجابة صحيحة من حيث الحقائق.</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>It makes output more consistent, not more truthful. A wrong answer simply repeats. / يجعل المخرجات أكثر ثباتًا لا أكثر صدقًا؛ فالإجابة الخاطئة تتكرر كما هي.</text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0</penalty>
+    <answer fraction="0"><text>true</text></answer>
+    <answer fraction="100"><text>false</text></answer>
+  </question>
+
+  <question type="truefalse">
+    <name><text>Citations may be invented</text></name>
+    <questiontext format="html">
+      <text>If a model provides a reference with a title, author and year, that reference is certain to exist.</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>إذا قدّم النموذج مرجعًا بعنوان ومؤلف وسنة، فمن المؤكد أن هذا المرجع موجود.</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>Plausible-looking references are a common form of fabrication. Always check them. / المراجع التي تبدو معقولة شكل شائع من الاختلاق؛ تحقق منها دائمًا.</text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0</penalty>
+    <answer fraction="0"><text>true</text></answer>
+    <answer fraction="100"><text>false</text></answer>
+  </question>
+
+  <question type="truefalse">
+    <name><text>Verify before relying</text></name>
+    <questiontext format="html">
+      <text>AI output used in academic work should be verified against a reliable source before it is relied on.</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>يجب التحقق من مخرجات الذكاء الاصطناعي المستخدمة في العمل الأكاديمي بالرجوع إلى مصدر موثوق قبل الاعتماد عليها.</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>The author remains responsible for every claim they submit. / يظل المؤلف مسؤولًا عن كل ادعاء يقدمه.</text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0</penalty>
+    <answer fraction="100"><text>true</text></answer>
+    <answer fraction="0"><text>false</text></answer>
+  </question>
+
+  <question type="truefalse">
+    <name><text>Undisclosed AI text</text></name>
+    <questiontext format="html">
+      <text>Submitting AI-generated text as your own work without disclosing it is acceptable academic practice.</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>تقديم نص أنتجه الذكاء الاصطناعي على أنه عملك الخاص دون الإفصاح عن ذلك ممارسة أكاديمية مقبولة.</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>Most institutions treat undisclosed use as academic misconduct. Follow your course policy. / تعد معظم المؤسسات الاستخدام غير المعلن مخالفة أكاديمية؛ التزم بسياسة مقررك.</text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0</penalty>
+    <answer fraction="0"><text>true</text></answer>
+    <answer fraction="100"><text>false</text></answer>
+  </question>
+
+  <question type="truefalse">
+    <name><text>Prompting applies to images</text></name>
+    <questiontext format="html">
+      <text>Prompt wording affects image generation tools as well as text models.</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>تؤثر صياغة الموجِّه في أدوات توليد الصور كما تؤثر في النماذج النصية.</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>Subject, style, composition and lighting in the wording all change the image produced. / الموضوع والأسلوب والتكوين والإضاءة في الصياغة تغيّر الصورة الناتجة.</text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0</penalty>
+    <answer fraction="100"><text>true</text></answer>
+    <answer fraction="0"><text>false</text></answer>
+  </question>
+
+  <!-- ========= MULTIPLE CHOICE  (15 questions, 2 marks each) ========= -->
+
+  <question type="multichoice">
+    <name><text>What an LLM does</text></name>
+    <questiontext format="html">
+      <text>What does a large language model fundamentally do when it produces text?</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>ما الذي يفعله النموذج اللغوي الكبير أساسًا عند إنتاج النص؟</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>Generation is next-token prediction, repeated until the answer is complete. / التوليد هو التنبؤ بالرمز التالي، ويتكرر حتى تكتمل الإجابة.</text>
+    </generalfeedback>
+    <defaultgrade>2</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="100" format="html">
+      <text>It predicts the next piece of text, one step at a time</text>
+      <answer_ar>يتنبأ بالجزء التالي من النص خطوة بخطوة</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>It retrieves a matching answer from the internet in real time</text>
+      <answer_ar>يسترجع إجابة مطابقة من الإنترنت لحظيًا</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>It applies a fixed set of grammar rules written by linguists</text>
+      <answer_ar>يطبّق مجموعة ثابتة من القواعد النحوية كتبها لغويون</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>It copies the closest paragraph from its training data</text>
+      <answer_ar>ينسخ أقرب فقرة من بيانات تدريبه</answer_ar>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name><text>Token</text></name>
+    <questiontext format="html">
+      <text>In the context of language models, a token is:</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>في سياق النماذج اللغوية، الرمز (token) هو:</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>Models read and write in tokens, which is also how length and cost are measured. / تقرأ النماذج وتكتب بالرموز، وبها يُقاس الطول والتكلفة أيضًا.</text>
+    </generalfeedback>
+    <defaultgrade>2</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>A password that authorises access to the model</text>
+      <answer_ar>كلمة مرور تتيح الوصول إلى النموذج</answer_ar>
+    </answer>
+    <answer fraction="100" format="html">
+      <text>A chunk of text, often a word or part of a word, that the model processes</text>
+      <answer_ar>مقطع نصي، غالبًا كلمة أو جزء من كلمة، يعالجه النموذج</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>One complete sentence</text>
+      <answer_ar>جملة كاملة واحدة</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>A unit of currency charged for each question</text>
+      <answer_ar>وحدة نقدية تُحتسب عن كل سؤال</answer_ar>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name><text>Context window</text></name>
+    <questiontext format="html">
+      <text>The context window of a model refers to:</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>تشير نافذة السياق في النموذج إلى:</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>Anything beyond the window cannot influence the answer. / ما يتجاوز النافذة لا يمكن أن يؤثر في الإجابة.</text>
+    </generalfeedback>
+    <defaultgrade>2</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>The time of day at which the model performs best</text>
+      <answer_ar>وقت اليوم الذي يعمل فيه النموذج بأفضل صورة</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>The browser window in which the conversation appears</text>
+      <answer_ar>نافذة المتصفح التي تظهر فيها المحادثة</answer_ar>
+    </answer>
+    <answer fraction="100" format="html">
+      <text>The maximum amount of text the model can take into account at once</text>
+      <answer_ar>الحد الأقصى من النص الذي يستطيع النموذج أخذه في الحسبان دفعة واحدة</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>The number of people who can use the model at the same time</text>
+      <answer_ar>عدد الأشخاص الذين يمكنهم استخدام النموذج في الوقت نفسه</answer_ar>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name><text>Best written prompt</text></name>
+    <questiontext format="html">
+      <text>Which of these prompts is most likely to produce a useful answer?</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>أي من هذه الموجِّهات أكثر احتمالًا لإنتاج إجابة مفيدة؟</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>It fixes the task, the length, the number of items, the audience and what each item must contain. / يحدد المهمة والطول وعدد العناصر والجمهور وما يجب أن يتضمنه كل عنصر.</text>
+    </generalfeedback>
+    <defaultgrade>2</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>Write about marketing.</text>
+      <answer_ar>اكتب عن التسويق.</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Marketing essay please.</text>
+      <answer_ar>مقال عن التسويق من فضلك.</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Tell me everything you know about marketing.</text>
+      <answer_ar>أخبرني بكل ما تعرفه عن التسويق.</answer_ar>
+    </answer>
+    <answer fraction="100" format="html">
+      <text>Write a 200-word summary of three digital marketing channels suitable for a small bakery, giving one advantage and one cost consideration for each.</text>
+      <answer_ar>اكتب ملخصًا من 200 كلمة لثلاث قنوات تسويق رقمي تناسب مخبزًا صغيرًا، مع ذكر ميزة واحدة واعتبار تكلفة واحد لكل قناة.</answer_ar>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name><text>Zero-shot</text></name>
+    <questiontext format="html">
+      <text>Zero-shot prompting means:</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>يعني التوجيه دون أمثلة (zero-shot):</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>The instruction stands on its own, with no demonstrations attached. / تقوم التعليمة بذاتها دون إرفاق أمثلة توضيحية.</text>
+    </generalfeedback>
+    <defaultgrade>2</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="100" format="html">
+      <text>Asking the model to perform a task without giving it any worked examples</text>
+      <answer_ar>مطالبة النموذج بأداء مهمة دون إعطائه أي أمثلة محلولة</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Running the prompt with the temperature set to zero</text>
+      <answer_ar>تشغيل الموجِّه مع ضبط درجة العشوائية على صفر</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Asking the question again until the answer stops changing</text>
+      <answer_ar>إعادة طرح السؤال حتى تتوقف الإجابة عن التغير</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>A prompt that contains no instructions at all</text>
+      <answer_ar>موجِّه لا يحتوي على أي تعليمات إطلاقًا</answer_ar>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name><text>Few-shot purpose</text></name>
+    <questiontext format="html">
+      <text>What is the main purpose of including two or three worked examples in a prompt?</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>ما الغرض الرئيس من تضمين مثالين أو ثلاثة أمثلة محلولة في الموجِّه؟</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>Examples communicate the shape of a good answer faster than describing it. / تنقل الأمثلة شكل الإجابة الجيدة أسرع من وصفها بالكلام.</text>
+    </generalfeedback>
+    <defaultgrade>2</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>To make the prompt longer so the model treats it as important</text>
+      <answer_ar>لجعل الموجِّه أطول كي يعامله النموذج على أنه مهم</answer_ar>
+    </answer>
+    <answer fraction="100" format="html">
+      <text>To show the model the pattern and the output format you want</text>
+      <answer_ar>لإظهار النمط وصيغة المخرجات المطلوبة للنموذج</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>To use up the context window deliberately</text>
+      <answer_ar>لاستهلاك نافذة السياق عمدًا</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>To stop the model from replying in another language</text>
+      <answer_ar>لمنع النموذج من الرد بلغة أخرى</answer_ar>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name><text>Role prompting</text></name>
+    <questiontext format="html">
+      <text>Asking the model to act as an experienced laboratory instructor mainly helps by:</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>مطالبة النموذج بأن يتصرف كمشرف مختبر ذي خبرة تفيد أساسًا في:</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>A role shapes how the answer is written. It adds no knowledge and no guarantee of accuracy. / يشكّل الدور طريقة كتابة الإجابة، ولا يضيف معرفة ولا يضمن الدقة.</text>
+    </generalfeedback>
+    <defaultgrade>2</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>Giving the model access to private laboratory data</text>
+      <answer_ar>منح النموذج صلاحية الوصول إلى بيانات مختبرية خاصة</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Guaranteeing that the answer is factually correct</text>
+      <answer_ar>ضمان صحة الإجابة من حيث الحقائق</answer_ar>
+    </answer>
+    <answer fraction="100" format="html">
+      <text>Setting the vocabulary, depth and tone of the response</text>
+      <answer_ar>ضبط المفردات ومستوى العمق ونبرة الرد</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Making the model respond more quickly</text>
+      <answer_ar>جعل النموذج يرد بسرعة أكبر</answer_ar>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name><text>Output format</text></name>
+    <questiontext format="html">
+      <text>Why is it useful to state the required output format, for example as a table with three columns?</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>لماذا من المفيد تحديد صيغة المخرجات المطلوبة، مثل جدول من ثلاثة أعمدة؟</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>A fixed shape can be checked, compared and fed into the next step. / الشكل الثابت يمكن التحقق منه ومقارنته وإدخاله في الخطوة التالية.</text>
+    </generalfeedback>
+    <defaultgrade>2</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>It reduces the cost of the request</text>
+      <answer_ar>لأنه يقلل تكلفة الطلب</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>It is required by every AI tool</text>
+      <answer_ar>لأنه مطلوب في كل أدوات الذكاء الاصطناعي</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>It prevents the model from making any mistakes</text>
+      <answer_ar>لأنه يمنع النموذج من ارتكاب أي أخطاء</answer_ar>
+    </answer>
+    <answer fraction="100" format="html">
+      <text>It makes the result predictable and easier to use or process</text>
+      <answer_ar>لأنه يجعل النتيجة متوقعة وأسهل في الاستخدام أو المعالجة</answer_ar>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name><text>Delimiters</text></name>
+    <questiontext format="html">
+      <text>Placing a student essay between triple quotation marks and writing Summarise the text between the quotes mainly helps to:</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>وضع مقال الطالب بين علامات اقتباس ثلاثية وكتابة لخّص النص الموجود بين علامات الاقتباس يفيد أساسًا في:</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>Clear boundaries stop the model from reading the content as further instructions. / الحدود الواضحة تمنع النموذج من قراءة المحتوى على أنه تعليمات إضافية.</text>
+    </generalfeedback>
+    <defaultgrade>2</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="100" format="html">
+      <text>Separate the material to be worked on from the instruction itself</text>
+      <answer_ar>فصل المادة المراد معالجتها عن التعليمة نفسها</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Compress the text so that it uses fewer tokens</text>
+      <answer_ar>ضغط النص ليستهلك عددًا أقل من الرموز</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Encrypt the student work before sending it</text>
+      <answer_ar>تشفير عمل الطالب قبل إرساله</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Translate the text automatically</text>
+      <answer_ar>ترجمة النص تلقائيًا</answer_ar>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name><text>Chain of thought</text></name>
+    <questiontext format="html">
+      <text>Chain-of-thought prompting refers to:</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>يشير التوجيه بسلسلة التفكير (chain-of-thought) إلى:</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>Useful for arithmetic, logic and multi-stage analysis. / مفيد في الحساب والمنطق والتحليل متعدد المراحل.</text>
+    </generalfeedback>
+    <defaultgrade>2</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>Sending a series of unrelated prompts one after another</text>
+      <answer_ar>إرسال سلسلة من الموجِّهات غير المترابطة واحدًا تلو الآخر</answer_ar>
+    </answer>
+    <answer fraction="100" format="html">
+      <text>Asking the model to set out its reasoning in steps before giving the final answer</text>
+      <answer_ar>مطالبة النموذج بعرض استدلاله في خطوات قبل إعطاء الإجابة النهائية</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Connecting several AI tools together in a pipeline</text>
+      <answer_ar>ربط عدة أدوات ذكاء اصطناعي معًا في مسار واحد</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Repeating the prompt until the answer changes</text>
+      <answer_ar>تكرار الموجِّه حتى تتغير الإجابة</answer_ar>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name><text>Temperature</text></name>
+    <questiontext format="html">
+      <text>The temperature setting of a model controls:</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>يتحكم إعداد درجة العشوائية (temperature) في النموذج في:</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>Lower values give steadier wording, higher values more variety. Neither controls truth. / القيم المنخفضة تعطي صياغة أثبت، والمرتفعة تنوعًا أكبر، ولا علاقة لأي منهما بالصدق.</text>
+    </generalfeedback>
+    <defaultgrade>2</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>How much computing power the request consumes</text>
+      <answer_ar>مقدار القدرة الحاسوبية التي يستهلكها الطلب</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>How many tokens the answer may contain</text>
+      <answer_ar>عدد الرموز التي قد تتضمنها الإجابة</answer_ar>
+    </answer>
+    <answer fraction="100" format="html">
+      <text>How varied and unpredictable the wording of the output is</text>
+      <answer_ar>مدى تنوع صياغة المخرجات وعدم قابليتها للتنبؤ</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>How factually accurate the answer will be</text>
+      <answer_ar>مدى دقة الإجابة من حيث الحقائق</answer_ar>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name><text>Hallucination</text></name>
+    <questiontext format="html">
+      <text>In artificial intelligence, a hallucination is:</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>في الذكاء الاصطناعي، الهلوسة هي:</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>The danger is the confident tone, which makes the error easy to miss. / الخطورة في النبرة الواثقة التي تجعل الخطأ يمر دون ملاحظة.</text>
+    </generalfeedback>
+    <defaultgrade>2</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>An error message returned by the model</text>
+      <answer_ar>رسالة خطأ يعيدها النموذج</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>A deliberate joke made by the model</text>
+      <answer_ar>مزحة متعمدة من النموذج</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>An image generated from a text description</text>
+      <answer_ar>صورة مولَّدة من وصف نصي</answer_ar>
+    </answer>
+    <answer fraction="100" format="html">
+      <text>A statement that sounds confident and plausible but is false or invented</text>
+      <answer_ar>عبارة تبدو واثقة ومعقولة لكنها خاطئة أو مختلقة</answer_ar>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name><text>Grounding in a source</text></name>
+    <questiontext format="html">
+      <text>You need a reliable summary of one specific university regulation. The soundest approach is to:</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>تحتاج إلى ملخص موثوق للائحة جامعية محددة. أسلم أسلوب هو:</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>Supplying the source turns recall into reading, which is far more reliable. / تقديم المصدر يحوّل المهمة من استرجاع إلى قراءة، وهو أوثق بكثير.</text>
+    </generalfeedback>
+    <defaultgrade>2</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="100" format="html">
+      <text>Paste the text of the regulation into the prompt and ask for a summary of only what is given</text>
+      <answer_ar>أن تُدرج نص اللائحة في الموجِّه وتطلب تلخيص ما هو معطى فقط</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Ask the model what it remembers about that regulation</text>
+      <answer_ar>أن تسأل النموذج عما يتذكره عن تلك اللائحة</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Ask the model to search its memory and cite page numbers</text>
+      <answer_ar>أن تطلب من النموذج البحث في ذاكرته وذكر أرقام الصفحات</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Ask the same question several times and take the most common answer</text>
+      <answer_ar>أن تطرح السؤال نفسه عدة مرات وتأخذ الإجابة الأكثر تكرارًا</answer_ar>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name><text>Prompt injection</text></name>
+    <questiontext format="html">
+      <text>Prompt injection describes a situation where:</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>يصف مصطلح حقن الموجِّهات (prompt injection) حالة:</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>It matters whenever a model is given material from an untrusted source to process. / يهم كلما أُعطي النموذج مادة من مصدر غير موثوق لمعالجتها.</text>
+    </generalfeedback>
+    <defaultgrade>2</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>The user types the prompt too quickly</text>
+      <answer_ar>أن يكتب المستخدم الموجِّه بسرعة مفرطة</answer_ar>
+    </answer>
+    <answer fraction="100" format="html">
+      <text>Text inside a document or web page contains hidden instructions that the model then follows</text>
+      <answer_ar>أن يحتوي نص داخل مستند أو صفحة ويب على تعليمات خفية يتبعها النموذج</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Two prompts are combined into a single request</text>
+      <answer_ar>أن يُدمج موجِّهان في طلب واحد</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>The model adds its own opinion to the answer</text>
+      <answer_ar>أن يضيف النموذج رأيه الخاص إلى الإجابة</answer_ar>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name><text>Comparing two prompts</text></name>
+    <questiontext format="html">
+      <text>You have written two different prompts for the same task. The soundest way to decide which is better is to:</text>
+    </questiontext>
+    <questiontext_ar>
+      <text>كتبت موجِّهين مختلفين للمهمة نفسها. أسلم طريقة لتحديد الأفضل هي:</text>
+    </questiontext_ar>
+    <generalfeedback format="html">
+      <text>A single run can succeed by luck. Testing on several cases shows which prompt is dependable. / قد تنجح محاولة واحدة بالصدفة؛ والاختبار على عدة حالات يبيّن أي الموجِّهين يُعتمد عليه.</text>
+    </generalfeedback>
+    <defaultgrade>2</defaultgrade>
+    <penalty>0</penalty>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <answer fraction="0" format="html">
+      <text>Choose the longer one, because it contains more detail</text>
+      <answer_ar>اختيار الأطول لأنه يحتوي على تفاصيل أكثر</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Ask the model which of the two prompts is better</text>
+      <answer_ar>سؤال النموذج أي الموجِّهين أفضل</answer_ar>
+    </answer>
+    <answer fraction="100" format="html">
+      <text>Run each on several representative examples and compare the results against clear criteria</text>
+      <answer_ar>تشغيل كل منهما على عدة أمثلة ممثِّلة ومقارنة النتائج وفق معايير واضحة</answer_ar>
+    </answer>
+    <answer fraction="0" format="html">
+      <text>Choose the one that happened to give a good answer the first time</text>
+      <answer_ar>اختيار الذي أعطى إجابة جيدة في المحاولة الأولى مصادفةً</answer_ar>
+    </answer>
+  </question>
+
+</quiz>
